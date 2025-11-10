@@ -1,8 +1,7 @@
 # RuleChef 🧑‍🍳
 
 <p align="center">
-  <img src="https://github.com/KRLabsOrg/rulechef/blob/main/assets/mascot.png?raw=true" alt="LettuceDetect Logo" width="400"/>
-  <br><em>Because even AI needs a reality check! 🥬</em>
+  <img src="https://github.com/KRLabsOrg/rulechef/blob/main/assets/mascot.png?raw=true" alt="RuleChef Logo" width="400"/>
 </p>
 
 Learn rule-based models from examples, corrections, and LLM interactions.
