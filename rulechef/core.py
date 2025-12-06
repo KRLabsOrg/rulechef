@@ -11,6 +11,7 @@ class RuleFormat(Enum):
 
     REGEX = "regex"
     CODE = "code"
+    SPACY = "spacy"  # spaCy token matcher patterns
 
 
 @dataclass

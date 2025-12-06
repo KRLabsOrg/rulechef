@@ -262,9 +262,21 @@ RULES CAN BE:"""
             prompt += "\n- Regex patterns (for structured extraction)"
         if RuleFormat.CODE in self.allowed_formats:
             prompt += "\n- Python code (for complex logic)"
+        if RuleFormat.SPACY in self.allowed_formats:
+            prompt += "\n- spaCy token matcher patterns (for linguistic/NLP patterns)"
 
         prompt += "\n\nIMPORTANT: You must ONLY use the allowed formats listed above. Do NOT generate rules in other formats."
         prompt += "\nIMPORTANT: For CODE rules, write standard multi-line Python functions with proper indentation. Do NOT write one-liners."
+
+        # Build format options for JSON schema
+        format_options = ["regex"]
+        content_options = ["regex pattern"]
+        if RuleFormat.CODE in self.allowed_formats:
+            format_options.append("code")
+            content_options.append("python code")
+        if RuleFormat.SPACY in self.allowed_formats:
+            format_options.append("spacy")
+            content_options.append("spaCy JSON pattern")
 
         prompt += f"""
 
@@ -276,8 +288,8 @@ Return JSON:
     {{
       "name": "Short rule name",
       "description": "What this rule does",
-      "format": "regex"{' or "code"' if RuleFormat.CODE in self.allowed_formats else ""},
-      "content": "regex pattern{" OR python code" if RuleFormat.CODE in self.allowed_formats else ""}",
+      "format": "{'" or "'.join(format_options)}",
+      "content": "{' OR '.join(content_options)}",
       "priority": 1-10 (higher = more important),
       "reasoning": "Why this rule is needed"
     }}
@@ -320,6 +332,105 @@ def extract(input_data):
     # return transformed data (dict, string, etc)
     return input_data["text"].upper()
 ```
+"""
+
+        if RuleFormat.SPACY in self.allowed_formats:
+            prompt += """
+For SPACY format, provide a JSON array of token patterns (spaCy Matcher format).
+
+Available token attributes:
+- TEXT, LOWER: Exact or lowercase text match
+- POS: Part-of-speech (NOUN, VERB, ADJ, PROPN, NUM, etc.)
+- ENT_TYPE: Entity type (PERSON, ORG, GPE, DATE, MONEY, etc.)
+- SHAPE: Word shape (dddd=4 digits, Xxxxx=capitalized)
+- LIKE_NUM, LIKE_EMAIL, LIKE_URL: Boolean patterns
+- IS_PUNCT, IS_DIGIT, IS_ALPHA: Character type checks
+- OP: Quantifiers ("?" optional, "+" one or more, "*" zero or more)
+- IN: Match any in list, e.g. {"LOWER": {"IN": ["yes", "yeah", "yep"]}}
+"""
+            if dataset.task.type == TaskType.EXTRACTION:
+                prompt += """
+SPACY extraction examples:
+
+Example 1 - Extract 4-digit years:
+{
+  "name": "year_pattern",
+  "format": "spacy",
+  "content": "[{\\"SHAPE\\": \\"dddd\\"}]",
+  "description": "Match 4-digit years like 1995, 2023"
+}
+
+Example 2 - Extract person names:
+{
+  "name": "person_names",
+  "format": "spacy",
+  "content": "[{\\"ENT_TYPE\\": \\"PERSON\\"}]",
+  "description": "Match named person entities"
+}
+
+Example 3 - Extract dates with context:
+{
+  "name": "date_phrases",
+  "format": "spacy",
+  "content": "[{\\"LOWER\\": {\\"IN\\": [\\"in\\", \\"on\\", \\"during\\"]}}, {\\"ENT_TYPE\\": \\"DATE\\"}]",
+  "description": "Match 'in/on/during [DATE]' patterns"
+}
+
+Example 4 - Extract money amounts:
+{
+  "name": "money_pattern",
+  "format": "spacy",
+  "content": "[{\\"LIKE_NUM\\": true}, {\\"LOWER\\": {\\"IN\\": [\\"dollar\\", \\"dollars\\", \\"usd\\", \\"euro\\", \\"euros\\"]}}]",
+  "description": "Match amounts like '50 dollars'"
+}
+"""
+            elif dataset.task.type == TaskType.CLASSIFICATION:
+                prompt += """
+SPACY classification examples (use patterns to detect class indicators):
+
+Example 1 - Detect urgency keywords:
+{
+  "name": "urgent_language",
+  "format": "spacy",
+  "content": "[{\\"LOWER\\": {\\"IN\\": [\\"urgent\\", \\"asap\\", \\"immediately\\", \\"emergency\\"]}}]",
+  "description": "Detect urgent language -> classify as HIGH_PRIORITY"
+}
+
+Example 2 - Detect question patterns:
+{
+  "name": "question_pattern",
+  "format": "spacy",
+  "content": "[{\\"LOWER\\": {\\"IN\\": [\\"what\\", \\"where\\", \\"when\\", \\"who\\", \\"how\\", \\"why\\"]}}, {\\"OP\\": \\"*\\"}, {\\"IS_PUNCT\\": true, \\"TEXT\\": \\"?\\"}]",
+  "description": "Detect questions -> classify as QUESTION"
+}
+
+Example 3 - Detect organization mentions:
+{
+  "name": "org_mention",
+  "format": "spacy",
+  "content": "[{\\"ENT_TYPE\\": \\"ORG\\"}]",
+  "description": "Text mentions organization -> classify as BUSINESS"
+}
+"""
+            else:
+                prompt += """
+SPACY pattern examples:
+
+Example 1 - Match noun phrases:
+{
+  "name": "noun_phrase",
+  "format": "spacy",
+  "content": "[{\\"POS\\": \\"DET\\", \\"OP\\": \\"?\\"}, {\\"POS\\": \\"ADJ\\", \\"OP\\": \\"*\\"}, {\\"POS\\": \\"NOUN\\"}]",
+  "description": "Match noun phrases like 'the big house'"
+}
+
+Example 2 - Match email addresses:
+{
+  "name": "email_pattern",
+  "format": "spacy",
+  "content": "[{\\"LIKE_EMAIL\\": true}]",
+  "description": "Match email addresses"
+}
 """
 
         prompt += """
@@ -571,6 +682,8 @@ Return refined ruleset in same JSON format:
             return self._execute_regex_rule(rule, input_data)
         elif rule.format == RuleFormat.CODE:
             return self._execute_code_rule(rule, input_data)
+        elif rule.format == RuleFormat.SPACY:
+            return self._execute_spacy_rule(rule, input_data)
 
         return []
 
@@ -610,6 +723,68 @@ Return refined ruleset in same JSON format:
             pass
 
         return None
+
+    def _execute_spacy_rule(self, rule: Rule, input_data: Dict) -> List[Span]:
+        """Execute spaCy token matcher rule"""
+        try:
+            import spacy
+            from spacy.matcher import Matcher
+
+            # Lazy load spaCy model (cache on instance)
+            if not hasattr(self, "_nlp"):
+                try:
+                    self._nlp = spacy.load("en_core_web_sm")
+                except OSError:
+                    # Model not installed, try to download
+                    print("   ⚠ spaCy model not found, downloading en_core_web_sm...")
+                    from spacy.cli import download
+                    download("en_core_web_sm")
+                    self._nlp = spacy.load("en_core_web_sm")
+
+            # Parse the pattern (JSON array or list of patterns)
+            pattern_data = json.loads(rule.content)
+            
+            # Handle both single pattern and list of patterns
+            if isinstance(pattern_data, list) and pattern_data:
+                if isinstance(pattern_data[0], dict):
+                    # Single pattern: [{"LOWER": "hello"}, {"POS": "NOUN"}]
+                    patterns = [pattern_data]
+                else:
+                    # Multiple patterns: [[pat1], [pat2]]
+                    patterns = pattern_data
+            else:
+                return []
+
+            # Create matcher and add patterns
+            matcher = Matcher(self._nlp.vocab)
+            matcher.add(rule.name, patterns)
+
+            # Get text to match against
+            text = input_data.get("context", input_data.get("text", ""))
+            doc = self._nlp(text)
+
+            # Find matches
+            spans = []
+            matches = matcher(doc)
+            for match_id, start, end in matches:
+                span = doc[start:end]
+                spans.append(
+                    Span(
+                        text=span.text,
+                        start=span.start_char,
+                        end=span.end_char,
+                        score=rule.confidence,
+                    )
+                )
+
+            return spans
+
+        except ImportError:
+            print("   ⚠ spaCy not installed. Run: pip install spacy")
+            return []
+        except Exception as e:
+            # Silently continue to next rule on error
+            return []
 
     def _deduplicate_spans(self, spans: List[Span]) -> List[Span]:
         """Remove overlapping spans"""
@@ -762,6 +937,27 @@ Example #{seed + 1}:"""
                 if "def extract(" not in rule.content:
                     print("      Code rule must define extract() function")
                     return False
+            elif rule.format == RuleFormat.SPACY:
+                # Validate spaCy pattern JSON
+                pattern_data = json.loads(rule.content)
+                if not isinstance(pattern_data, list):
+                    print("      spaCy pattern must be a JSON array")
+                    return False
+                if not pattern_data:
+                    print("      spaCy pattern cannot be empty")
+                    return False
+                # Check it's a list of token dicts
+                first = pattern_data[0]
+                if not isinstance(first, dict):
+                    # Could be list of patterns
+                    if isinstance(first, list):
+                        for pat in pattern_data:
+                            if not all(isinstance(t, dict) for t in pat):
+                                print("      spaCy pattern tokens must be dicts")
+                                return False
+                    else:
+                        print("      spaCy pattern must be list of token dicts")
+                        return False
             return True
         except re.error as e:
             print(f"      Regex error: {e}")
@@ -769,6 +965,9 @@ Example #{seed + 1}:"""
         except SyntaxError as e:
             print(f"      Python syntax error: {e}")
             print(f"      Content: {rule.content[:200]}...")
+            return False
+        except json.JSONDecodeError as e:
+            print(f"      spaCy pattern JSON error: {e}")
             return False
         except Exception as e:
             print(f"      Validation error: {e}")
