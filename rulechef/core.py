@@ -1,9 +1,13 @@
 """Core data structures for RuleChef"""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 from enum import Enum
+
+# Type alias for output matcher functions
+# Takes (expected_output, actual_output) -> bool
+OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
 
 
 class RuleFormat(Enum):
@@ -58,15 +62,26 @@ class TaskType(Enum):
 @dataclass
 class Task:
     """
-    Abstract task definition
-    Describes what we're trying to accomplish
+    Abstract task definition.
+    Describes what we're trying to accomplish.
+
+    Attributes:
+        name: Task name
+        description: Free text description
+        input_schema: Dict describing input fields
+        output_schema: Dict describing output fields
+        type: TaskType enum (EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION)
+        output_matcher: Optional custom function to compare outputs.
+                       Signature: (expected: Dict, actual: Dict) -> bool
+                       If not provided, uses default matcher for the task type.
     """
 
     name: str
-    description: str  # Free text description
+    description: str
     input_schema: Dict[str, str]
     output_schema: Dict[str, str]
     type: TaskType = TaskType.EXTRACTION
+    output_matcher: Optional[OutputMatcher] = None
 
     def to_dict(self) -> dict:
         return {
@@ -75,6 +90,7 @@ class Task:
             "input_schema": self.input_schema,
             "output_schema": self.output_schema,
             "type": self.type.value,
+            # Note: output_matcher is not serializable, so not included
         }
 
 

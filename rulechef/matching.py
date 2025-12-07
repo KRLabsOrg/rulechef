@@ -1,19 +1,41 @@
 """Output matching - compares rule outputs to expected outputs"""
 
 import json
-from typing import Dict
+from typing import Dict, Optional, Callable, Any
 
 from rulechef.core import TaskType
 
+# Type alias for matcher functions
+OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+
 
 def outputs_match(
-    output1: Dict, output2: Dict, task_type: TaskType = TaskType.EXTRACTION
+    expected: Dict,
+    actual: Dict,
+    task_type: TaskType = TaskType.EXTRACTION,
+    custom_matcher: Optional[OutputMatcher] = None,
 ) -> bool:
-    """Check if two outputs match based on task type"""
+    """
+    Check if two outputs match.
 
+    Args:
+        expected: The expected/ground truth output
+        actual: The actual output from rules
+        task_type: Type of task (used to select default matcher)
+        custom_matcher: Optional custom comparison function.
+                       If provided, overrides the default matcher.
+
+    Returns:
+        True if outputs match, False otherwise
+    """
+    # Use custom matcher if provided
+    if custom_matcher is not None:
+        return custom_matcher(expected, actual)
+
+    # Otherwise use default matcher based on task type
     if task_type == TaskType.EXTRACTION:
-        spans1 = output1.get("spans", [])
-        spans2 = output2.get("spans", [])
+        spans1 = expected.get("spans", [])
+        spans2 = actual.get("spans", [])
 
         if len(spans1) != len(spans2):
             return False
@@ -27,12 +49,12 @@ def outputs_match(
     elif task_type == TaskType.NER:
         # NER: Compare entities including type
         for key in ["entities", "spans", "ner"]:
-            if key in output1 or key in output2:
-                entities1 = output1.get(key, [])
-                entities2 = output2.get(key, [])
+            if key in expected or key in actual:
+                entities1 = expected.get(key, [])
+                entities2 = actual.get(key, [])
                 break
         else:
-            return output1 == output2
+            return expected == actual
 
         if len(entities1) != len(entities2):
             return False
@@ -49,15 +71,15 @@ def outputs_match(
 
     elif task_type == TaskType.CLASSIFICATION:
         # Compare labels (case insensitive)
-        label1 = str(output1.get("label", "")).lower().strip()
-        label2 = str(output2.get("label", "")).lower().strip()
+        label1 = str(expected.get("label", "")).lower().strip()
+        label2 = str(actual.get("label", "")).lower().strip()
         return label1 == label2
 
     elif task_type == TaskType.TRANSFORMATION:
         # Transformation: Compare all array keys with relaxed matching
-        for key in set(output1.keys()) | set(output2.keys()):
-            val1 = output1.get(key)
-            val2 = output2.get(key)
+        for key in set(expected.keys()) | set(actual.keys()):
+            val1 = expected.get(key)
+            val2 = actual.get(key)
 
             if isinstance(val1, list) and isinstance(val2, list):
                 if len(val1) != len(val2):
@@ -76,4 +98,4 @@ def outputs_match(
 
     else:
         # Other: Exact match
-        return output1 == output2
+        return expected == actual

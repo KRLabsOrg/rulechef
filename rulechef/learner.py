@@ -168,7 +168,9 @@ class RuleLearner:
             extracted = self._apply_rules(rules, item.input)
             expected = item.expected_output
 
-            if outputs_match(extracted, expected, dataset.task.type):
+            if outputs_match(
+                expected, extracted, dataset.task.type, dataset.task.output_matcher
+            ):
                 correct += 1
             else:
                 failures.append(
