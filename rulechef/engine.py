@@ -35,7 +35,13 @@ class RuleChef:
         self.model = model
         self.dataset = Dataset(name=dataset_name, task=task)
         self.storage_path = Path(storage_path)
-        self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
+        # Convert string format names to RuleFormat enums if needed
+        if allowed_formats:
+            self.allowed_formats = [
+                RuleFormat(f) if isinstance(f, str) else f for f in allowed_formats
+            ]
+        else:
+            self.allowed_formats = [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.learner = RuleLearner(
             self.llm,
@@ -266,7 +272,7 @@ class RuleChef:
                     rules, self.dataset, max_iterations=max_refinement_iterations
                 )
             else:
-                metrics = {"accuracy": 0.0, "total": total_data, "correct": 0}
+                metrics = None
 
             # Save learned rules
             self.dataset.rules = rules
@@ -277,7 +283,7 @@ class RuleChef:
             print(f"\n{'=' * 60}")
             print(f"Learning complete! ({elapsed:.1f}s)")
             print(f"  Rules: {len(rules)}")
-            if metrics["total"] > 0:
+            if metrics and metrics.get("total", 0) > 0:
                 print(
                     f"  Accuracy: {metrics['accuracy']:.1%} ({metrics['correct']}/{metrics['total']})"
                 )
@@ -295,8 +301,10 @@ class RuleChef:
 
     def extract(self, input_data: Dict) -> Dict:
         """
-        Extract spans from input
-        Uses learned rules first, falls back to LLM if low confidence
+        Extract from input using learned rules.
+        Falls back to LLM if no rules or low confidence.
+
+        Works for all task types: EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION.
         """
 
         if not self.dataset.rules:
@@ -309,7 +317,7 @@ class RuleChef:
         # Store current extraction for potential correction
         self.current_extraction = output
 
-        # Check confidence
+        # Check confidence based on task type
         if self.task.type == TaskType.EXTRACTION:
             spans = output.get("spans", [])
             if spans:
@@ -319,6 +327,14 @@ class RuleChef:
                         f"Low confidence ({avg_confidence:.1%}), using LLM fallback..."
                     )
                     return self._execute_with_llm(input_data)
+
+        elif self.task.type == TaskType.NER:
+            # For NER, check if we got any entities
+            entities = output.get("entities", output.get("spans", []))
+            if not entities:
+                # No entities found, might want LLM fallback
+                # But empty is valid for texts with no entities, so don't fallback
+                pass
 
         # For other types, we assume rule execution is binary (success/fail)
         # If output is empty/None, fallback
@@ -344,8 +360,45 @@ Return JSON:
   ]
 }}
 """
+        elif self.task.type == TaskType.NER:
+            # NER-specific prompt
+            text = input_data.get("text", "")
+            prompt = f"""Extract named entities from the following text.
+
+Text: {text}
+
+Output schema: {self.task.output_schema}
+
+Return JSON with entities including text, character offsets (start, end), and entity type.
+Example:
+{{
+  "entities": [
+    {{"text": "Apple Inc.", "start": 0, "end": 10, "type": "ORG"}},
+    {{"text": "Tim Cook", "start": 20, "end": 28, "type": "PER"}}
+  ]
+}}
+"""
+        elif self.task.type == TaskType.TRANSFORMATION:
+            # TRANSFORMATION needs examples to learn the exact output format
+            examples_prompt = ""
+            if self.dataset.examples:
+                examples_prompt = "\nExamples of expected output format:\n"
+                for ex in self.dataset.examples[:3]:  # Show up to 3 examples
+                    examples_prompt += f"\nInput: {json.dumps(ex.input)[:200]}...\n"
+                    examples_prompt += f"Output: {json.dumps(ex.expected_output)}\n"
+
+            prompt = f"""Task: {self.task.name}
+Description: {self.task.description}
+
+Input: {json.dumps(input_data)}
+
+Output schema: {self.task.output_schema}
+{examples_prompt}
+IMPORTANT: Return JSON that EXACTLY matches the schema and key names shown in the examples.
+Return ONLY valid JSON, no explanation.
+"""
         else:
-            # Generic prompt for other tasks
+            # Generic prompt for other tasks (CLASSIFICATION)
             prompt = f"""Task: {self.task.name}
 Description: {self.task.description}
 
@@ -353,11 +406,6 @@ Input: {json.dumps(input_data)}
 
 Return JSON matching this schema:
 {self.task.output_schema}
-
-Example JSON:
-{{
-  "label": "SPAM"
-}}
 """
 
         response = self.llm.chat.completions.create(
@@ -375,7 +423,12 @@ Example JSON:
             return json.loads(text.strip())
         except Exception as e:
             print(f"Error in LLM extraction: {e}")
-            return {"spans": []} if self.task.type == TaskType.EXTRACTION else {}
+            if self.task.type == TaskType.EXTRACTION:
+                return {"spans": []}
+            elif self.task.type == TaskType.NER:
+                return {"entities": []}
+            else:
+                return {}
 
     # ========================================
     # Observation Mode (LLM Middleware)

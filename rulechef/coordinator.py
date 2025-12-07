@@ -283,7 +283,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         """Log learning results"""
         if self.verbose:
             accuracy = metrics.get("accuracy", 0)
-            print(f"✓ Learning complete. Agent will observe next batch.")
+            print("✓ Learning complete. Agent will observe next batch.")
 
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]

@@ -49,7 +49,8 @@ class Span:
 class TaskType(Enum):
     """Type of task being performed"""
 
-    EXTRACTION = "extraction"  # Returns List[Span]
+    EXTRACTION = "extraction"  # Returns List[Span] (untyped)
+    NER = "ner"  # Returns List[TypedSpan] with entity types
     CLASSIFICATION = "classification"  # Returns str (Label)
     TRANSFORMATION = "transformation"  # Returns Any (JSON/String)
 
@@ -127,19 +128,41 @@ class Correction:
 
 @dataclass
 class Rule:
-    """Learned extraction rule"""
+    """
+    Learned extraction rule.
+
+    For schema-aware rules (NER, TRANSFORMATION), use:
+    - pattern: The regex/spaCy pattern to match
+    - output_template: JSON template for each match with variables like $0, $start, $end
+    - output_key: Which key in the output dict to populate (e.g., "entities")
+
+    For legacy rules (EXTRACTION), use:
+    - content: The pattern (alias for backward compatibility)
+    """
 
     id: str
     name: str
     description: str
     format: RuleFormat
-    content: str
+    content: str  # Pattern string (kept for backward compat)
     priority: int = 5
     confidence: float = 0.5
     times_applied: int = 0
     successes: int = 0
     failures: int = 0
     created_at: datetime = field(default_factory=datetime.now)
+    # Schema-aware rule fields (optional, for NER/TRANSFORMATION)
+    output_template: Optional[Dict[str, Any]] = None  # Template for output JSON
+    output_key: Optional[str] = None  # Which output key to populate (e.g., "entities")
+
+    @property
+    def pattern(self) -> str:
+        """Alias for content - clearer semantics for regex/spaCy patterns"""
+        return self.content
+
+    @pattern.setter
+    def pattern(self, value: str):
+        self.content = value
 
     def update_stats(self, success: bool):
         """Update performance stats and adjust confidence"""
@@ -155,7 +178,7 @@ class Rule:
             self.confidence = 0.3 + (success_rate * 0.7)  # Range: 0.3 to 1.0
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "id": self.id,
             "name": self.name,
             "description": self.description,
@@ -168,6 +191,12 @@ class Rule:
             "failures": self.failures,
             "created_at": self.created_at.isoformat(),
         }
+        # Include schema-aware fields if set
+        if self.output_template is not None:
+            result["output_template"] = self.output_template
+        if self.output_key is not None:
+            result["output_key"] = self.output_key
+        return result
 
 
 @dataclass
