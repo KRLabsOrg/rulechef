@@ -45,6 +45,7 @@ chef.add_example(
 chef.learn_rules()
 
 # Use
-spans, meta = chef.extract("When?", "Released in 1995")
-print([s.text for s in spans])  # ["1995"]
+result = chef.extract({"question": "When?", "context": "Released in 1995"})
+spans = result.get("spans", [])
+print([s["text"] for s in spans])  # ["1995"]
 ```

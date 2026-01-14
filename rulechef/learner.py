@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction
+from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
 from rulechef.executor import RuleExecutor
 from rulechef.matching import outputs_match
 from rulechef.prompts import PromptBuilder
@@ -23,27 +23,38 @@ class RuleLearner:
         allowed_formats: Optional[List[RuleFormat]] = None,
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
+        use_spacy_ner: bool = False,
     ):
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.model = model
-        self.executor = RuleExecutor()
+        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(self.allowed_formats)
 
     # ========================================
     # Rule Execution (delegates to executor)
     # ========================================
 
-    def _apply_rules(self, rules: List[Rule], input_data: Dict) -> Dict:
+    def _apply_rules(
+        self,
+        rules: List[Rule],
+        input_data: Dict,
+        task_type: Optional[TaskType] = None,
+        text_field: Optional[str] = None,
+    ) -> Dict:
         """Apply rules to input data. Delegates to executor."""
-        return self.executor.apply_rules(rules, input_data)
+        return self.executor.apply_rules(rules, input_data, task_type, text_field)
 
     # ========================================
     # Rule Synthesis
     # ========================================
 
-    def synthesize_ruleset(self, dataset: Dataset, max_rules: int = 10) -> List[Rule]:
+    def synthesize_ruleset(
+        self,
+        dataset: Dataset,
+        max_rules: int = 10,
+    ) -> List[Rule]:
         """Generate initial ruleset from dataset"""
         prompt = self._build_synthesis_prompt(dataset, max_rules)
 
@@ -55,10 +66,11 @@ class RuleLearner:
                 model=self.model,
                 max_completion_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
             )
 
             result = self._parse_json(response.choices[0].message.content)
-            rules = self._parse_rules_from_response(result, max_rules)
+            rules = self._parse_rules_from_response(result, max_rules, dataset)
 
             elapsed = time.time() - start
             print(f"✓ Synthesized {len(rules)} rules ({elapsed:.1f}s)")
@@ -68,11 +80,35 @@ class RuleLearner:
             print(f"Error synthesizing rules: {e}")
             return []
 
-    def _parse_rules_from_response(self, result: Dict, max_rules: int) -> List[Rule]:
+    def _parse_rules_from_response(
+        self, result: Dict, max_rules: int, dataset: Optional[Dataset] = None
+    ) -> List[Rule]:
         """Parse rules from LLM response"""
+        from rulechef.core import is_pydantic_schema
+
+        primary_key = None
+        if dataset and dataset.task.output_schema:
+            if is_pydantic_schema(dataset.task.output_schema):
+                # For Pydantic, get first field name from model
+                fields = list(dataset.task.output_schema.model_fields.keys())
+                primary_key = fields[0] if fields else None
+            else:
+                primary_key = list(dataset.task.output_schema.keys())[0]
+
         rules = []
         for i, rule_data in enumerate(result.get("rules", [])[:max_rules]):
-            rule_format = RuleFormat(rule_data.get("format", "regex"))
+            raw_format = rule_data.get("format", "regex")
+            # Accept common aliases
+            if raw_format == "python":
+                raw_format = "code"
+
+            try:
+                rule_format = RuleFormat(raw_format)
+            except ValueError:
+                print(
+                    f"   ⚠ Skipped rule with unsupported format '{raw_format}': {rule_data.get('name', f'Rule {i + 1}')}"
+                )
+                continue
 
             if rule_format not in self.allowed_formats:
                 print(
@@ -81,6 +117,55 @@ class RuleLearner:
                 continue
 
             pattern_content = rule_data.get("pattern") or rule_data.get("content", "")
+            # Normalize structured content to JSON string
+            if isinstance(pattern_content, (list, dict)):
+                try:
+                    pattern_content = json.dumps(pattern_content)
+                except Exception:
+                    pattern_content = str(pattern_content)
+
+            output_template = rule_data.get("output_template")
+            output_key = rule_data.get("output_key")
+
+            # Ensure output_template is a dict (LLM might return string/list)
+            if output_template and not isinstance(output_template, dict):
+                print(
+                    f"   ⚠ Skipped rule with invalid output_template (not a dict): {rule_data.get('name', f'Rule {i + 1}')}"
+                )
+                continue
+
+            if dataset and dataset.task.type == TaskType.NER:
+                if not output_template:
+                    print(
+                        f"   ⚠ Skipped rule without output_template: {rule_data.get('name', f'Rule {i + 1}')}"
+                    )
+                    continue
+                if not output_key:
+                    output_key = primary_key or "entities"
+
+                # Validate label against schema if Pydantic
+                valid_labels = dataset.task.get_labels()
+                if valid_labels and output_template:
+                    template_type = output_template.get("type")
+                    if (
+                        template_type
+                        and template_type not in valid_labels
+                        and not template_type.startswith("$")
+                    ):
+                        print(
+                            f"   ⚠ Warning: Rule '{rule_data.get('name')}' uses unknown label '{template_type}'. Valid: {valid_labels}"
+                        )
+            elif output_template and not output_key and primary_key:
+                output_key = primary_key
+            elif dataset and dataset.task.type == TaskType.TRANSFORMATION:
+                if rule_format != RuleFormat.CODE:
+                    if not output_key and primary_key:
+                        output_key = primary_key
+                    if not output_key:
+                        print(
+                            f"   ⚠ Skipped transformation rule without output_key: {rule_data.get('name', f'Rule {i + 1}')}"
+                        )
+                        continue
 
             rule = Rule(
                 id=self._generate_id(),
@@ -89,11 +174,16 @@ class RuleLearner:
                 format=rule_format,
                 content=pattern_content,
                 priority=rule_data.get("priority", 5),
-                output_template=rule_data.get("output_template"),
-                output_key=rule_data.get("output_key"),
+                output_template=output_template,
+                output_key=output_key,
             )
 
             if self._validate_rule(rule):
+                # Ensure spaCy content is stored as JSON string for consistency
+                if rule.format == RuleFormat.SPACY and not isinstance(
+                    rule.content, str
+                ):
+                    rule.content = json.dumps(rule.content)
                 rules.append(rule)
             else:
                 print(f"   ⚠ Skipped invalid rule: {rule.name}")
@@ -125,7 +215,7 @@ class RuleLearner:
                 f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
             )
 
-            if accuracy > best_accuracy:
+            if accuracy > best_accuracy or (accuracy == best_accuracy and iter_num > 1):
                 best_rules = rules
                 best_accuracy = accuracy
 
@@ -138,7 +228,7 @@ class RuleLearner:
                     f"[{iter_num}/{max_iterations}] Refining based on {len(results['failures'])} failures..."
                 )
                 start = time.time()
-                rules = self._refine_rules(rules, results["failures"])
+                rules = self._refine_rules(rules, results["failures"], dataset)
                 elapsed = time.time() - start
                 if not rules:
                     print("⚠ Refinement failed, keeping best rules")
@@ -165,11 +255,17 @@ class RuleLearner:
         failures = []
 
         for item in all_data:
-            extracted = self._apply_rules(rules, item.input)
+            extracted = self._apply_rules(
+                rules, item.input, dataset.task.type, dataset.task.text_field
+            )
             expected = item.expected_output
 
             if outputs_match(
-                expected, extracted, dataset.task.type, dataset.task.output_matcher
+                expected,
+                extracted,
+                dataset.task.type,
+                dataset.task.output_matcher,
+                matching_mode=dataset.task.matching_mode,
             ):
                 correct += 1
             else:
@@ -190,37 +286,100 @@ class RuleLearner:
         }
 
     def _refine_rules(
-        self, current_rules: List[Rule], failures: List[Dict]
+        self, current_rules: List[Rule], failures: List[Dict], dataset: Dataset
     ) -> Optional[List[Rule]]:
         """Refine rules based on failures"""
         sampled_failures = self._sample_failures(failures, max_samples=20)
         prompt = self.prompt_builder.build_refinement_prompt(
-            current_rules, sampled_failures
+            current_rules, sampled_failures, dataset
         )
 
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
             )
 
             result = self._parse_json(response.choices[0].message.content)
-            rules = self._parse_rules_from_response(result, max_rules=20)
+            rules = self._parse_rules_from_response(
+                result, max_rules=20, dataset=dataset
+            )
             return rules if rules else None
 
         except Exception as e:
             print(f"Error refining rules: {e}")
             return None
 
+    def _coerce_spacy_content(self, content) -> Optional[List]:
+        """Coerce spaCy content into a list of patterns."""
+        if isinstance(content, list):
+            return content
+        if isinstance(content, dict):
+            return [content]
+        if isinstance(content, str):
+            text = content.strip()
+            try:
+                return json.loads(text)
+            except Exception:
+                # Try to extract the first JSON array substring
+                if "[" in text and "]" in text:
+                    try:
+                        candidate = text[text.index("[") : text.rindex("]") + 1]
+                        return json.loads(candidate)
+                    except Exception:
+                        return None
+        return None
+
+    def synthesize_patch_ruleset(
+        self,
+        current_rules: List[Rule],
+        failures: List[Dict],
+        max_rules: int = 10,
+        dataset: Optional[Dataset] = None,
+    ) -> List[Rule]:
+        """
+        Generate incremental rules targeted at specific failures.
+        Returns only new/updated rules; caller merges with existing set.
+        """
+        sampled_failures = self._sample_failures(failures, max_samples=20)
+        prompt = self._build_patch_prompt(current_rules, sampled_failures, max_rules)
+
+        print("🩹 Synthesizing patch rules...")
+        start = time.time()
+
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+            )
+
+            result = self._parse_json(response.choices[0].message.content)
+            rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
+
+            elapsed = time.time() - start
+            print(f"✓ Patch synthesis returned {len(rules)} rules ({elapsed:.1f}s)")
+            return rules
+        except Exception as e:
+            print(f"Error synthesizing patch rules: {e}")
+            return []
+
     # ========================================
     # Prompt Building
     # ========================================
 
-    def _build_synthesis_prompt(self, dataset: Dataset, max_rules: int) -> str:
+    def _build_synthesis_prompt(
+        self,
+        dataset: Dataset,
+        max_rules: int,
+    ) -> str:
         """Build prompt for rule synthesis using PromptBuilder"""
         # Sample training data
         sampled_data = self._sample_training_data(
-            dataset, max_samples=50, strategy=self.sampling_strategy
+            dataset,
+            max_samples=50,
+            strategy=self.sampling_strategy,
         )
 
         # Separate corrections and examples
@@ -247,12 +406,74 @@ class RuleLearner:
 
         return prompt
 
+    def _build_patch_prompt(
+        self,
+        current_rules: List[Rule],
+        failures: List[Dict],
+        max_rules: int,
+    ) -> str:
+        """Build prompt for targeted patch rules."""
+        rules_summary = [
+            {
+                "name": r.name,
+                "description": r.description,
+                "format": r.format.value,
+                "priority": r.priority,
+            }
+            for r in current_rules[:10]
+        ]
+
+        failure_snippets = []
+        for f in failures[:20]:
+            failure_snippets.append(
+                {
+                    "input": f.get("input"),
+                    "expected": f.get("expected"),
+                    "got": f.get("got"),
+                    "is_correction": f.get("is_correction", False),
+                }
+            )
+
+        prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
+
+CURRENT RULES (summary, top 10):
+{json.dumps(rules_summary, indent=2)}
+
+FAILURES TO FIX (sampled, corrections are high priority):
+{json.dumps(failure_snippets, indent=2)}
+
+Instructions:
+- Add or tweak rules to fix the shown failures.
+- Prefer minimal, local changes.
+- Keep total new/updated rules <= {max_rules}.
+- Use formats: {", ".join([f.value for f in self.allowed_formats])}
+- Avoid touching unrelated behaviors.
+
+Return JSON:
+{{
+  "analysis": "short reasoning",
+  "rules": [
+    {{
+      "name": "rule name",
+      "description": "what this rule fixes",
+      "format": "regex|code|spacy",
+      "content": "pattern or code",
+      "priority": 1-10
+    }}
+  ]
+}}
+"""
+        return prompt
+
     # ========================================
     # Smart Sampling
     # ========================================
 
     def _sample_training_data(
-        self, dataset: Dataset, max_samples: int = 100, strategy: str = "balanced"
+        self,
+        dataset: Dataset,
+        max_samples: int = 100,
+        strategy: str = "balanced",
     ):
         """Intelligently sample training data for prompt inclusion."""
         samples = []
@@ -303,11 +524,17 @@ class RuleLearner:
 
         return samples[:max_samples]
 
-    def _sample_failures(self, failures: List[Dict], max_samples: int = 20):
-        """Sample failures for refinement, prioritizing corrections."""
+    def _sample_failures(
+        self,
+        failures: List[Dict],
+        max_samples: int = 20,
+    ):
+        """Sample failures for refinement/patch, prioritizing corrections."""
         correction_failures = [f for f in failures if f.get("is_correction", False)]
         other_failures = [f for f in failures if not f.get("is_correction", False)]
-        sampled = correction_failures
+
+        # Prioritize corrections
+        sampled = list(correction_failures)
         remaining = max_samples - len(sampled)
         if remaining > 0:
             sampled.extend(other_failures[:remaining])
@@ -319,6 +546,9 @@ class RuleLearner:
 
     def _parse_json(self, text: str) -> Dict:
         """Parse JSON from LLM response"""
+        if isinstance(text, dict):
+            return text
+
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
@@ -332,6 +562,13 @@ class RuleLearner:
             preview = text[:300] + "..." if len(text) > 300 else text
             print(f"\n⚠️ JSON parsing error: {e}")
             print(f"Failed to parse: {preview}")
+            # Try to salvage by taking substring between first { and last }
+            if "{" in text and "}" in text:
+                try:
+                    candidate = text[text.index("{") : text.rindex("}") + 1]
+                    return json.loads(candidate)
+                except Exception:
+                    pass
             raise
 
     def _validate_rule(self, rule: Rule) -> bool:
@@ -345,9 +582,10 @@ class RuleLearner:
                     print("      Code rule must define extract() function")
                     return False
             elif rule.format == RuleFormat.SPACY:
-                pattern_data = json.loads(rule.content)
+                pattern_data = self._coerce_spacy_content(rule.content)
                 if not isinstance(pattern_data, list) or not pattern_data:
                     return False
+                rule.content = json.dumps(pattern_data)
             return True
         except Exception as e:
             print(f"      Validation error: {e}")

@@ -4,11 +4,20 @@ import json
 import time
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable
 
 from openai import OpenAI
 
-from rulechef.core import Task, Dataset, Example, Correction, Rule, RuleFormat, TaskType
+from rulechef.core import (
+    Task,
+    Dataset,
+    Example,
+    Correction,
+    Rule,
+    RuleFormat,
+    TaskType,
+    DEFAULT_OUTPUT_KEYS,
+)
 from rulechef.learner import RuleLearner
 from rulechef.buffer import ExampleBuffer
 from rulechef.coordinator import CoordinatorProtocol, SimpleCoordinator
@@ -29,10 +38,14 @@ class RuleChef:
         coordinator: Optional[CoordinatorProtocol] = None,
         auto_trigger: bool = False,
         model: str = "gpt-4o-mini",
+        llm_fallback: bool = False,
+        use_spacy_ner: bool = False,
     ):
         self.task = task
         self.llm = client or OpenAI()
         self.model = model
+        self.llm_fallback = llm_fallback
+        self.use_spacy_ner = use_spacy_ner
         self.dataset = Dataset(name=dataset_name, task=task)
         self.storage_path = Path(storage_path)
         # Convert string format names to RuleFormat enums if needed
@@ -48,6 +61,7 @@ class RuleChef:
             allowed_formats=self.allowed_formats,
             sampling_strategy=sampling_strategy,
             model=model,
+            use_spacy_ner=use_spacy_ner,
         )
 
         # Coordinator for learning decisions (swappable simple/agentic)
@@ -133,7 +147,7 @@ class RuleChef:
         """
         print(f"\n🤖 Generating {num_examples} examples with LLM...")
         for i in range(num_examples):
-            input_data = self.learner._generate_input(self.task, self.dataset, seed + i)
+            input_data = self.learner.generate_synthetic_input(self.task, seed + i)
             # Add to buffer directly to avoid N coordinator checks
             self.buffer.add_llm_observation(
                 input_data,
@@ -160,6 +174,7 @@ class RuleChef:
         min_examples: int = 1,
         max_refinement_iterations: int = 3,
         sampling_strategy: Optional[str] = None,
+        incremental_only: bool = False,
     ):
         """
         Learn rules from all collected data
@@ -257,16 +272,30 @@ class RuleChef:
             self.learner.sampling_strategy = sampling_strategy
 
         try:
-            # Synthesize initial ruleset
-            rules = self.learner.synthesize_ruleset(self.dataset)
+            if incremental_only and self.dataset.rules:
+                print("Incremental mode: patching existing rules")
+                # Evaluate current rules to get targeted failures
+                pre_eval = self.learner._evaluate_rules(
+                    self.dataset.rules, self.dataset
+                )
+                patch_rules = self.learner.synthesize_patch_ruleset(
+                    self.dataset.rules,
+                    pre_eval.get("failures", []),
+                    dataset=self.dataset,
+                )
+                rules = self._merge_rules(self.dataset.rules, patch_rules)
+                # Run evaluate/refine on merged set
+            else:
+                # Synthesize initial ruleset
+                rules = self.learner.synthesize_ruleset(self.dataset)
 
-            if not rules:
-                print("Failed to synthesize rules")
-                return None
+                if not rules:
+                    print("Failed to synthesize rules")
+                    return None
 
-            print(f"✓ Generated {len(rules)} rules")
+                print(f"✓ Generated {len(rules)} rules")
 
-            # Evaluate and refine
+            # Evaluate and refine (refinement uses failures to patch)
             if run_evaluation:
                 rules, metrics = self.learner.evaluate_and_refine(
                     rules, self.dataset, max_iterations=max_refinement_iterations
@@ -299,114 +328,62 @@ class RuleChef:
     # Execution
     # ========================================
 
-    def extract(self, input_data: Dict) -> Dict:
+    def extract(self, input_data: Dict, validate: bool = True) -> Dict:
         """
         Extract from input using learned rules.
-        Falls back to LLM if no rules or low confidence.
 
         Works for all task types: EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION.
+        Returns empty result if no rules learned, unless llm_fallback=True.
+
+        Args:
+            input_data: Input data dict
+            validate: If True and output_schema is Pydantic, validate output
         """
-
         if not self.dataset.rules:
-            # No rules learned, use LLM fallback
-            return self._execute_with_llm(input_data)
+            # No rules learned yet
+            if self.llm_fallback:
+                return self._execute_with_llm(input_data)
+            # Return empty result based on task type
+            if self.task.type == TaskType.CLASSIFICATION:
+                return {"label": ""}  # Classification expects string, not list
+            default_key = DEFAULT_OUTPUT_KEYS.get(self.task.type, "spans")
+            if default_key:
+                return {default_key: []}
+            return {}
 
-        # Apply rules
-        output = self.learner._apply_rules(self.dataset.rules, input_data)
+        # Apply rules with task type for proper output key inference
+        output = self.learner._apply_rules(
+            self.dataset.rules, input_data, self.task.type, self.task.text_field
+        )
 
         # Store current extraction for potential correction
         self.current_extraction = output
 
-        # Check confidence based on task type
-        if self.task.type == TaskType.EXTRACTION:
-            spans = output.get("spans", [])
-            if spans:
-                avg_confidence = sum(s.get("score", 0.5) for s in spans) / len(spans)
-                if avg_confidence < 0.3:
-                    print(
-                        f"Low confidence ({avg_confidence:.1%}), using LLM fallback..."
-                    )
-                    return self._execute_with_llm(input_data)
+        result = output or {}
 
-        elif self.task.type == TaskType.NER:
-            # For NER, check if we got any entities
-            entities = output.get("entities", output.get("spans", []))
-            if not entities:
-                # No entities found, might want LLM fallback
-                # But empty is valid for texts with no entities, so don't fallback
-                pass
-
-        # For other types, we assume rule execution is binary (success/fail)
-        # If output is empty/None, fallback
-        if not output:
+        # LLM fallback if rules produced empty result
+        if not result and self.llm_fallback:
             return self._execute_with_llm(input_data)
 
-        return output
+        # Validate output against schema if enabled
+        if validate and result:
+            is_valid, errors = self.task.validate_output(result)
+            if not is_valid:
+                for error in errors:
+                    print(f"   Schema validation warning: {error}")
 
-    def _execute_with_llm(self, input_data: Dict) -> Any:
-        """Execute extraction using LLM directly"""
+        return result
 
-        if self.task.type == TaskType.EXTRACTION:
-            # Format input for prompt
-            prompt = f"""Extract answer spans from the following:
-
-Question: {input_data.get("question", "")}
-Context: {input_data.get("context", "")}
-
-Return JSON:
-{{
-  "spans": [
-    {{"text": "...", "start": 0, "end": 10}}
-  ]
-}}
-"""
-        elif self.task.type == TaskType.NER:
-            # NER-specific prompt
-            text = input_data.get("text", "")
-            prompt = f"""Extract named entities from the following text.
-
-Text: {text}
-
-Output schema: {self.task.output_schema}
-
-Return JSON with entities including text, character offsets (start, end), and entity type.
-Example:
-{{
-  "entities": [
-    {{"text": "Apple Inc.", "start": 0, "end": 10, "type": "ORG"}},
-    {{"text": "Tim Cook", "start": 20, "end": 28, "type": "PER"}}
-  ]
-}}
-"""
-        elif self.task.type == TaskType.TRANSFORMATION:
-            # TRANSFORMATION needs examples to learn the exact output format
-            examples_prompt = ""
-            if self.dataset.examples:
-                examples_prompt = "\nExamples of expected output format:\n"
-                for ex in self.dataset.examples[:3]:  # Show up to 3 examples
-                    examples_prompt += f"\nInput: {json.dumps(ex.input)[:200]}...\n"
-                    examples_prompt += f"Output: {json.dumps(ex.expected_output)}\n"
-
-            prompt = f"""Task: {self.task.name}
+    def _execute_with_llm(self, input_data: Dict) -> Dict:
+        """Execute extraction using LLM directly (fallback when rules don't work)"""
+        prompt = f"""Task: {self.task.name}
 Description: {self.task.description}
 
 Input: {json.dumps(input_data)}
 
-Output schema: {self.task.output_schema}
-{examples_prompt}
-IMPORTANT: Return JSON that EXACTLY matches the schema and key names shown in the examples.
-Return ONLY valid JSON, no explanation.
-"""
-        else:
-            # Generic prompt for other tasks (CLASSIFICATION)
-            prompt = f"""Task: {self.task.name}
-Description: {self.task.description}
+Output schema: {self.task.get_schema_for_prompt()}
 
-Input: {json.dumps(input_data)}
-
-Return JSON matching this schema:
-{self.task.output_schema}
-"""
+Return ONLY valid JSON matching the output schema, no explanation."""
 
         response = self.llm.chat.completions.create(
             model=self.model,
@@ -419,16 +396,16 @@ Return JSON matching this schema:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
-
             return json.loads(text.strip())
         except Exception as e:
-            print(f"Error in LLM extraction: {e}")
-            if self.task.type == TaskType.EXTRACTION:
-                return {"spans": []}
-            elif self.task.type == TaskType.NER:
-                return {"entities": []}
-            else:
-                return {}
+            print(f"LLM fallback error: {e}")
+            # Return empty result
+            if self.task.type == TaskType.CLASSIFICATION:
+                return {"label": ""}
+            default_key = DEFAULT_OUTPUT_KEYS.get(self.task.type, "spans")
+            if default_key:
+                return {default_key: []}
+            return {}
 
     # ========================================
     # Observation Mode (LLM Middleware)
@@ -625,6 +602,32 @@ Return JSON matching this schema:
 
         return str(uuid.uuid4())[:8]
 
+    def _merge_rules(self, existing: List[Rule], patches: List[Rule]) -> List[Rule]:
+        """Merge patch rules into existing set and prune weak rules."""
+        by_name = {r.name: r for r in existing}
+
+        for pr in patches:
+            if pr.name in by_name:
+                # Preserve observed stats to reduce churn
+                current = by_name[pr.name]
+                pr.times_applied = current.times_applied
+                pr.successes = current.successes
+                pr.failures = current.failures
+                pr.confidence = current.confidence
+            by_name[pr.name] = pr
+
+        merged = list(by_name.values())
+
+        # Simple prune: drop rules with repeated failures and no successes
+        pruned = [
+            r
+            for r in merged
+            if not (r.times_applied >= 3 and r.successes == 0 and r.failures >= 3)
+        ]
+        if len(pruned) < len(merged):
+            print(f"🧹 Pruned {len(merged) - len(pruned)} weak rules")
+        return pruned
+
     # ========================================
     # Persistence
     # ========================================
@@ -684,6 +687,8 @@ Return JSON matching this schema:
                     times_applied=rule_data.get("times_applied", 0),
                     successes=rule_data.get("successes", 0),
                     failures=rule_data.get("failures", 0),
+                    output_template=rule_data.get("output_template"),
+                    output_key=rule_data.get("output_key"),
                 )
                 self.dataset.rules.append(rule)
 

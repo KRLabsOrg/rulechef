@@ -1,6 +1,7 @@
 """Prompt templates and builders for rule learning"""
 
 import json
+import os
 from typing import Dict, List, Any
 
 from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
@@ -45,11 +46,33 @@ def extract(input_data):
 ```
 """
 
+CODE_EXAMPLE_NER = """
+For CODE format, provide a function that extracts entities with their types:
+```python
+def extract(input_data):
+    # input_data is dict with keys from input_schema
+    # return list of entities with text, position, AND type
+    import re
+    entities = []
+    text = input_data.get("text", "")
+
+    # Example: Find email addresses (type: EMAIL)
+    for match in re.finditer(r'\\S+@\\S+\\.\\S+', text):
+        entities.append({
+            "text": match.group(),
+            "start": match.start(),
+            "end": match.end(),
+            "type": "EMAIL"  # IMPORTANT: Include entity type
+        })
+    return entities
+```
+"""
+
 CODE_EXAMPLES = {
     TaskType.EXTRACTION: CODE_EXAMPLE_EXTRACTION,
     TaskType.CLASSIFICATION: CODE_EXAMPLE_CLASSIFICATION,
     TaskType.TRANSFORMATION: CODE_EXAMPLE_TRANSFORMATION,
-    TaskType.NER: CODE_EXAMPLE_EXTRACTION,  # NER uses similar pattern
+    TaskType.NER: CODE_EXAMPLE_NER,
 }
 
 
@@ -155,11 +178,35 @@ Example 2 - Match email addresses:
 }
 """
 
+SPACY_EXAMPLE_NER = """
+SPACY NER examples (include output_template with entity type):
+
+Example 1 - Person names with type:
+{
+  "name": "person_entities",
+  "format": "spacy",
+  "content": "[{\\"ENT_TYPE\\": \\"PERSON\\"}]",
+  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "PER"},
+  "output_key": "entities",
+  "description": "Extract person names as PER entities"
+}
+
+Example 2 - Organizations with type:
+{
+  "name": "org_entities",
+  "format": "spacy",
+  "content": "[{\\"ENT_TYPE\\": \\"ORG\\"}]",
+  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"},
+  "output_key": "entities",
+  "description": "Extract organizations as ORG entities"
+}
+"""
+
 SPACY_EXAMPLES = {
     TaskType.EXTRACTION: SPACY_EXAMPLE_EXTRACTION,
     TaskType.CLASSIFICATION: SPACY_EXAMPLE_CLASSIFICATION,
     TaskType.TRANSFORMATION: SPACY_EXAMPLE_OTHER,
-    TaskType.NER: SPACY_EXAMPLE_EXTRACTION,
+    TaskType.NER: SPACY_EXAMPLE_NER,
 }
 
 
@@ -167,10 +214,10 @@ SPACY_EXAMPLES = {
 # SCHEMA-AWARE EXAMPLES (NER, TRANSFORMATION)
 # ============================================================================
 
-NER_RULE_EXAMPLES = """
-NER RULE EXAMPLES:
+NER_RULE_EXAMPLES_REGEX = """
+NER RULE EXAMPLES (regex):
 
-Example 1 - Organizations with corporate suffixes (regex):
+Example 1 - Organizations with corporate suffixes:
 {
   "name": "corporate_suffixes",
   "format": "regex",
@@ -180,7 +227,7 @@ Example 1 - Organizations with corporate suffixes (regex):
   "priority": 9
 }
 
-Example 2 - Person names (two capitalized words) (regex):
+Example 2 - Person names (two capitalized words):
 {
   "name": "person_names",
   "format": "regex",
@@ -189,8 +236,12 @@ Example 2 - Person names (two capitalized words) (regex):
   "output_key": "entities",
   "priority": 7
 }
+"""
 
-Example 3 - Using spaCy's built-in NER:
+NER_RULE_EXAMPLES_SPACY = """
+NER RULE EXAMPLES (spaCy):
+
+Example 1 - Using spaCy's built-in NER for persons:
 {
   "name": "spacy_persons",
   "format": "spacy",
@@ -200,7 +251,7 @@ Example 3 - Using spaCy's built-in NER:
   "priority": 8
 }
 
-Example 4 - Locations (spaCy):
+Example 2 - Locations with spaCy:
 {
   "name": "spacy_locations",
   "format": "spacy",
@@ -267,17 +318,24 @@ def get_schema_aware_response_schema(
 ) -> str:
     """Get JSON schema for schema-aware tasks (NER, TRANSFORMATION)"""
     format_str = '" or "'.join(format_options)
+    if len(format_options) == 1 and format_options[0] == "regex":
+        pattern_desc = "regex pattern"
+    elif len(format_options) == 1 and format_options[0] == "spacy":
+        pattern_desc = "spaCy JSON pattern"
+    else:
+        pattern_desc = "regex pattern OR spaCy JSON pattern"
     return f'''
 Return JSON:
 {{
   "analysis": "What patterns did you find? What went wrong in corrections?",
   "strategy": "Overall approach",
+  "note": "Every rule must include both output_template and output_key",
   "rules": [
     {{
       "name": "Short rule name",
       "description": "What this rule does",
       "format": "{format_str}",
-      "pattern": "regex pattern OR spaCy JSON pattern",
+      "pattern": "{pattern_desc}",
       "output_template": {{"text": "$0", "start": "$start", "end": "$end", "type": "LITERAL_OR_$VAR"}},
       "output_key": "{primary_key}",
       "priority": 1-10 (higher = more important),
@@ -322,28 +380,29 @@ class PromptBuilder:
         self,
         current_rules: List[Rule],
         failures: List[Dict],
+        dataset: Dataset,
     ) -> str:
-        """Build prompt for refining rules based on failures"""
+        """Build prompt for refining rules based on failures (schema-aware)"""
         rules_formatted = self._format_rules(current_rules)
+        format_instructions = self._build_format_instructions(dataset.task.type)
+        response_schema = self._build_response_schema(dataset)
 
-        return f"""You previously generated these rules:
+        return f"""Refine the ruleset for this task while fixing the failures shown.
 
-{rules_formatted}
+{self._build_task_header(dataset)}
 
-But they failed on these cases:
+CURRENT RULES:
+{rules_formatted or "None"}
+
+FAILURES TO FIX (include these patterns in your updated rules):
 {json.dumps(failures, indent=2)}
-
-Refine the ruleset to fix these failures while maintaining performance on other examples.
 
 CRITICAL: Pay special attention to correction failures (is_correction: true) - these are user-verified mistakes.
 
-Allowed rule formats: {", ".join(fmt.value for fmt in self.allowed_formats)}
+{format_instructions}
 
-Return refined ruleset in same JSON format:
-{{
-  "reasoning": "Why these changes fix the failures",
-  "rules": [...]
-}}
+Return refined ruleset in the same JSON format (every rule must include both output_template and output_key):
+{response_schema}
 """
 
     def build_generation_prompt(self, task: Any, seed: int = 0) -> str:
@@ -362,13 +421,27 @@ Example #{seed + 1}:"""
     # ========================================
 
     def _build_task_header(self, dataset: Dataset) -> str:
-        """Build the task description header"""
-        return f"""Task: {dataset.task.name}
-Description: {dataset.task.description}
+        """Build the task description header with schema and labels"""
+        task = dataset.task
 
-Input schema: {dataset.task.input_schema}
-Output schema: {dataset.task.output_schema}
+        # Get schema representation (uses Pydantic formatting if available)
+        output_schema_str = task.get_schema_for_prompt()
+
+        header = f"""Task: {task.name}
+Description: {task.description}
+
+Input schema: {task.input_schema}
+Output schema:
+{output_schema_str}
 """
+
+        # Add label descriptions for NER/classification tasks
+        labels = task.get_labels()
+        if labels:
+            header += f"\nAVAILABLE ENTITY TYPES: {labels}\n"
+            header += "Rules MUST use one of these types in output_template.\n"
+
+        return header
 
     def _build_training_data_section(self, dataset: Dataset) -> str:
         """Build section with training data (corrections and examples)"""
@@ -478,9 +551,22 @@ RULES CAN BE:"""
         lines.append(
             "IMPORTANT: You must ONLY use the allowed formats listed above. Do NOT generate rules in other formats."
         )
-        lines.append(
-            "IMPORTANT: For CODE rules, write standard multi-line Python functions with proper indentation. Do NOT write one-liners."
-        )
+        if RuleFormat.CODE not in self.allowed_formats:
+            lines.append(
+                "IMPORTANT: Do NOT include Python/code rules. Only return the listed formats."
+            )
+        else:
+            lines.append(
+                "IMPORTANT: For CODE rules, write standard multi-line Python functions with proper indentation. Do NOT write one-liners."
+            )
+        if RuleFormat.SPACY not in self.allowed_formats:
+            lines.append(
+                "IMPORTANT: Do NOT include spaCy rules. Only return the listed formats."
+            )
+        if RuleFormat.SPACY in self.allowed_formats:
+            lines.append(
+                "IMPORTANT: spaCy rules must be valid JSON arrays of token dicts (spaCy Matcher patterns). Do NOT include Python/spacy code; only JSON."
+            )
 
         return "\n".join(lines)
 
@@ -498,31 +584,63 @@ RULES CAN BE:"""
         self, dataset: Dataset, format_options: List[str]
     ) -> str:
         """Build prompt section for schema-aware tasks (NER, TRANSFORMATION)"""
-        output_keys = list(dataset.task.output_schema.keys())
+        from rulechef.core import is_pydantic_schema
+
+        # Get output keys - handle both dict and Pydantic schemas
+        if is_pydantic_schema(dataset.task.output_schema):
+            output_keys = list(dataset.task.output_schema.model_fields.keys())
+        else:
+            output_keys = list(dataset.task.output_schema.keys())
         primary_key = output_keys[0] if output_keys else "entities"
+
+        pattern_options = []
+        if RuleFormat.REGEX in self.allowed_formats:
+            pattern_options.append("regex pattern")
+        if RuleFormat.SPACY in self.allowed_formats:
+            pattern_options.append("spaCy token matcher JSON pattern")
+
+        template_vars = [
+            "  - $0: Full match text",
+            "  - $start: Start character offset",
+            "  - $end: End character offset",
+        ]
+        if RuleFormat.REGEX in self.allowed_formats:
+            template_vars.append("  - $1, $2, ...: Capture groups (regex only)")
+        if RuleFormat.SPACY in self.allowed_formats:
+            template_vars.append(
+                "  - $ent_type: Entity type from spaCy NER (spaCy only)"
+            )
+
+        pattern_desc = " or ".join(pattern_options) if pattern_options else "pattern"
+
+        # Get readable schema representation
+        schema_str = dataset.task.get_schema_for_prompt()
 
         section = f"""
 
 SCHEMA-AWARE RULES:
 For this task, rules must include an output_template that maps matches to the output schema.
 
-Output schema: {dataset.task.output_schema}
+Output schema:
+{schema_str}
 
 Each rule needs:
-- pattern: The regex or spaCy pattern to match
+- pattern: The {pattern_desc} to match
 - output_template: JSON template for each match, using variables:
-  - $0: Full match text
-  - $1, $2, ...: Capture groups (regex only)
-  - $start: Start character offset
-  - $end: End character offset
-  - $ent_type: Entity type from spaCy NER (spaCy only)
+{os.linesep.join(template_vars)}
 - output_key: Which output array to populate (e.g., "{primary_key}")
 """
         section += get_schema_aware_response_schema(format_options, primary_key)
 
         # Add task-specific examples
         if dataset.task.type == TaskType.NER:
-            section += NER_RULE_EXAMPLES
+            example_sections = []
+            if RuleFormat.REGEX in self.allowed_formats:
+                example_sections.append(NER_RULE_EXAMPLES_REGEX)
+            if RuleFormat.SPACY in self.allowed_formats:
+                example_sections.append(NER_RULE_EXAMPLES_SPACY)
+            if example_sections:
+                section += "\n\n".join(example_sections)
         elif dataset.task.type == TaskType.TRANSFORMATION:
             section += TRANSFORMATION_RULE_EXAMPLES
 

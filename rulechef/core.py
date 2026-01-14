@@ -1,13 +1,75 @@
 """Core data structures for RuleChef"""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Callable
+from typing import (
+    List,
+    Dict,
+    Any,
+    Optional,
+    Callable,
+    Union,
+    Type,
+    Tuple,
+    Literal,
+    get_args,
+    get_origin,
+)
 from datetime import datetime
 from enum import Enum
+
+from pydantic import BaseModel, ValidationError
 
 # Type alias for output matcher functions
 # Takes (expected_output, actual_output) -> bool
 OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+
+# Type for output schema - can be dict or Pydantic model
+OutputSchema = Union[Dict[str, Any], Type[BaseModel]]
+
+
+def get_labels_from_model(
+    model: Type[BaseModel], field_name: str = "type"
+) -> List[str]:
+    """
+    Extract Literal values from a Pydantic model.
+
+    Looks for a field with the given name (default "type") that has a Literal type annotation.
+    Handles nested models (e.g., List[Entity] -> Entity -> type field).
+    """
+    for name, field_info in model.model_fields.items():
+        annotation = field_info.annotation
+
+        # Handle Optional types
+        origin = get_origin(annotation)
+        if origin is Union:
+            args = get_args(annotation)
+            annotation = args[0] if args else annotation
+            origin = get_origin(annotation)
+
+        # Handle List[Entity] -> recurse into Entity
+        if origin is list:
+            args = get_args(annotation)
+            if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                result = get_labels_from_model(args[0], field_name)
+                if result:
+                    return result
+
+        # Handle nested BaseModel
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            result = get_labels_from_model(annotation, field_name)
+            if result:
+                return result
+
+        # Found the target field with Literal type
+        if name == field_name and get_origin(annotation) is Literal:
+            return list(get_args(annotation))
+
+    return []
+
+
+def is_pydantic_schema(schema: OutputSchema) -> bool:
+    """Check if schema is a Pydantic model class"""
+    return isinstance(schema, type) and issubclass(schema, BaseModel)
 
 
 class RuleFormat(Enum):
@@ -59,6 +121,15 @@ class TaskType(Enum):
     TRANSFORMATION = "transformation"  # Returns Any (JSON/String)
 
 
+# Canonical output keys per task type
+DEFAULT_OUTPUT_KEYS = {
+    TaskType.EXTRACTION: "spans",
+    TaskType.NER: "entities",
+    TaskType.CLASSIFICATION: "label",
+    TaskType.TRANSFORMATION: None,  # Uses output_schema keys
+}
+
+
 @dataclass
 class Task:
     """
@@ -69,29 +140,134 @@ class Task:
         name: Task name
         description: Free text description
         input_schema: Dict describing input fields
-        output_schema: Dict describing output fields
+        output_schema: Dict or Pydantic model describing output fields.
+            - Dict: Simple string descriptions (e.g., {"spans": "List[Span]"})
+            - Pydantic model: Full type validation with Literal labels
         type: TaskType enum (EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION)
         output_matcher: Optional custom function to compare outputs.
                        Signature: (expected: Dict, actual: Dict) -> bool
                        If not provided, uses default matcher for the task type.
+        matching_mode: For extraction tasks, choose "text" (default) or "exact"
+                       to control how span matches are evaluated.
+        text_field: Optional input key to use for regex/spaCy matching. If not set,
+                    the longest string field is used.
     """
 
     name: str
     description: str
     input_schema: Dict[str, str]
-    output_schema: Dict[str, str]
+    output_schema: OutputSchema
     type: TaskType = TaskType.EXTRACTION
     output_matcher: Optional[OutputMatcher] = None
+    matching_mode: Literal["text", "exact"] = "text"
+    text_field: Optional[str] = None
+
+    def get_labels(self, field_name: str = "type") -> List[str]:
+        """
+        Get label values from output schema.
+
+        For Pydantic schemas, extracts Literal values from the specified field.
+        For dict schemas, returns empty list (labels not defined).
+        """
+        if is_pydantic_schema(self.output_schema):
+            return get_labels_from_model(self.output_schema, field_name)
+        return []
+
+    def validate_output(self, output: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Validate output against schema.
+
+        For Pydantic schemas, uses model validation.
+        For dict schemas, returns (True, []) - no validation.
+
+        Returns:
+            Tuple of (is_valid, list_of_error_messages)
+        """
+        if not is_pydantic_schema(self.output_schema):
+            return (True, [])
+
+        try:
+            self.output_schema.model_validate(output)
+            return (True, [])
+        except ValidationError as e:
+            errors = [f"{err['loc']}: {err['msg']}" for err in e.errors()]
+            return (False, errors)
+
+    def get_schema_for_prompt(self) -> str:
+        """
+        Render schema for inclusion in LLM prompts.
+
+        For Pydantic schemas, generates a readable representation with descriptions.
+        For dict schemas, returns the dict as a string.
+        """
+        if not is_pydantic_schema(self.output_schema):
+            return str(self.output_schema)
+
+        # Use Pydantic's JSON schema with descriptions
+        schema = self.output_schema.model_json_schema()
+        return _format_json_schema_for_prompt(schema)
 
     def to_dict(self) -> dict:
+        # For Pydantic schemas, store the JSON schema representation
+        if is_pydantic_schema(self.output_schema):
+            output_schema_dict = self.output_schema.model_json_schema()
+        else:
+            output_schema_dict = self.output_schema
+
         return {
             "name": self.name,
             "description": self.description,
             "input_schema": self.input_schema,
-            "output_schema": self.output_schema,
+            "output_schema": output_schema_dict,
             "type": self.type.value,
+            "matching_mode": self.matching_mode,
+            "text_field": self.text_field,
             # Note: output_matcher is not serializable, so not included
         }
+
+
+def _format_json_schema_for_prompt(schema: Dict[str, Any], indent: int = 0) -> str:
+    """Format a JSON schema into a readable string for LLM prompts"""
+    lines = []
+    prefix = "  " * indent
+
+    if "properties" in schema:
+        for prop_name, prop_schema in schema.get("properties", {}).items():
+            prop_type = prop_schema.get("type", "any")
+            description = prop_schema.get("description", "")
+
+            # Handle arrays
+            if prop_type == "array" and "items" in prop_schema:
+                items = prop_schema["items"]
+                if "$ref" in items:
+                    # Reference to another definition
+                    ref_name = items["$ref"].split("/")[-1]
+                    lines.append(f"{prefix}{prop_name}: List[{ref_name}]")
+                    if description:
+                        lines.append(f"{prefix}  # {description}")
+                else:
+                    lines.append(f"{prefix}{prop_name}: List[...]")
+
+            # Handle enums (Literal types)
+            elif "enum" in prop_schema:
+                values = prop_schema["enum"]
+                lines.append(f"{prefix}{prop_name}: one of {values}")
+                if description:
+                    lines.append(f"{prefix}  # {description}")
+
+            else:
+                line = f"{prefix}{prop_name}: {prop_type}"
+                if description:
+                    line += f"  # {description}"
+                lines.append(line)
+
+    # Handle definitions (nested models)
+    if "$defs" in schema:
+        for def_name, def_schema in schema.get("$defs", {}).items():
+            lines.append(f"\n{prefix}{def_name}:")
+            lines.append(_format_json_schema_for_prompt(def_schema, indent + 1))
+
+    return "\n".join(lines)
 
 
 @dataclass

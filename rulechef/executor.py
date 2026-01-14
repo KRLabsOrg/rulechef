@@ -4,7 +4,7 @@ import json
 import re
 from typing import Dict, List, Any, Optional
 
-from rulechef.core import Rule, RuleFormat, Span
+from rulechef.core import Rule, RuleFormat, Span, TaskType, DEFAULT_OUTPUT_KEYS
 
 
 def substitute_template(
@@ -77,64 +77,109 @@ def substitute_template(
 class RuleExecutor:
     """Executes rules against input data"""
 
-    def __init__(self):
+    def __init__(self, use_spacy_ner: bool = False):
         self._nlp = None  # Lazy-loaded spaCy model
+        self.use_spacy_ner = use_spacy_ner
 
-    def apply_rules(self, rules: List[Rule], input_data: Dict) -> Dict:
+    def apply_rules(
+        self,
+        rules: List[Rule],
+        input_data: Dict,
+        task_type: Optional[TaskType] = None,
+        text_field: Optional[str] = None,
+    ) -> Dict:
         """
         Apply rules to input and return output.
 
-        For schema-aware rules (with output_key), aggregates results by key.
-        For legacy rules (without output_key), uses type-based inference.
+        Uses unified schema-based execution. If a rule has no output_key,
+        infers it from task_type using DEFAULT_OUTPUT_KEYS.
+
+        Args:
+            rules: List of rules to apply
+            input_data: Input data dict
+            task_type: Optional task type for inferring default output_key
         """
         # Sort by priority
         sorted_rules = sorted(rules, key=lambda r: r.priority, reverse=True)
 
-        # Check if any rules have output_key (schema-aware mode)
-        has_schema_aware_rules = any(r.output_key for r in rules)
+        # Get default output key for this task type
+        default_key = (
+            DEFAULT_OUTPUT_KEYS.get(task_type, "spans") if task_type else "spans"
+        )
 
-        if has_schema_aware_rules:
-            return self._apply_rules_schema_aware(sorted_rules, input_data)
-        else:
-            return self._apply_rules_legacy(sorted_rules, input_data)
-
-    def _apply_rules_schema_aware(self, rules: List[Rule], input_data: Dict) -> Dict:
-        """Apply rules with schema-aware aggregation."""
         output = {}
 
-        for rule in rules:
+        for rule in sorted_rules:
             try:
-                results = self.execute_rule(rule, input_data)
+                results = self.execute_rule(rule, input_data, text_field)
                 if not results:
                     continue
 
-                if rule.output_key:
-                    if rule.output_key not in output:
-                        output[rule.output_key] = []
+                # Determine output key: use rule's key or default from task type
+                output_key = rule.output_key or default_key
+
+                # Handle classification specially (single label, not list)
+                if task_type == TaskType.CLASSIFICATION:
+                    label = self._normalize_label(results)
+                    if label is not None and "label" not in output:
+                        output["label"] = label
+                    continue
+
+                # For list results, aggregate into output_key
+                if output_key:
+                    if output_key not in output:
+                        output[output_key] = []
 
                     if isinstance(results, list):
-                        output[rule.output_key].extend(results)
+                        normalized = []
+                        for res in results:
+                            if isinstance(res, Span):
+                                normalized.append(res.to_dict())
+                            else:
+                                normalized.append(res)
+                        # Respect rule priority: skip duplicates by position
+                        for res in normalized:
+                            if (
+                                isinstance(res, dict)
+                                and "start" in res
+                                and "end" in res
+                                and any(
+                                    isinstance(existing, dict)
+                                    and existing.get("start") == res.get("start")
+                                    and existing.get("end") == res.get("end")
+                                    for existing in output[output_key]
+                                )
+                            ):
+                                continue
+                            output[output_key].append(res)
                     else:
-                        output[rule.output_key].append(results)
+                        normalized = (
+                            results.to_dict() if isinstance(results, Span) else results
+                        )
+                        if not (
+                            isinstance(normalized, dict)
+                            and "start" in normalized
+                            and "end" in normalized
+                            and any(
+                                isinstance(existing, dict)
+                                and existing.get("start") == normalized.get("start")
+                                and existing.get("end") == normalized.get("end")
+                                for existing in output[output_key]
+                            )
+                        ):
+                            output[output_key].append(normalized)
                 else:
-                    # Legacy handling for rules without output_key
-                    if (
-                        isinstance(results, list)
-                        and results
-                        and isinstance(results[0], Span)
-                    ):
-                        if "spans" not in output:
-                            output["spans"] = []
-                        output["spans"].extend([s.to_dict() for s in results])
-                    elif isinstance(results, str):
-                        if "label" not in output:
-                            output["label"] = results
-                    elif isinstance(results, dict):
+                    # TRANSFORMATION: merge dict results directly
+                    if isinstance(results, dict):
                         for k, v in results.items():
                             if k not in output:
                                 output[k] = v
                             elif isinstance(output[k], list) and isinstance(v, list):
                                 output[k].extend(v)
+                    elif task_type == TaskType.TRANSFORMATION:
+                        print(
+                            f"   ⚠ Transformation rule '{rule.name}' returned list without output_key; skipping."
+                        )
             except Exception:
                 pass
 
@@ -145,57 +190,24 @@ class RuleExecutor:
 
         return output
 
-    def _apply_rules_legacy(self, rules: List[Rule], input_data: Dict) -> Dict:
-        """Apply rules with legacy type-based aggregation."""
-        all_results = []
-        for rule in rules:
-            try:
-                result = self.execute_rule(rule, input_data)
-                if result is not None:
-                    all_results.append(result)
-            except Exception:
-                pass
-
-        if not all_results:
-            return {}
-
-        first_result = all_results[0]
-
-        if isinstance(first_result, list) and (
-            not first_result or isinstance(first_result[0], Span)
-        ):
-            all_spans = []
-            for res in all_results:
-                if isinstance(res, list):
-                    all_spans.extend(res)
-            unique_spans = self._deduplicate_spans(all_spans)
-            return {"spans": [s.to_dict() for s in unique_spans]}
-
-        elif isinstance(first_result, str):
-            return {"label": first_result}
-
-        else:
-            return first_result
-
-    def execute_rule(self, rule: Rule, input_data: Dict) -> Any:
+    def execute_rule(
+        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
+    ) -> Any:
         """Execute a single rule"""
         if rule.format == RuleFormat.REGEX:
-            return self._execute_regex_rule(rule, input_data)
+            return self._execute_regex_rule(rule, input_data, text_field)
         elif rule.format == RuleFormat.CODE:
             return self._execute_code_rule(rule, input_data)
         elif rule.format == RuleFormat.SPACY:
-            return self._execute_spacy_rule(rule, input_data)
+            return self._execute_spacy_rule(rule, input_data, text_field)
         return []
 
-    def _execute_regex_rule(self, rule: Rule, input_data: Dict) -> Any:
+    def _execute_regex_rule(
+        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
+    ) -> Any:
         """Execute regex rule."""
         pattern = re.compile(rule.content)
-        # Find the text field from input (use first string value)
-        text = ""
-        for v in input_data.values():
-            if isinstance(v, str):
-                text = v
-                break
+        text = self._select_text(input_data, text_field)
 
         results = []
         for match in pattern.finditer(text):
@@ -238,7 +250,9 @@ class RuleExecutor:
             pass
         return None
 
-    def _execute_spacy_rule(self, rule: Rule, input_data: Dict) -> Any:
+    def _execute_spacy_rule(
+        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
+    ) -> Any:
         """Execute spaCy token matcher rule."""
         try:
             import spacy
@@ -255,7 +269,21 @@ class RuleExecutor:
                     download("en_core_web_sm")
                     self._nlp = spacy.load("en_core_web_sm")
 
-            pattern_data = json.loads(rule.content)
+            # content may be stored as string or list
+            if isinstance(rule.content, str):
+                try:
+                    pattern_data = json.loads(rule.content)
+                except Exception:
+                    # Attempt to extract first JSON array
+                    if "[" in rule.content and "]" in rule.content:
+                        candidate = rule.content[
+                            rule.content.index("[") : rule.content.rindex("]") + 1
+                        ]
+                        pattern_data = json.loads(candidate)
+                    else:
+                        return []
+            else:
+                pattern_data = rule.content
 
             if isinstance(pattern_data, list) and pattern_data:
                 if isinstance(pattern_data[0], dict):
@@ -268,19 +296,15 @@ class RuleExecutor:
             matcher = Matcher(self._nlp.vocab)
             matcher.add(rule.name, patterns)
 
-            # Get text (use first string value)
-            text = ""
-            for v in input_data.values():
-                if isinstance(v, str):
-                    text = v
-                    break
+            text = self._select_text(input_data, text_field)
             doc = self._nlp(text)
 
-            # Build entity lookup
+            # Build entity lookup (optional, uses spaCy NER)
             char_to_ent = {}
-            for ent in doc.ents:
-                for i in range(ent.start_char, ent.end_char):
-                    char_to_ent[i] = (ent.label_, ent.text)
+            if self.use_spacy_ner:
+                for ent in doc.ents:
+                    for i in range(ent.start_char, ent.end_char):
+                        char_to_ent[i] = (ent.label_, ent.text)
 
             results = []
             matches = matcher(doc)
@@ -324,6 +348,16 @@ class RuleExecutor:
         except Exception:
             return []
 
+    def _select_text(self, input_data: Dict, text_field: Optional[str]) -> str:
+        """Pick a string field for regex/spaCy matching."""
+        if text_field:
+            value = input_data.get(text_field)
+            if isinstance(value, str):
+                return value
+
+        text_fields = [v for v in input_data.values() if isinstance(v, str)]
+        return max(text_fields, key=len) if text_fields else ""
+
     def _deduplicate_dicts(
         self, items: List[Dict], overlap_threshold: float = 0.7
     ) -> List[Dict]:
@@ -343,17 +377,27 @@ class RuleExecutor:
                     seen.append(item)
             return seen
 
+        def _to_int(value, default=0):
+            try:
+                if isinstance(value, (int, float)):
+                    return int(value)
+                if isinstance(value, str):
+                    return int(float(value))
+            except Exception:
+                return default
+            return default
+
         unique = []
         for item in items:
             is_dup = False
-            item_type = item.get("type")
-            item_start = item.get("start", 0)
-            item_end = item.get("end", 0)
+            item_type = item.get("type") or item.get("label")
+            item_start = _to_int(item.get("start", 0), default=0)
+            item_end = _to_int(item.get("end", 0), default=0)
 
             for existing in unique:
-                existing_type = existing.get("type")
-                existing_start = existing.get("start", 0)
-                existing_end = existing.get("end", 0)
+                existing_type = existing.get("type") or existing.get("label")
+                existing_start = _to_int(existing.get("start", 0), default=0)
+                existing_end = _to_int(existing.get("end", 0), default=0)
 
                 inter_start = max(item_start, existing_start)
                 inter_end = min(item_end, existing_end)
@@ -373,6 +417,22 @@ class RuleExecutor:
                 unique.append(item)
 
         return unique
+
+    def _normalize_label(self, results: Any) -> Optional[str]:
+        """Normalize classification output to a single label string."""
+        if isinstance(results, str):
+            return results.strip() or None
+        if isinstance(results, Span):
+            return results.text.strip() or None
+        if isinstance(results, dict):
+            for key in ("label", "type", "text"):
+                value = results.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+            return None
+        if isinstance(results, list) and results:
+            return self._normalize_label(results[0])
+        return None
 
     def _deduplicate_spans(self, spans: List[Span]) -> List[Span]:
         """Remove overlapping spans"""

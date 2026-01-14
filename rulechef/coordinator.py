@@ -234,13 +234,19 @@ class AgenticCoordinator(CoordinatorProtocol):
 
         # 1. Fast path: Don't bother LLM if not enough data
         # Unless we have corrections (high value) or it's the very first learn
-        if current_rules is None:
+        if current_rules is None or not current_rules:
             if new_examples_count < self.min_batch_size:
                 return CoordinationDecision(
                     should_learn=False,
                     strategy="balanced",
                     reasoning=f"Waiting for initial batch (have {new_examples_count}/{self.min_batch_size})",
                 )
+            # If we have any data at all, allow an initial learn without LLM gating
+            return CoordinationDecision(
+                should_learn=True,
+                strategy="balanced",
+                reasoning=f"Initial learn with {new_examples_count} examples",
+            )
         else:
             if (
                 new_examples_count < self.min_batch_size
@@ -282,8 +288,8 @@ class AgenticCoordinator(CoordinatorProtocol):
     ):
         """Log learning results"""
         if self.verbose:
-            accuracy = metrics.get("accuracy", 0)
-            print("✓ Learning complete. Agent will observe next batch.")
+            accuracy = metrics.get("accuracy", 0) if metrics else 0
+            print(f"✓ Learning complete. Accuracy: {accuracy:.1%}")
 
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]

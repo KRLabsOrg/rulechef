@@ -3,7 +3,7 @@
 import json
 from typing import Dict, Optional, Callable, Any
 
-from rulechef.core import TaskType
+from rulechef.core import TaskType, DEFAULT_OUTPUT_KEYS
 
 # Type alias for matcher functions
 OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
@@ -14,6 +14,7 @@ def outputs_match(
     actual: Dict,
     task_type: TaskType = TaskType.EXTRACTION,
     custom_matcher: Optional[OutputMatcher] = None,
+    matching_mode: str = "text",
 ) -> bool:
     """
     Check if two outputs match.
@@ -40,28 +41,68 @@ def outputs_match(
         if len(spans1) != len(spans2):
             return False
 
-        # Check text match (order independent)
-        texts1 = sorted([s["text"] if isinstance(s, dict) else s.text for s in spans1])
-        texts2 = sorted([s["text"] if isinstance(s, dict) else s.text for s in spans2])
+        # Check match (order independent)
+        def _text(span):
+            if isinstance(span, dict):
+                return span.get("text", "")
+            if hasattr(span, "text"):
+                return getattr(span, "text")
+            return str(span)
+
+        if matching_mode == "exact":
+
+            def _span_key(span):
+                if isinstance(span, dict):
+                    return (
+                        span.get("text", ""),
+                        span.get("start", 0),
+                        span.get("end", 0),
+                    )
+                if hasattr(span, "text"):
+                    return (
+                        getattr(span, "text"),
+                        getattr(span, "start", 0),
+                        getattr(span, "end", 0),
+                    )
+                return (str(span), 0, 0)
+
+            keys1 = sorted([_span_key(s) for s in spans1])
+            keys2 = sorted([_span_key(s) for s in spans2])
+            return keys1 == keys2
+
+        texts1 = sorted([_text(s) for s in spans1])
+        texts2 = sorted([_text(s) for s in spans2])
 
         return texts1 == texts2
 
     elif task_type == TaskType.NER:
         # NER: Compare entities including type
-        for key in ["entities", "spans", "ner"]:
-            if key in expected or key in actual:
-                entities1 = expected.get(key, [])
-                entities2 = actual.get(key, [])
-                break
-        else:
-            return expected == actual
+        # Use canonical key "entities", fallback to legacy keys for compatibility
+        canonical_key = DEFAULT_OUTPUT_KEYS[TaskType.NER]  # "entities"
+
+        def get_entities(d):
+            if canonical_key in d:
+                return d[canonical_key]
+            # Fallback for legacy data
+            for fallback in ["spans", "ner"]:
+                if fallback in d:
+                    return d[fallback]
+            return []
+
+        entities1 = get_entities(expected)
+        entities2 = get_entities(actual)
 
         if len(entities1) != len(entities2):
             return False
 
         def entity_key(e):
             if isinstance(e, dict):
-                return (e.get("text", ""), e.get("type", ""))
+                # Support both "type" and "label" for entity type field
+                ent_type = e.get("type") or e.get("label", "")
+                return (e.get("text", ""), ent_type)
+            if hasattr(e, "text"):
+                ent_type = getattr(e, "type", None) or getattr(e, "label", "")
+                return (getattr(e, "text"), ent_type)
             return (str(e), "")
 
         set1 = sorted([entity_key(e) for e in entities1])

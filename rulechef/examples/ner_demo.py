@@ -9,7 +9,7 @@ This demonstrates RuleChef's value proposition:
 
 import os
 from openai import OpenAI
-from rulechef import RuleChef, Task
+from rulechef import RuleChef, Task, TaskType
 from rulechef.coordinator import SimpleCoordinator
 
 # Check for API key
@@ -29,7 +29,8 @@ task = Task(
     name="Named Entity Recognition",
     description="Extract organizations, people, and locations from news articles",
     input_schema={"text": "str"},
-    output_schema={"spans": "List[Span]"},  # Each span has entity type
+    output_schema={"entities": "List[{text: str, start: int, end: int, type: str}]"},
+    type=TaskType.NER,
 )
 
 # Low threshold for demo
@@ -46,7 +47,7 @@ chef = RuleChef(
     coordinator=coordinator,
     auto_trigger=True,  # Automatically learn when ready
     allowed_formats=["regex"],  # Regex only for this demo
-    model="llama-3.3-70b-versatile",  # Specify the model to use
+    model="moonshotai/kimi-k2-instruct-0905",  # Specify the model to use
 )
 
 # =============================================================================
@@ -158,13 +159,10 @@ print("=" * 80)
 
 print(f"\nAdding {len(training_examples)} training examples...")
 for i, example in enumerate(training_examples, 1):
-    # Convert entity spans to simple format (text + position only)
-    spans = [
-        {"text": e["text"], "start": e["start"], "end": e["end"]}
-        for e in example["entities"]
-    ]
-
-    chef.add_example(input_data={"text": example["text"]}, output_data={"spans": spans})
+    chef.add_example(
+        input_data={"text": example["text"]},
+        output_data={"entities": example["entities"]},
+    )
 
     print(f"  [{i}/{len(training_examples)}] {len(example['entities'])} entities")
 
@@ -214,9 +212,13 @@ if chef.dataset.rules:
         print(f"\n{i}. Text: {text}")
         result = chef.extract({"text": text})
 
-        print(f"   Extracted {len(result.get('spans', []))} entities:")
-        for span in result.get("spans", []):
-            print(f"     - '{span['text']}' at [{span['start']}:{span['end']}]")
+        entities = result.get("entities", result.get("spans", []))
+        print(f"   Extracted {len(entities)} entities:")
+        for span in entities:
+            span_type = span.get("type") or span.get("label", "")
+            print(
+                f"     - '{span.get('text')}' ({span_type}) at [{span.get('start')}:{span.get('end')}]"
+            )
 else:
     print("Cannot test - no rules learned (API key required)")
 

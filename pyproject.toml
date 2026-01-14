@@ -28,6 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "openai>=1.0.0",
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,8 +45,8 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anthropics/rulechef"
-Repository = "https://github.com/anthropics/rulechef"
+Homepage = "https://github.com/KRLabsOrg/rulechef"
+Repository = "https://github.com/KRLabsOrg/rulechef"
 
 [project.scripts]
 rulechef = "rulechef.cli:main"
