@@ -15,6 +15,7 @@ def substitute_template(
     groups: tuple = (),
     ent_type: Optional[str] = None,
     ent_label: Optional[str] = None,
+    token_spans: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Substitute template variables with actual values from a match.
@@ -51,22 +52,57 @@ def substitute_template(
                 else:
                     result[key] = ""
             else:
-                # Literal string (may contain inline substitutions)
-                substituted = value
-                substituted = substituted.replace("$0", match_text)
-                substituted = substituted.replace("$start", str(start))
-                substituted = substituted.replace("$end", str(end))
-                if ent_type:
-                    substituted = substituted.replace("$ent_type", ent_type)
-                if ent_label:
-                    substituted = substituted.replace("$ent_label", ent_label)
-                for i, g in enumerate(groups, 1):
-                    substituted = substituted.replace(f"${i}", g or "")
-                result[key] = substituted
+                token_match = re.match(r"^\$(\d+)\.(start|end|text)$", value)
+                if token_match:
+                    token_idx = int(token_match.group(1))
+                    token_attr = token_match.group(2)
+                    if token_idx == 0:
+                        if token_attr == "start":
+                            result[key] = start
+                        elif token_attr == "end":
+                            result[key] = end
+                        else:
+                            result[key] = match_text
+                    elif token_spans and 0 < token_idx <= len(token_spans):
+                        token_value = token_spans[token_idx - 1].get(token_attr)
+                        result[key] = token_value if token_value is not None else ""
+                    else:
+                        result[key] = ""
+                else:
+                    # Literal string (may contain inline substitutions)
+                    substituted = value
+                    substituted = substituted.replace("$0", match_text)
+                    substituted = substituted.replace("$start", str(start))
+                    substituted = substituted.replace("$end", str(end))
+                    if ent_type:
+                        substituted = substituted.replace("$ent_type", ent_type)
+                    if ent_label:
+                        substituted = substituted.replace("$ent_label", ent_label)
+                    for i, g in enumerate(groups, 1):
+                        substituted = substituted.replace(f"${i}", g or "")
+                    if token_spans:
+                        for i, token in enumerate(token_spans, 1):
+                            substituted = substituted.replace(
+                                f"${i}.start", str(token.get("start", ""))
+                            )
+                            substituted = substituted.replace(
+                                f"${i}.end", str(token.get("end", ""))
+                            )
+                            substituted = substituted.replace(
+                                f"${i}.text", str(token.get("text", ""))
+                            )
+                    result[key] = substituted
         elif isinstance(value, dict):
             # Nested dict - recurse
             result[key] = substitute_template(
-                value, match_text, start, end, groups, ent_type, ent_label
+                value,
+                match_text,
+                start,
+                end,
+                groups,
+                ent_type,
+                ent_label,
+                token_spans,
             )
         else:
             # Literal value (int, bool, etc.)
@@ -256,7 +292,7 @@ class RuleExecutor:
         """Execute spaCy token matcher rule."""
         try:
             import spacy
-            from spacy.matcher import Matcher
+            from spacy.matcher import Matcher, DependencyMatcher
 
             # Lazy load spaCy model
             if self._nlp is None:
@@ -293,11 +329,20 @@ class RuleExecutor:
             else:
                 return []
 
-            matcher = Matcher(self._nlp.vocab)
-            matcher.add(rule.name, patterns)
+            use_dependency = self._is_dependency_pattern(pattern_data)
+            if use_dependency:
+                matcher = DependencyMatcher(self._nlp.vocab)
+                matcher.add(rule.name, patterns)
+            else:
+                matcher = Matcher(self._nlp.vocab)
+                matcher.add(rule.name, patterns)
 
             text = self._select_text(input_data, text_field)
-            doc = self._nlp(text)
+            if self.use_spacy_ner:
+                doc = self._nlp(text)
+            else:
+                with self._nlp.disable_pipes("ner"):
+                    doc = self._nlp(text)
 
             # Build entity lookup (optional, uses spaCy NER)
             char_to_ent = {}
@@ -308,7 +353,16 @@ class RuleExecutor:
 
             results = []
             matches = matcher(doc)
-            for match_id, start_tok, end_tok in matches:
+            for match in matches:
+                if use_dependency:
+                    _, token_ids = match
+                    if not token_ids:
+                        continue
+                    start_tok = min(token_ids)
+                    end_tok = max(token_ids) + 1
+                else:
+                    _, start_tok, end_tok = match
+
                 span = doc[start_tok:end_tok]
                 match_text = span.text
                 start_char = span.start_char
@@ -319,6 +373,26 @@ class RuleExecutor:
                 if start_char in char_to_ent:
                     ent_type, ent_label = char_to_ent[start_char]
 
+                token_spans = None
+                if use_dependency:
+                    token_spans = [
+                        {
+                            "text": doc[i].text,
+                            "start": doc[i].idx,
+                            "end": doc[i].idx + len(doc[i].text),
+                        }
+                        for i in sorted(token_ids)
+                    ]
+                else:
+                    token_spans = [
+                        {
+                            "text": token.text,
+                            "start": token.idx,
+                            "end": token.idx + len(token.text),
+                        }
+                        for token in doc[start_tok:end_tok]
+                    ]
+
                 if rule.output_template:
                     templated = substitute_template(
                         rule.output_template,
@@ -328,6 +402,7 @@ class RuleExecutor:
                         groups=(),
                         ent_type=ent_type,
                         ent_label=ent_label,
+                        token_spans=token_spans,
                     )
                     results.append(templated)
                 else:
@@ -357,6 +432,15 @@ class RuleExecutor:
 
         text_fields = [v for v in input_data.values() if isinstance(v, str)]
         return max(text_fields, key=len) if text_fields else ""
+
+    def _is_dependency_pattern(self, pattern_data: List) -> bool:
+        """Detect spaCy DependencyMatcher patterns."""
+        for item in pattern_data:
+            if isinstance(item, dict) and (
+                "RIGHT_ID" in item or "LEFT_ID" in item or "REL_OP" in item
+            ):
+                return True
+        return False
 
     def _deduplicate_dicts(
         self, items: List[Dict], overlap_threshold: float = 0.7

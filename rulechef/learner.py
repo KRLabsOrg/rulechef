@@ -29,8 +29,11 @@ class RuleLearner:
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.model = model
+        self.use_spacy_ner = use_spacy_ner
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
-        self.prompt_builder = PromptBuilder(self.allowed_formats)
+        self.prompt_builder = PromptBuilder(
+            self.allowed_formats, use_spacy_ner=use_spacy_ner
+        )
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -585,6 +588,11 @@ Return JSON:
                 pattern_data = self._coerce_spacy_content(rule.content)
                 if not isinstance(pattern_data, list) or not pattern_data:
                     return False
+                if not self.use_spacy_ner and self._pattern_uses_ent_type(pattern_data):
+                    print(
+                        "      spaCy NER is disabled; ENT_TYPE/ENT_ID patterns are not allowed"
+                    )
+                    return False
                 rule.content = json.dumps(pattern_data)
             return True
         except Exception as e:
@@ -594,6 +602,21 @@ Return JSON:
     def _generate_id(self) -> str:
         """Generate unique ID"""
         return str(uuid.uuid4())[:8]
+
+    def _pattern_uses_ent_type(self, pattern_data: List) -> bool:
+        """Detect spaCy patterns that rely on NER entity types."""
+        def _walk(value):
+            if isinstance(value, dict):
+                for k, v in value.items():
+                    if k in ("ENT_TYPE", "ENT_ID"):
+                        return True
+                    if _walk(v):
+                        return True
+            elif isinstance(value, list):
+                return any(_walk(item) for item in value)
+            return False
+
+        return _walk(pattern_data)
 
     def generate_synthetic_input(self, task, seed: int = 0) -> Dict:
         """Generate a synthetic input example"""

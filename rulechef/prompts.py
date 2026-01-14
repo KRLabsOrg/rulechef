@@ -86,12 +86,22 @@ For SPACY format, provide a JSON array of token patterns (spaCy Matcher format).
 Available token attributes:
 - TEXT, LOWER: Exact or lowercase text match
 - POS: Part-of-speech (NOUN, VERB, ADJ, PROPN, NUM, etc.)
-- ENT_TYPE: Entity type (PERSON, ORG, GPE, DATE, MONEY, etc.)
+- ENT_TYPE: Entity type (PERSON, ORG, GPE, DATE, MONEY, etc.) - requires spaCy NER
+- DEP: Dependency label (nsubj, dobj, pobj, etc.)
+- LEMMA: Base form of the token
 - SHAPE: Word shape (dddd=4 digits, Xxxxx=capitalized)
 - LIKE_NUM, LIKE_EMAIL, LIKE_URL: Boolean patterns
 - IS_PUNCT, IS_DIGIT, IS_ALPHA: Character type checks
 - OP: Quantifiers ("?" optional, "+" one or more, "*" zero or more)
 - IN: Match any in list, e.g. {"LOWER": {"IN": ["yes", "yeah", "yep"]}}
+
+Dependency-based patterns do NOT require spaCy NER and work when use_spacy_ner=False.
+
+Dependency matcher patterns are also supported. Use a list of dicts with:
+- RIGHT_ID: Node id
+- RIGHT_ATTRS: Token attrs (POS, DEP, LEMMA, etc.)
+- LEFT_ID: Parent node id
+- REL_OP: Relation operator ("<", ">", "<<", ">>", ".")
 """
 
 SPACY_EXAMPLE_EXTRACTION = """
@@ -105,20 +115,20 @@ Example 1 - Extract 4-digit years:
   "description": "Match 4-digit years like 1995, 2023"
 }
 
-Example 2 - Extract person names:
+Example 2 - Extract proper-name phrases:
 {
-  "name": "person_names",
+  "name": "proper_noun_phrase",
   "format": "spacy",
-  "content": "[{\\"ENT_TYPE\\": \\"PERSON\\"}]",
-  "description": "Match named person entities"
+  "content": "[{\\"POS\\": \\"PROPN\\", \\"OP\\": \\"+\\"}]",
+  "description": "Match consecutive proper nouns"
 }
 
-Example 3 - Extract dates with context:
+Example 3 - Dependency matcher (verb with subject):
 {
-  "name": "date_phrases",
+  "name": "verb_with_subject",
   "format": "spacy",
-  "content": "[{\\"LOWER\\": {\\"IN\\": [\\"in\\", \\"on\\", \\"during\\"]}}, {\\"ENT_TYPE\\": \\"DATE\\"}]",
-  "description": "Match 'in/on/during [DATE]' patterns"
+  "content": "[{\\"RIGHT_ID\\": \\"verb\\", \\"RIGHT_ATTRS\\": {\\"POS\\": \\"VERB\\"}}, {\\"LEFT_ID\\": \\"verb\\", \\"REL_OP\\": \\">\\", \\"RIGHT_ID\\": \\"subj\\", \\"RIGHT_ATTRS\\": {\\"DEP\\": \\"nsubj\\"}}]",
+  "description": "Match a verb that has a nominal subject"
 }
 
 Example 4 - Extract money amounts:
@@ -354,8 +364,9 @@ Return JSON:
 class PromptBuilder:
     """Builds prompts for rule learning from composable parts"""
 
-    def __init__(self, allowed_formats: List[RuleFormat]):
+    def __init__(self, allowed_formats: List[RuleFormat], use_spacy_ner: bool = False):
         self.allowed_formats = allowed_formats
+        self.use_spacy_ner = use_spacy_ner
 
     # ========================================
     # Main Prompt Builders
@@ -567,6 +578,10 @@ RULES CAN BE:"""
             lines.append(
                 "IMPORTANT: spaCy rules must be valid JSON arrays of token dicts (spaCy Matcher patterns). Do NOT include Python/spacy code; only JSON."
             )
+            if not self.use_spacy_ner:
+                lines.append(
+                    "IMPORTANT: spaCy NER is disabled. Do NOT use ENT_TYPE or ENT_ID in spaCy patterns."
+                )
 
         return "\n".join(lines)
 
@@ -610,6 +625,9 @@ RULES CAN BE:"""
             template_vars.append(
                 "  - $ent_type: Entity type from spaCy NER (spaCy only)"
             )
+            template_vars.append(
+                "  - $1.start/$1.end/$1.text: Token offsets/text within spaCy match"
+            )
 
         pattern_desc = " or ".join(pattern_options) if pattern_options else "pattern"
 
@@ -637,7 +655,7 @@ Each rule needs:
             example_sections = []
             if RuleFormat.REGEX in self.allowed_formats:
                 example_sections.append(NER_RULE_EXAMPLES_REGEX)
-            if RuleFormat.SPACY in self.allowed_formats:
+            if RuleFormat.SPACY in self.allowed_formats and self.use_spacy_ner:
                 example_sections.append(NER_RULE_EXAMPLES_SPACY)
             if example_sections:
                 section += "\n\n".join(example_sections)
