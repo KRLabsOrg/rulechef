@@ -1,9 +1,9 @@
 """Example buffering for observed LLM and human interactions"""
 
-import time
 import threading
+import time
 from dataclasses import dataclass, field
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -14,6 +14,7 @@ class ObservedExample:
     output: Dict[str, Any]
     source: str  # "llm" | "human"
     is_correction: bool = False
+    is_negative: bool = False
     timestamp: float = field(default_factory=time.time)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -45,7 +46,10 @@ class ExampleBuffer:
             )
 
     def add_human_example(
-        self, input_data: Dict[str, Any], output_data: Dict[str, Any]
+        self,
+        input_data: Dict[str, Any],
+        output_data: Dict[str, Any],
+        is_negative: bool = False,
     ):
         """Add human-labeled example"""
         with self.lock:
@@ -54,6 +58,7 @@ class ExampleBuffer:
                     input=input_data,
                     output=output_data,
                     source="human",
+                    is_negative=is_negative,
                     is_correction=False,
                 )
             )

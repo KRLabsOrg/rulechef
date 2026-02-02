@@ -8,10 +8,11 @@ from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 from rulechef.executor import RuleExecutor
 from rulechef.matching import outputs_match
 from rulechef.prompts import PromptBuilder
+from rulechef.prompts import Lang, PromptBuilder
 
 
 class RuleLearner:
@@ -24,6 +25,7 @@ class RuleLearner:
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
         use_spacy_ner: bool = False,
+        lang: Lang = "en",
     ):
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -32,7 +34,7 @@ class RuleLearner:
         self.use_spacy_ner = use_spacy_ner
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
-            self.allowed_formats, use_spacy_ner=use_spacy_ner
+            self.allowed_formats, use_spacy_ner=use_spacy_ner, lang=lang
         )
 
     # ========================================
@@ -60,7 +62,7 @@ class RuleLearner:
     ) -> List[Rule]:
         """Generate initial ruleset from dataset"""
         prompt = self._build_synthesis_prompt(dataset, max_rules)
-
+        print(prompt)
         print("📚 Synthesizing rules from dataset...")
         start = time.time()
 
@@ -387,7 +389,14 @@ class RuleLearner:
 
         # Separate corrections and examples
         corrections = [d for d in sampled_data if isinstance(d, Correction)]
-        examples = [d for d in sampled_data if not isinstance(d, Correction)]
+        examples = [
+            d
+            for d in sampled_data
+            if not isinstance(d, Correction) and not d.is_negative
+        ]
+        negative_examples = [
+            d for d in sampled_data if not isinstance(d, Correction) and d.is_negative
+        ]
 
         # Build base prompt from builder
         prompt = self.prompt_builder._build_task_header(dataset)
@@ -397,6 +406,10 @@ class RuleLearner:
             prompt += self.prompt_builder._build_corrections_section(corrections)
         if examples:
             prompt += self.prompt_builder._build_examples_section(examples)
+        if negative_examples:
+            prompt += self.prompt_builder._build_negative_examples_section(
+                negative_examples
+            )
 
         # Add other sections
         prompt += self.prompt_builder._build_feedback_section(dataset)
@@ -605,6 +618,7 @@ Return JSON:
 
     def _pattern_uses_ent_type(self, pattern_data: List) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
+
         def _walk(value):
             if isinstance(value, dict):
                 for k, v in value.items():

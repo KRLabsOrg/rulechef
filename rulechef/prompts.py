@@ -2,10 +2,20 @@
 
 import json
 import os
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 
+# ============================================================================
+# Languages
+# ============================================================================
+Lang = str  # "en", "de"
+
+# Full language names for each language code
+LANG_TO_FULL_NAME = {
+    "en": "English",
+    "de": "German",
+}
 
 # ============================================================================
 # FORMAT EXAMPLES - CODE
@@ -224,7 +234,8 @@ SPACY_EXAMPLES = {
 # SCHEMA-AWARE EXAMPLES (NER, TRANSFORMATION)
 # ============================================================================
 
-NER_RULE_EXAMPLES_REGEX = """
+
+NER_RULE_EXAMPLES_REGEX_EN = """
 NER RULE EXAMPLES (regex):
 
 Example 1 - Organizations with corporate suffixes:
@@ -247,6 +258,28 @@ Example 2 - Person names (two capitalized words):
   "priority": 7
 }
 """
+
+
+NER_RULE_EXAMPLES_REGEX_DE = """
+NER RULE EXAMPLES (regex):
+
+
+Example 1 - Organizations with corporate suffixes:
+{
+  "name": "corporate_suffixes",
+  "format": "regex",
+  "pattern": "\\b([A-Z][a-z0-9]+(?:\\s+[A-Z][a-z]+)*)\\s+(AG|GmbH|KG|UG|OHG|Gbr)\\b",
+  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"},
+  "output_key": "entities",
+  "priority": 9
+}
+"""
+
+NER_RULE_EXAMPLES_REGEX = {
+    "EN": NER_RULE_EXAMPLES_REGEX_EN,
+    "DE": NER_RULE_EXAMPLES_REGEX_DE,
+}
+
 
 NER_RULE_EXAMPLES_SPACY = """
 NER RULE EXAMPLES (spaCy):
@@ -364,9 +397,15 @@ Return JSON:
 class PromptBuilder:
     """Builds prompts for rule learning from composable parts"""
 
-    def __init__(self, allowed_formats: List[RuleFormat], use_spacy_ner: bool = False):
+    def __init__(
+        self,
+        allowed_formats: List[RuleFormat],
+        use_spacy_ner: bool = False,
+        lang: Lang = "en",
+    ):
         self.allowed_formats = allowed_formats
         self.use_spacy_ner = use_spacy_ner
+        self.lang = lang
 
     # ========================================
     # Main Prompt Builders
@@ -440,7 +479,6 @@ Example #{seed + 1}:"""
 
         header = f"""Task: {task.name}
 Description: {task.description}
-
 Input schema: {task.input_schema}
 Output schema:
 {output_schema_str}
@@ -485,7 +523,26 @@ Output schema:
             return ""
 
         lines = [f"\nTRAINING EXAMPLES ({len(examples)} shown):"]
+        lines.append("Learn rules from the these examples:")
+
         for ex in examples:
+            lines.append(f"\nInput: {json.dumps(ex.input)}")
+            lines.append(f"Output: {json.dumps(ex.expected_output)}")
+        lines.append("\n")
+        return "\n".join(lines)
+
+    def _build_negative_examples_section(self, negative_examples: List[Any]) -> str:
+        """Build section showing negative examples"""
+        if not negative_examples:
+            return ""
+
+        lines = [f"\nNEGATIVE TRAINING EXAMPLES ({len(negative_examples)} shown):"]
+        lines.append(
+            "Some  TEXT SPANS may look similar to organizations but are NOT organizations."
+        )
+        lines.append("You MUST NOT generate rules that extract such TEXT SPANS as ORG.")
+
+        for ex in negative_examples:
             lines.append(f"\nInput: {json.dumps(ex.input)}")
             lines.append(f"Output: {json.dumps(ex.expected_output)}")
 
@@ -540,10 +597,11 @@ Output schema:
 
 YOUR TASK:
 {action} ruleset (max {max_rules} rules) that:
-1. Handles all corrections correctly (CRITICAL - these show failure modes)
-2. Works on all examples
-3. Respects user feedback
-4. Is general and minimal (avoid redundant rules)
+1. Rely ONLY on the data provided
+2. Handles all corrections correctly (CRITICAL - these show failure modes)
+3. Works on all examples
+4. Respects user feedback
+5. Is general and minimal (avoid redundant rules)
 
 RULES CAN BE:"""
 
@@ -654,7 +712,8 @@ Each rule needs:
         if dataset.task.type == TaskType.NER:
             example_sections = []
             if RuleFormat.REGEX in self.allowed_formats:
-                example_sections.append(NER_RULE_EXAMPLES_REGEX)
+                print(self.lang)
+                example_sections.append(NER_RULE_EXAMPLES_REGEX[self.lang.upper()])
             if RuleFormat.SPACY in self.allowed_formats and self.use_spacy_ner:
                 example_sections.append(NER_RULE_EXAMPLES_SPACY)
             if example_sections:

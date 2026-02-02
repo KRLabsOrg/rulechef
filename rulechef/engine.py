@@ -1,27 +1,28 @@
 """Main RuleChef orchestrator"""
 
 import json
-import time
 import threading
+import time
 from pathlib import Path
-from typing import Dict, List, Optional, Callable
+from typing import Callable, Dict, List, Optional
 
 from openai import OpenAI
 
-from rulechef.core import (
-    Task,
-    Dataset,
-    Example,
-    Correction,
-    Rule,
-    RuleFormat,
-    TaskType,
-    DEFAULT_OUTPUT_KEYS,
-)
-from rulechef.learner import RuleLearner
 from rulechef.buffer import ExampleBuffer
 from rulechef.coordinator import CoordinatorProtocol, SimpleCoordinator
+from rulechef.core import (
+    DEFAULT_OUTPUT_KEYS,
+    Correction,
+    Dataset,
+    Example,
+    Rule,
+    RuleFormat,
+    Task,
+    TaskType,
+)
+from rulechef.learner import RuleLearner
 from rulechef.openai_wrapper import OpenAIObserver
+from rulechef.prompts import LANG_TO_FULL_NAME, Lang
 
 
 class RuleChef:
@@ -40,6 +41,7 @@ class RuleChef:
         model: str = "gpt-4o-mini",
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
+        lang: Lang = "en",
     ):
         self.task = task
         self.llm = client or OpenAI()
@@ -48,6 +50,15 @@ class RuleChef:
         self.use_spacy_ner = use_spacy_ner
         self.dataset = Dataset(name=dataset_name, task=task)
         self.storage_path = Path(storage_path)
+
+        # Language
+        if lang not in LANG_TO_FULL_NAME:
+            raise ValueError(
+                f"Invalid language. Use one of: {', '.join(LANG_TO_FULL_NAME.keys())}"
+            )
+
+        self.lang = lang
+
         # Convert string format names to RuleFormat enums if needed
         if allowed_formats:
             self.allowed_formats = [
@@ -62,6 +73,7 @@ class RuleChef:
             sampling_strategy=sampling_strategy,
             model=model,
             use_spacy_ner=use_spacy_ner,
+            lang=self.lang,
         )
 
         # Coordinator for learning decisions (swappable simple/agentic)
@@ -105,6 +117,26 @@ class RuleChef:
             f"✓ Added example (buffer: {stats['new_examples']} new, {stats['total_examples']} total)"
         )
 
+        # If auto-trigger enabled, check coordinator
+        if self.auto_trigger:
+            self._check_and_trigger_learning()
+
+    def add_negative_example(
+        self, input_data: Dict, output_data: Dict, source: str = "human_negative"
+    ):
+        """
+        Add a negative training example.
+
+        Uses buffer-first architecture: example goes to buffer, then coordinator
+        decides when to trigger learning.
+        """
+
+        self.buffer.add_human_example(input_data, output_data, is_negative=True)
+        stats = self.buffer.get_stats()
+        print(
+            f"✓ Added negative example "
+            f"(buffer: {stats['new_examples']} new, {stats['total_examples']} total)"
+        )
         # If auto-trigger enabled, check coordinator
         if self.auto_trigger:
             self._check_and_trigger_learning()
@@ -222,6 +254,7 @@ class RuleChef:
                         input=example.input,
                         expected_output=example.output,
                         source=example.source,
+                        is_negative=example.is_negative,
                     )
                     self.dataset.examples.append(ex)
 

@@ -1,21 +1,21 @@
 """Core data structures for RuleChef"""
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from typing import (
-    List,
-    Dict,
     Any,
-    Optional,
     Callable,
-    Union,
-    Type,
-    Tuple,
+    Dict,
+    List,
     Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
     get_args,
     get_origin,
 )
-from datetime import datetime
-from enum import Enum
 
 from pydantic import BaseModel, ValidationError
 
@@ -281,6 +281,7 @@ class Example:
     input: Dict[str, Any]
     expected_output: Dict[str, Any]
     source: str  # "human_labeled" | "llm_generated"
+    is_negative: bool = False
     confidence: float = 0.8
     timestamp: datetime = field(default_factory=datetime.now)
 
@@ -290,6 +291,7 @@ class Example:
             "input": self.input,
             "expected_output": self.expected_output,
             "source": self.source,
+            "is_negative": self.is_negative,
             "confidence": self.confidence,
         }
 
@@ -389,6 +391,24 @@ class Rule:
         if self.output_key is not None:
             result["output_key"] = self.output_key
         return result
+
+    @classmethod
+    def from_dict(cls, json_dict: dict):
+        return cls(
+            id=json_dict["id"],
+            name=json_dict["name"],
+            description=json_dict["description"],
+            format=RuleFormat(json_dict["format"]),
+            content=json_dict["content"],
+            priority=json_dict.get("priority", 5),
+            confidence=json_dict.get("confidence", 0.5),
+            times_applied=json_dict.get("times_applied", 0),
+            successes=json_dict.get("successes", 0),
+            failures=json_dict.get("failures", 0),
+            created_at=json_dict["created_at"],
+            output_template=json_dict.get("output_template"),
+            output_key=json_dict.get("output_key"),
+        )
 
 
 @dataclass
