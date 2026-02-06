@@ -1,20 +1,21 @@
 import os
 import json
 import random
-
-import streamlit as st
-from clear_anonymization.ner_datasets.ner_dataset import NERData
-from pydantic import BaseModel, Field
+import subprocess
 from typing import List
+import sys
+import io
+import streamlit as st
+from pydantic import BaseModel, Field
 
+from clear_anonymization.ner_datasets.ner_dataset import NERData
 from openai import OpenAI
 from rulechef import RuleChef, Task, TaskType
 from rulechef.core import RuleFormat
 
 
-
 # -----------------------------
-# Helpers
+# Models
 # -----------------------------
 
 
@@ -29,9 +30,18 @@ class NEROutput(BaseModel):
     entities: List[Entity]
 
 
+# -----------------------------
+# Helpers
+# -----------------------------
+
+
 def get_openai_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL", "http://localhost:8000/v1")
+    base_url = os.getenv(
+        "OPENAI_BASE_URL",
+        "https://api.openai.com/v1",
+        # "http://localhost:8000/v1"
+    )
 
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
@@ -81,7 +91,6 @@ def sample_data(samples, allowed_classes, k=10, seed=12):
             negative_samples.append({"text": sample.text, "entities": neg})
 
     negative_samples = random.sample(negative_samples, min(k, len(negative_samples)))
-
     return positive_samples, negative_samples
 
 
@@ -101,8 +110,9 @@ def build_task(name, description):
 
 
 def main():
-    st.set_page_config(page_title="RuleChef")
+    st.set_page_config(page_title="RuleChef", layout="wide")
 
+    # ---- Session state ----
     for key in [
         "task",
         "entity_types",
@@ -111,16 +121,18 @@ def main():
         "positive",
         "negative",
         "chef",
-        "samples"
-
+        "samples",
+        "rules",
+        "terminal_ouput"
     ]:
         if key not in st.session_state:
             st.session_state[key] = None
 
+    # ---- Header ----
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        st.title("Rulechef 👨‍🍳")
+        st.title("RuleChef 👨‍🍳")
         st.markdown(
             "Learn rule-based models from examples, corrections, and LLM interactions."
         )
@@ -159,6 +171,7 @@ def main():
             st.session_state.task = build_task(task_name, task_description)
             st.session_state.entity_types = entity_types
             st.session_state.language = language
+
             st.success("Task saved")
 
     # ---- Upload data ----
@@ -169,16 +182,21 @@ def main():
         if uploaded_file:
             content = uploaded_file.read().decode("utf-8")
             st.session_state.data = NERData.from_json(json.loads(content))
-            st.session_state.samples = [s for s in st.session_state.data.samples if s.split == "train"]
+            st.session_state.samples = [
+                s for s in st.session_state.data.samples if s.split == "train"
+            ]
 
-            st.session_state.positive, st.session_state.negative = sample_data(
+            (
+                st.session_state.positive,
+                st.session_state.negative,
+            ) = sample_data(
                 st.session_state.samples,
                 st.session_state.entity_types,
             )
 
             st.success("JSON file uploaded")
 
-    # ---- Create chef + add data ----
+    # ---- Create RuleChef ----
     if (
         st.session_state.task
         and st.session_state.data
@@ -189,7 +207,7 @@ def main():
             get_openai_client(),
             dataset_name="myrules",
             allowed_formats=[RuleFormat.REGEX],
-            model="google/gemma-3-27b-it",
+            model="gpt-5-mini-2025-08-07",
             use_spacy_ner=False,
             lang=st.session_state.language,
         )
@@ -203,10 +221,41 @@ def main():
         st.success("RuleChef initialized")
 
     # ---- Learn rules ----
+
+
     if st.session_state.chef and st.button("Learn Rules"):
-        rules = st.session_state.chef.learn_rules()
-        st.success(f"{len(rules)} rules learned")
-        st.write(rules)
+    
+        st.session_state.terminal_output = ""
+
+
+        output_box = st.empty()
+    
+
+        class StreamlitWriter(io.TextIOBase):
+            """Redirect stdout to Streamlit text_area."""
+            def write(self, s):
+                if s.strip():
+                    st.session_state.terminal_output += s
+                    # Update scrollable text area live
+                    output_box.text_area(
+                        "Learning Rules Output",
+                        value=st.session_state.terminal_output,
+                        height=300,
+                    
+                    )
+
+            def flush(self):
+                pass
+        old_stdout = sys.stdout
+        sys.stdout = StreamlitWriter()
+
+        try:
+        
+            st.session_state.rules = st.session_state.chef.learn_rules()
+        finally:
+            sys.stdout = old_stdout  # restore stdout
+
+        st.success(f"{len(st.session_state.rules)} rules learned")
 
 
 if __name__ == "__main__":
