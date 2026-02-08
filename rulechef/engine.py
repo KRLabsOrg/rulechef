@@ -353,7 +353,7 @@ class RuleChef:
 
         # Apply rules with task type for proper output key inference
         output = self.learner._apply_rules(
-            self.dataset.rules, input_data, self.task.type, self.task.text_field
+            self.dataset.rules, input_data, None, self.task.type, self.task.text_field
         )
 
         # Store current extraction for potential correction

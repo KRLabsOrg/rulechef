@@ -5,6 +5,7 @@ import re
 from typing import Dict, List, Any, Optional
 
 from rulechef.core import Rule, RuleFormat, Span, TaskType, DEFAULT_OUTPUT_KEYS
+from rulechef.matching import outputs_match
 
 
 def substitute_template(
@@ -121,6 +122,7 @@ class RuleExecutor:
         self,
         rules: List[Rule],
         input_data: Dict,
+        expected: Optional[Dict] = None,
         task_type: Optional[TaskType] = None,
         text_field: Optional[str] = None,
     ) -> Dict:
@@ -150,6 +152,10 @@ class RuleExecutor:
                 results = self.execute_rule(rule, input_data, text_field)
                 if not results:
                     continue
+
+                # todo: move to right spot
+                if expected:
+                    rule.update_stats(outputs_match(expected, {default_key: results}, task_type=task_type))
 
                 # Determine output key: use rule's key or default from task type
                 output_key = rule.output_key or default_key

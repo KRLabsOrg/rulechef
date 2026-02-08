@@ -43,11 +43,12 @@ class RuleLearner:
         self,
         rules: List[Rule],
         input_data: Dict,
+        expected: Optional[Dict] = None,
         task_type: Optional[TaskType] = None,
         text_field: Optional[str] = None,
     ) -> Dict:
         """Apply rules to input data. Delegates to executor."""
-        return self.executor.apply_rules(rules, input_data, task_type, text_field)
+        return self.executor.apply_rules(rules, input_data, expected, task_type, text_field)
 
     # ========================================
     # Rule Synthesis
@@ -259,7 +260,7 @@ class RuleLearner:
 
         for item in all_data:
             extracted = self._apply_rules(
-                rules, item.input, dataset.task.type, dataset.task.text_field
+                rules, item.input, item.expected_output if dataset.task.enable_rule_confidence else None , dataset.task.type, dataset.task.text_field
             )
             expected = item.expected_output
 
@@ -406,6 +407,7 @@ class RuleLearner:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
+        prompt += self.prompt_builder._build_self_check(dataset.task)
 
         return prompt
 

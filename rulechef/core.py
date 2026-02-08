@@ -162,6 +162,8 @@ class Task:
     output_matcher: Optional[OutputMatcher] = None
     matching_mode: Literal["text", "exact"] = "text"
     text_field: Optional[str] = None
+    enable_rule_confidence: bool = False
+    self_check: bool = False
 
     def get_labels(self, field_name: str = "type") -> List[str]:
         """

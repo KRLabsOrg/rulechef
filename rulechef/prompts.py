@@ -4,7 +4,7 @@ import json
 import os
 from typing import Dict, List, Any
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType, Task
 
 
 # ============================================================================
@@ -383,6 +383,7 @@ class PromptBuilder:
             self._build_response_schema(dataset),
             self._build_format_examples(dataset.task.type),
             self._build_closing_instructions(),
+            self._build_self_check(dataset.task)
         ]
         return "\n".join(parts)
 
@@ -393,9 +394,14 @@ class PromptBuilder:
         dataset: Dataset,
     ) -> str:
         """Build prompt for refining rules based on failures (schema-aware)"""
-        rules_formatted = self._format_rules(current_rules)
+        rules_formatted = self._format_rules(current_rules, dataset.task.enable_rule_confidence)
         format_instructions = self._build_format_instructions(dataset.task.type)
         response_schema = self._build_response_schema(dataset)
+        self_check = self._build_self_check(dataset.task)
+
+        rule_confidence = ""
+        if dataset.task.enable_rule_confidence:
+            rule_confidence = "IMPORTANT: Focus refinement of rules with lower confidence - rules with higher confidence already solved some examples\n"
 
         return f"""Refine the ruleset for this task while fixing the failures shown.
 
@@ -404,6 +410,7 @@ class PromptBuilder:
 CURRENT RULES:
 {rules_formatted or "None"}
 
+{rule_confidence}
 FAILURES TO FIX (include these patterns in your updated rules):
 {json.dumps(failures, indent=2)}
 
@@ -413,6 +420,8 @@ CRITICAL: Pay special attention to correction failures (is_correction: true) - t
 
 Return refined ruleset in the same JSON format (every rule must include both output_template and output_key):
 {response_schema}
+
+{self_check}
 """
 
     def build_generation_prompt(self, task: Any, seed: int = 0) -> str:
@@ -698,6 +707,18 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
 - Response is complete (not truncated)
 """
 
+    def _build_self_check(self, task: Task) -> str:
+        """Build self check if necessary"""
+        if task.type == TaskType.NER and task.self_check:
+            return """
+SELF-CHECK BEFORE YOU OUTPUT:
+- Each example's entities are matched exactly once by at least one rule.
+- No rule matches other text spans than the entities of the examples.
+- Every rule includes: name, description, format, pattern, output_template, output_key, priority, reasoning.
+- Total rules ≤ 10. No redundancy. Regexes do not rely on text normalization.
+        """
+        return ""
+
     # ========================================
     # Utilities
     # ========================================
@@ -711,13 +732,15 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
             options.append("spacy")
         return options
 
-    def _format_rules(self, rules: List[Rule]) -> str:
+    def _format_rules(self, rules: List[Rule], rule_confidence: bool = False) -> str:
         """Format rules for display in prompts"""
         lines = []
         for i, rule in enumerate(rules, 1):
             lines.append(f"{i}. {rule.name}")
             lines.append(f"   Format: {rule.format.value}")
             lines.append(f"   Priority: {rule.priority}")
+            if rule_confidence:
+                lines.append(f"   Confidence: {rule.confidence:.2f}")
             content_preview = (
                 rule.content[:100] + "..." if len(rule.content) > 100 else rule.content
             )
