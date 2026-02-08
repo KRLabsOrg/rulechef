@@ -339,7 +339,6 @@ Return JSON:
 {{
   "analysis": "What patterns did you find? What went wrong in corrections?",
   "strategy": "Overall approach",
-  "note": "Every rule must include both output_template and output_key",
   "rules": [
     {{
       "name": "Short rule name",
@@ -435,10 +434,14 @@ Example #{seed + 1}:"""
         """Build the task description header with schema and labels"""
         task = dataset.task
 
+        header = ""
+        if task.role_description:
+            header += task.role_description + "\n\n"
+
         # Get schema representation (uses Pydantic formatting if available)
         output_schema_str = task.get_schema_for_prompt()
 
-        header = f"""Task: {task.name}
+        header += f"""Task: {task.name}
 Description: {task.description}
 
 Input schema: {task.input_schema}
@@ -484,7 +487,7 @@ Output schema:
         if not examples:
             return ""
 
-        lines = [f"\nTRAINING EXAMPLES ({len(examples)} shown):"]
+        lines = [f"\nTRAINING EXAMPLES ({len(examples)} shown, learn patterns; ensure your rules match these exactly):"]
         for ex in examples:
             lines.append(f"\nInput: {json.dumps(ex.input)}")
             lines.append(f"Output: {json.dumps(ex.expected_output)}")
@@ -538,19 +541,19 @@ Output schema:
 
         return f"""
 
-YOUR TASK:
+YOUR TASK REQUIREMENTS:
 {action} ruleset (max {max_rules} rules) that:
 1. Handles all corrections correctly (CRITICAL - these show failure modes)
 2. Works on all examples
 3. Respects user feedback
 4. Is general and minimal (avoid redundant rules)
 
-RULES CAN BE:"""
+ALLOWED RULE FORMATS (pick the smallest set that works):"""
 
     def _build_format_instructions(self, task_type: TaskType) -> str:
         """Build instructions about allowed formats"""
         lines = []
-
+        lines.append("")
         if RuleFormat.REGEX in self.allowed_formats:
             lines.append("- Regex patterns (for structured extraction)")
         if RuleFormat.CODE in self.allowed_formats:
@@ -562,6 +565,10 @@ RULES CAN BE:"""
         lines.append(
             "IMPORTANT: You must ONLY use the allowed formats listed above. Do NOT generate rules in other formats."
         )
+        if RuleFormat.REGEX in self.allowed_formats:
+            lines.append(
+                "IMPORTANT: Use correct escaping of character classes for regex patterns. Include modes inside the regex for e. g. case sensitivity or unicode support."
+            )
         if RuleFormat.CODE not in self.allowed_formats:
             lines.append(
                 "IMPORTANT: Do NOT include Python/code rules. Only return the listed formats."

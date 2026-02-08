@@ -155,6 +155,7 @@ class Task:
 
     name: str
     description: str
+    role_description: str
     input_schema: Dict[str, str]
     output_schema: OutputSchema
     type: TaskType = TaskType.EXTRACTION
@@ -390,6 +391,23 @@ class Rule:
             result["output_key"] = self.output_key
         return result
 
+    @classmethod
+    def from_dict(cls, json_dict: dict):
+        return cls(
+            id=json_dict["id"],
+            name=json_dict["name"],
+            description=json_dict["description"],
+            format=RuleFormat(json_dict["format"]),
+            content=json_dict["content"],
+            priority=json_dict.get("priority", 5),
+            confidence=json_dict.get("confidence", 0.5),
+            times_applied=json_dict.get("times_applied", 0),
+            successes=json_dict.get("successes", 0),
+            failures=json_dict.get("failures", 0),
+            created_at=json_dict["created_at"],
+            output_template=json_dict.get("output_template"),
+            output_key=json_dict.get("output_key"),
+        )
 
 @dataclass
 class Dataset:
