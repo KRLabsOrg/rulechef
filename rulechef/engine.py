@@ -123,7 +123,12 @@ class RuleChef:
         decides when to trigger learning. Corrections are high-priority signals.
         """
         # Add to buffer (not dataset directly)
-        self.buffer.add_human_correction(input_data, expected_output, model_output)
+        self.buffer.add_human_correction(
+            input_data,
+            expected_output,
+            model_output,
+            feedback=feedback,
+        )
 
         stats = self.buffer.get_stats()
         print(
@@ -206,13 +211,18 @@ class RuleChef:
 
             for example in self.buffer.get_new_examples():
                 if example.is_correction:
+                    metadata = getattr(example, "metadata", {}) or {}
+                    correction_feedback = metadata.get("feedback")
+                    if isinstance(correction_feedback, str):
+                        correction_feedback = correction_feedback.strip() or None
+
                     # Add as Correction to dataset
                     correction = Correction(
                         id=self._generate_id(),
                         input=example.input,
                         model_output=example.output.get("actual", {}),
                         expected_output=example.output.get("expected", example.output),
-                        feedback=None,
+                        feedback=correction_feedback,
                     )
                     self.dataset.corrections.append(correction)
                 else:

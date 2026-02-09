@@ -605,6 +605,7 @@ Return JSON:
 
     def _pattern_uses_ent_type(self, pattern_data: List) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
+
         def _walk(value):
             if isinstance(value, dict):
                 for k, v in value.items():
