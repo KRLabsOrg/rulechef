@@ -210,7 +210,6 @@ def main():
         st.session_state.rules_learned = False
 
     if rules_mode == "Load existing rules":
-        st.session_state.rules_learned = True
         uploaded_rules = st.file_uploader(
             "Upload rules file",
             type=["json"],
@@ -223,8 +222,6 @@ def main():
             st.success(f"{len(rules)} rules loaded")
 
     if rules_mode == "Learn rules from data":
-        st.session_state.rules_learned = False
-
         st.subheader("Define Task")
 
         with st.form("task_form"):
@@ -304,37 +301,39 @@ def main():
                 with stream_to_streamlit(output_box, "Learning Rules Output"):
                     st.session_state.chef.learn_rules()
 
-                    rules_data = json.loads(
-                        Path("./rulechef_data/myrules.json").read_text(encoding="utf-8")
-                    )
-                    st.session_state.rules = [
-                        Rule.from_dict(r) for r in rules_data.get("rules")
-                    ]
-
-            st.success(f"{len(st.session_state.rules)} rules learned")
-
             st.session_state.rules_learned = True
 
-    if st.session_state.rules and st.session_state.rules_learned:
+    if st.session_state.rules or st.session_state.rules_learned:
         st.subheader("Learned Rules")
-        st.json(st.session_state.rules)
+        if not st.session_state.rules_learned:
+            st.json(st.session_state.rules)
+        if  st.session_state.rules_learned:
+            st.session_state.chef.get_rules_summary()
         st.subheader("Test Rules on New Text")
         test_text = st.text_area(
             "Input text",
             height=150,
             placeholder="Paste or type text here…",
         )
+
         if not st.session_state.executor:
             st.session_state.executor = RuleExecutor()
 
         apply_clicked = st.button("Apply Rules")
         if apply_clicked and test_text.strip():
-            with st.spinner("Applying rules..."):
-                result = st.session_state.executor.apply_rules(
-                    rules=st.session_state.rules,
-                    input_data={"text": test_text},
-                    task_type=TaskType.NER,
-                )
+            if not st.session_state.rules_learned:
+                with st.spinner("Applying rules..."):
+                    result = st.session_state.executor.apply_rules(
+                        rules=st.session_state.rules,
+                        input_data={"text": test_text},
+                        task_type=TaskType.NER,
+                    )
+
+            if st.session_state.rules_learned:
+                with st.spinner("Applying rules..."):
+                    result = st.session_state.chef.extract(
+                        input_data={"text": test_text},
+                    )
 
             entities = result.get("entities", [])
             if entities:
