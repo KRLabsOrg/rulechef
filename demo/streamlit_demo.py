@@ -307,8 +307,9 @@ def main():
         st.subheader("Learned Rules")
         if not st.session_state.rules_learned:
             st.json(st.session_state.rules)
-        if  st.session_state.rules_learned:
-            st.session_state.chef.get_rules_summary()
+        if st.session_state.rules_learned:
+            st.json(st.session_state.chef.get_rules_summary())
+
         st.subheader("Test Rules on New Text")
         test_text = st.text_area(
             "Input text",
@@ -328,7 +329,6 @@ def main():
                         input_data={"text": test_text},
                         task_type=TaskType.NER,
                     )
-
             if st.session_state.rules_learned:
                 with st.spinner("Applying rules..."):
                     result = st.session_state.chef.extract(
