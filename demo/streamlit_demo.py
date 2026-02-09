@@ -4,6 +4,8 @@ import random
 import subprocess
 from typing import List
 import sys
+from pathlib import Path
+
 import io
 import streamlit as st
 from pydantic import BaseModel, Field
@@ -11,7 +13,9 @@ from pydantic import BaseModel, Field
 from clear_anonymization.ner_datasets.ner_dataset import NERData
 from openai import OpenAI
 from rulechef import RuleChef, Task, TaskType
-from rulechef.core import RuleFormat
+from rulechef.executor import RuleExecutor
+from rulechef.core import RuleFormat, Rule
+from contextlib import contextmanager
 
 
 # -----------------------------
@@ -105,6 +109,52 @@ def build_task(name, description):
 
 
 # -----------------------------
+# Terminal Output Streaming
+# -----------------------------
+
+
+@contextmanager
+def stream_to_streamlit(output_box, title="Execution Log"):
+    """
+    Redirect stdout to a Streamlit text area.
+    Usage:
+        with stream_to_streamlit(my_box, "Learning Rules"):
+            print("Hello World")  # or any function that prints
+    """
+    if "terminal_output" not in st.session_state:
+        st.session_state.terminal_output = ""
+
+    class StreamlitWriter(io.TextIOBase):
+        def write(self, s):
+            if s.strip():
+                st.session_state.terminal_output += s
+                output_box.text_area(
+                    title, value=st.session_state.terminal_output, height=300
+                )
+
+        def flush(self):
+            pass
+
+    old_stdout = sys.stdout
+    sys.stdout = StreamlitWriter()
+    try:
+        yield
+    finally:
+        sys.stdout = old_stdout
+
+
+# -----------------------------
+# Highlight Output Text
+# -----------------------------
+def highlight_entities(text, entities):
+    entities = sorted(entities, key=lambda e: e["start"], reverse=True)
+    for e in entities:
+        span = text[e["start"] : e["end"]]
+        text = text[: e["start"]] + f"**[{span}]({e['type']})**" + text[e["end"] :]
+    return text
+
+
+# -----------------------------
 # Streamlit App
 # -----------------------------
 
@@ -123,10 +173,13 @@ def main():
         "chef",
         "samples",
         "rules",
-        "terminal_ouput"
+        "executor",
+        "rules_learned",
     ]:
         if key not in st.session_state:
             st.session_state[key] = None
+
+        st.session_state.terminal_output = ""
 
     # ---- Header ----
     col1, col2 = st.columns([3, 1])
@@ -143,41 +196,57 @@ def main():
             width=200,
         )
 
-    # ---- Task definition ----
-    st.subheader("Define Task")
+    st.subheader("Rules Source")
 
-    with st.form("task_form"):
-        task_name = st.text_input(
-            "Task name",
-            value="Named Entity Recognition",
+    rules_mode = st.radio(
+        "How do you want to get rules?",
+        [
+            "Learn rules from data",
+            "Load existing rules",
+        ],
+    )
+
+    if "rules_learned" not in st.session_state:
+        st.session_state.rules_learned = False
+
+    if rules_mode == "Load existing rules":
+        st.session_state.rules_learned = True
+        uploaded_rules = st.file_uploader(
+            "Upload rules file",
+            type=["json"],
         )
+        if uploaded_rules:
+            rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
+            rules = [Rule.from_dict(r) for r in rules_data.get("rules")]
 
-        task_description = st.text_area(
-            "Task description",
-            value="Extract entities from text",
-        )
+            st.session_state.rules = rules
+            st.success(f"{len(rules)} rules loaded")
 
-        entity_types = st.multiselect(
-            "Entity types to extract",
-            options=["ORG", "PER", "LOC"],
-            default=["ORG"],
-        )
+    if rules_mode == "Learn rules from data":
+        st.session_state.rules_learned = False
 
-        language = st.selectbox("Language", ["de", "en"])
+        st.subheader("Define Task")
 
-        submitted = st.form_submit_button("Set task")
+        with st.form("task_form"):
+            task_name = st.text_input("Task name", "Named Entity Recognition")
+            task_description = st.text_area(
+                "Task description", "Extract entities from text"
+            )
+            entity_types = st.multiselect(
+                "Entity types", ["ORG", "PER", "LOC"], default=["ORG"]
+            )
+            language = st.selectbox("Language", ["de", "en"])
 
-        if submitted:
-            st.session_state.task = build_task(task_name, task_description)
-            st.session_state.entity_types = entity_types
-            st.session_state.language = language
+            submitted = st.form_submit_button("Set task")
 
-            st.success("Task saved")
+            if submitted:
+                st.session_state.task = build_task(task_name, task_description)
+                st.session_state.entity_types = entity_types
+                st.session_state.language = language
+                st.success("Task saved")
 
-    # ---- Upload data ----
-    if st.session_state.task:
-        st.subheader("Upload JSON file")
-        uploaded_file = st.file_uploader("", type="json")
+    if rules_mode == "Learn rules from data" and st.session_state.task:
+        uploaded_file = st.file_uploader("Upload JSON file", type="json")
 
         if uploaded_file:
             content = uploaded_file.read().decode("utf-8")
@@ -196,66 +265,84 @@ def main():
 
             st.success("JSON file uploaded")
 
-    # ---- Create RuleChef ----
-    if (
-        st.session_state.task
-        and st.session_state.data
-        and st.session_state.chef is None
-    ):
-        st.session_state.chef = RuleChef(
-            st.session_state.task,
-            get_openai_client(),
-            dataset_name="myrules",
-            allowed_formats=[RuleFormat.REGEX],
-            model="gpt-5-mini-2025-08-07",
-            use_spacy_ner=False,
-            lang=st.session_state.language,
-        )
+        # ---- Create RuleChef ----
+        if (
+            st.session_state.task
+            and st.session_state.data
+            and st.session_state.chef is None
+        ):
+            st.session_state.chef = RuleChef(
+                st.session_state.task,
+                get_openai_client(),
+                dataset_name="myrules",
+                allowed_formats=[RuleFormat.REGEX],
+                model="gpt-5-mini-2025-08-07",
+                use_spacy_ner=False,
+                lang=st.session_state.language,
+            )
 
-        add_data(
-            st.session_state.chef,
-            st.session_state.positive,
-            st.session_state.negative,
-        )
+            output_box = st.empty()
 
-        st.success("RuleChef initialized")
+            with stream_to_streamlit(output_box, "Adding data"):
+                add_data(
+                    st.session_state.chef,
+                    st.session_state.positive,
+                    st.session_state.negative,
+                )
 
-    # ---- Learn rules ----
+            st.success("RuleChef initialized")
 
+        # ---- Learn rules ----
 
-    if st.session_state.chef and st.button("Learn Rules"):
-    
-        st.session_state.terminal_output = ""
+        if rules_mode == "Learn rules from data" and st.session_state.chef:
+            if (
+                "rules_learned" not in st.session_state
+                or not st.session_state.rules_learned
+            ):
+                output_box = st.empty()
 
+                with stream_to_streamlit(output_box, "Learning Rules Output"):
+                    st.session_state.chef.learn_rules()
 
-        output_box = st.empty()
-    
-
-        class StreamlitWriter(io.TextIOBase):
-            """Redirect stdout to Streamlit text_area."""
-            def write(self, s):
-                if s.strip():
-                    st.session_state.terminal_output += s
-                    # Update scrollable text area live
-                    output_box.text_area(
-                        "Learning Rules Output",
-                        value=st.session_state.terminal_output,
-                        height=300,
-                    
+                    rules_data = json.loads(
+                        Path("./rulechef_data/myrules.json").read_text(encoding="utf-8")
                     )
+                    st.session_state.rules = [
+                        Rule.from_dict(r) for r in rules_data.get("rules")
+                    ]
 
-            def flush(self):
-                pass
-        old_stdout = sys.stdout
-        sys.stdout = StreamlitWriter()
+            st.success(f"{len(st.session_state.rules)} rules learned")
 
-        try:
-        
-            st.session_state.rules = st.session_state.chef.learn_rules()
-        finally:
-            sys.stdout = old_stdout  # restore stdout
+            st.session_state.rules_learned = True
 
-        st.success(f"{len(st.session_state.rules)} rules learned")
+    if st.session_state.rules and st.session_state.rules_learned:
+        st.subheader("Learned Rules")
+        st.json(st.session_state.rules)
+        st.subheader("Test Rules on New Text")
+        test_text = st.text_area(
+            "Input text",
+            height=150,
+            placeholder="Paste or type text here…",
+        )
+        if not st.session_state.executor:
+            st.session_state.executor = RuleExecutor()
+
+        apply_clicked = st.button("Apply Rules")
+        if apply_clicked and test_text.strip():
+            with st.spinner("Applying rules..."):
+                result = st.session_state.executor.apply_rules(
+                    rules=st.session_state.rules,
+                    input_data={"text": test_text},
+                    task_type=TaskType.NER,
+                )
+
+            entities = result.get("entities", [])
+            if entities:
+                st.subheader("Rule Output")
+                st.markdown(highlight_entities(test_text, entities))
+                st.json(result)
+            else:
+                st.info("No entities found.")
 
 
 if __name__ == "__main__":
