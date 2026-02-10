@@ -383,7 +383,9 @@ class RuleLearner:
         Returns only new/updated rules; caller merges with existing set.
         """
         sampled_failures = self._sample_failures(failures, max_samples=20)
-        prompt = self._build_patch_prompt(current_rules, sampled_failures, max_rules)
+        prompt = self._build_patch_prompt(
+            current_rules, sampled_failures, max_rules, dataset=dataset
+        )
 
         print("🩹 Synthesizing patch rules...")
         start = time.time()
@@ -454,6 +456,7 @@ class RuleLearner:
         current_rules: List[Rule],
         failures: List[Dict],
         max_rules: int,
+        dataset: Optional[Dataset] = None,
     ) -> str:
         """Build prompt for targeted patch rules."""
         rules_summary = [
@@ -477,7 +480,31 @@ class RuleLearner:
                 }
             )
 
+        # Use the schema-aware response format so patch rules include
+        # output_template/output_key when needed (NER, TRANSFORMATION).
+        if dataset:
+            response_schema = self.prompt_builder._build_response_schema(dataset)
+            data_evidence = self.prompt_builder._build_data_evidence(dataset)
+        else:
+            response_schema = """Return JSON:
+{
+  "analysis": "short reasoning",
+  "rules": [
+    {
+      "name": "rule name",
+      "description": "what this rule fixes",
+      "format": "regex|code|spacy",
+      "content": "pattern or code",
+      "priority": 1-10
+    }
+  ]
+}"""
+            data_evidence = ""
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
+
+{self.prompt_builder._build_task_header(dataset) if dataset else ""}
+{data_evidence}
 
 CURRENT RULES (summary, top 10):
 {json.dumps(rules_summary, indent=2)}
@@ -492,19 +519,9 @@ Instructions:
 - Use formats: {", ".join([f.value for f in self.allowed_formats])}
 - Avoid touching unrelated behaviors.
 
-Return JSON:
-{{
-  "analysis": "short reasoning",
-  "rules": [
-    {{
-      "name": "rule name",
-      "description": "what this rule fixes",
-      "format": "regex|code|spacy",
-      "content": "pattern or code",
-      "priority": 1-10
-    }}
-  ]
-}}
+{self.prompt_builder._build_format_instructions(dataset.task.type) if dataset else ""}
+
+{response_schema}
 """
         return prompt
 
