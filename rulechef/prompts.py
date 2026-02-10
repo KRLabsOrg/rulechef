@@ -14,6 +14,8 @@ try:
 except ImportError:
     _HAS_GREX = False
 
+_GREX_LOG = os.environ.get("RULECHEF_GREX_LOG") == "1"
+
 
 # ============================================================================
 # FORMAT EXAMPLES - CODE
@@ -665,14 +667,18 @@ Each rule needs:
     # grex helpers
     # ========================================
 
-    def _grex_patterns(self, strings: List[str]) -> List[str]:
+    def _grex_patterns(self, strings: List[str], context: str = "") -> List[str]:
         """Generate regex pattern hints from example strings using grex.
 
         Returns lines to append to evidence sections. Always emits the exact
         pattern (alternation) and additionally emits a generalized structural
         pattern when the ratio heuristic detects real structure (< 0.7).
         """
-        if not self.use_grex or not _HAS_GREX or len(strings) < 2:
+        if not self.use_grex:
+            return []
+        if not _HAS_GREX:
+            return []
+        if len(strings) < 2:
             return []
         # grex can produce huge patterns that overfit or bloat the prompt; keep it bounded.
         unique: List[str] = []
@@ -710,6 +716,9 @@ Each rule needs:
                 ratio = len(generalized) / len(exact)
                 if ratio < 0.7:
                     lines.append(f"  Structural pattern: {generalized}")
+            if _GREX_LOG:
+                label = f" {context}" if context else ""
+                print(f"[rulechef][grex] used{label}")
             return lines
         except Exception:
             return []
@@ -782,7 +791,7 @@ Each rule needs:
             vals = label_to_texts[label]
             preview = ", ".join(json.dumps(v) for v in vals)
             lines.append(f"- {label} ({len(vals)} unique): {preview}")
-            lines.extend(self._grex_patterns(vals))
+            lines.extend(self._grex_patterns(vals, context=f"NER:{label}"))
 
         notes: List[str] = []
         if saw_lowercase:
@@ -833,7 +842,7 @@ Each rule needs:
         lines = ["", "DATA EVIDENCE FROM TRAINING:"]
         preview = ", ".join(json.dumps(t) for t in texts)
         lines.append(f"- Extracted spans ({len(texts)} unique): {preview}")
-        lines.extend(self._grex_patterns(texts))
+        lines.extend(self._grex_patterns(texts, context="EXTRACTION:spans"))
         lines.append("")
         lines.append(
             "Computed patterns match training strings only; generalize carefully."
@@ -884,7 +893,11 @@ Each rule needs:
             inputs = label_to_inputs[label]
             preview = ", ".join(json.dumps(t[:80]) for t in inputs)
             lines.append(f"- {label} ({len(inputs)} examples): {preview}")
-            lines.extend(self._grex_patterns([t[:80] for t in inputs]))
+            lines.extend(
+                self._grex_patterns(
+                    [t[:80] for t in inputs], context=f"CLASSIFICATION:{label}"
+                )
+            )
 
         lines.append("")
         lines.append(
@@ -923,7 +936,7 @@ Each rule needs:
             vals = key_to_values[key]
             preview = ", ".join(json.dumps(v) for v in vals)
             lines.append(f"- {key} ({len(vals)} unique): {preview}")
-            lines.extend(self._grex_patterns(vals))
+            lines.extend(self._grex_patterns(vals, context=f"TRANSFORMATION:{key}"))
 
         lines.append("")
         lines.append(

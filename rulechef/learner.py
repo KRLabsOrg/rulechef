@@ -34,7 +34,9 @@ class RuleLearner:
         self.use_grex = use_grex
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
-            self.allowed_formats, use_spacy_ner=use_spacy_ner, use_grex=use_grex
+            self.allowed_formats,
+            use_spacy_ner=use_spacy_ner,
+            use_grex=use_grex,
         )
 
     # ========================================
