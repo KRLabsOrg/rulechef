@@ -25,16 +25,27 @@ class RuleLearner:
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
         use_spacy_ner: bool = False,
+
         lang: Lang = "en",
+=======
+        use_grex: bool = True,
+>>>>>>> main
     ):
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
+        self.use_grex = use_grex
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
+
             self.allowed_formats, use_spacy_ner=use_spacy_ner, lang=lang
+
+            self.allowed_formats,
+            use_spacy_ner=use_spacy_ner,
+            use_grex=use_grex,
+
         )
 
     # ========================================
@@ -202,7 +213,11 @@ class RuleLearner:
     def evaluate_and_refine(
         self, rules: List[Rule], dataset: Dataset, max_iterations: int = 3
     ) -> tuple:
-        """Evaluate rules and refine through agentic loop"""
+        """Evaluate rules and refine through patch-based loop.
+
+        Each iteration generates patch rules for failures and merges them
+        into the existing set, keeping working rules intact.
+        """
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
         best_rules = rules
@@ -220,7 +235,7 @@ class RuleLearner:
                 f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
             )
 
-            if accuracy > best_accuracy or (accuracy == best_accuracy and iter_num > 1):
+            if accuracy > best_accuracy:
                 best_rules = rules
                 best_accuracy = accuracy
 
@@ -230,18 +245,33 @@ class RuleLearner:
 
             if results["failures"]:
                 print(
-                    f"[{iter_num}/{max_iterations}] Refining based on {len(results['failures'])} failures..."
+                    f"[{iter_num}/{max_iterations}] Patching {len(results['failures'])} failures..."
                 )
                 start = time.time()
-                rules = self._refine_rules(rules, results["failures"], dataset)
+                patch = self.synthesize_patch_ruleset(
+                    rules, results["failures"], max_rules=10, dataset=dataset
+                )
                 elapsed = time.time() - start
-                if not rules:
-                    print("⚠ Refinement failed, keeping best rules")
-                    rules = best_rules
+                if not patch:
+                    print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
-                    print(
-                        f"[{iter_num}/{max_iterations}] Refined {len(rules)} rules ({elapsed:.1f}s)"
-                    )
+                    candidate = self._merge_patch(rules, patch)
+                    candidate_results = self._evaluate_rules(candidate, dataset)
+                    candidate_acc = candidate_results["accuracy"]
+                    if candidate_acc >= accuracy:
+                        rules = candidate
+                        print(
+                            f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
+                            f"accuracy {accuracy:.1%} → {candidate_acc:.1%} ({elapsed:.1f}s)"
+                        )
+                        if candidate_acc > best_accuracy:
+                            best_rules = rules
+                            best_accuracy = candidate_acc
+                    else:
+                        print(
+                            f"[{iter_num}/{max_iterations}] Patch made it worse "
+                            f"({accuracy:.1%} → {candidate_acc:.1%}), keeping previous"
+                        )
             else:
                 print("✓ No failures to fix!")
                 break
@@ -251,6 +281,20 @@ class RuleLearner:
             "total": results["total"],
             "correct": int(best_accuracy * results["total"]),
         }
+
+    @staticmethod
+    def _merge_patch(existing: List[Rule], patches: List[Rule]) -> List[Rule]:
+        """Merge patch rules into existing set by name."""
+        by_name = {r.name: r for r in existing}
+        for pr in patches:
+            if pr.name in by_name:
+                current = by_name[pr.name]
+                pr.times_applied = current.times_applied
+                pr.successes = current.successes
+                pr.failures = current.failures
+                pr.confidence = current.confidence
+            by_name[pr.name] = pr
+        return list(by_name.values())
 
     def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> Dict:
         """Test rules on all training data"""
@@ -348,7 +392,9 @@ class RuleLearner:
         Returns only new/updated rules; caller merges with existing set.
         """
         sampled_failures = self._sample_failures(failures, max_samples=20)
-        prompt = self._build_patch_prompt(current_rules, sampled_failures, max_rules)
+        prompt = self._build_patch_prompt(
+            current_rules, sampled_failures, max_rules, dataset=dataset
+        )
 
         print("🩹 Synthesizing patch rules...")
         start = time.time()
@@ -411,6 +457,9 @@ class RuleLearner:
                 negative_examples
             )
 
+        # Entity evidence helps the model infer labels/patterns when schemas don't encode them.
+        prompt += self.prompt_builder._build_data_evidence(dataset)
+
         # Add other sections
         prompt += self.prompt_builder._build_feedback_section(dataset)
         prompt += self.prompt_builder._build_existing_rules_section(dataset)
@@ -427,6 +476,7 @@ class RuleLearner:
         current_rules: List[Rule],
         failures: List[Dict],
         max_rules: int,
+        dataset: Optional[Dataset] = None,
     ) -> str:
         """Build prompt for targeted patch rules."""
         rules_summary = [
@@ -450,7 +500,31 @@ class RuleLearner:
                 }
             )
 
+        # Use the schema-aware response format so patch rules include
+        # output_template/output_key when needed (NER, TRANSFORMATION).
+        if dataset:
+            response_schema = self.prompt_builder._build_response_schema(dataset)
+            data_evidence = self.prompt_builder._build_data_evidence(dataset)
+        else:
+            response_schema = """Return JSON:
+{
+  "analysis": "short reasoning",
+  "rules": [
+    {
+      "name": "rule name",
+      "description": "what this rule fixes",
+      "format": "regex|code|spacy",
+      "content": "pattern or code",
+      "priority": 1-10
+    }
+  ]
+}"""
+            data_evidence = ""
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
+
+{self.prompt_builder._build_task_header(dataset) if dataset else ""}
+{data_evidence}
 
 CURRENT RULES (summary, top 10):
 {json.dumps(rules_summary, indent=2)}
@@ -465,19 +539,9 @@ Instructions:
 - Use formats: {", ".join([f.value for f in self.allowed_formats])}
 - Avoid touching unrelated behaviors.
 
-Return JSON:
-{{
-  "analysis": "short reasoning",
-  "rules": [
-    {{
-      "name": "rule name",
-      "description": "what this rule fixes",
-      "format": "regex|code|spacy",
-      "content": "pattern or code",
-      "priority": 1-10
-    }}
-  ]
-}}
+{self.prompt_builder._build_format_instructions(dataset.task.type) if dataset else ""}
+
+{response_schema}
 """
         return prompt
 

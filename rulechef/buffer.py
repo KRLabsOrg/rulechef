@@ -3,7 +3,7 @@
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import List, Dict, Any, Optional
 
 
 @dataclass
@@ -68,8 +68,13 @@ class ExampleBuffer:
         input_data: Dict[str, Any],
         expected_output: Dict[str, Any],
         actual_output: Dict[str, Any],
+        feedback: Optional[str] = None,
     ):
         """Add human correction of model output"""
+        metadata = {}
+        if feedback is not None:
+            metadata["feedback"] = feedback
+
         with self.lock:
             self.examples.append(
                 ObservedExample(
@@ -80,6 +85,7 @@ class ExampleBuffer:
                     },
                     source="human",
                     is_correction=True,
+                    metadata=metadata,
                 )
             )
 

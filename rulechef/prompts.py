@@ -2,9 +2,11 @@
 
 import json
 import os
-from typing import Any, Dict, List
+from collections import defaultdict
+from typing import Dict, List, Any, Set
 
 from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
+
 
 # ============================================================================
 # Languages
@@ -16,6 +18,16 @@ LANG_TO_FULL_NAME = {
     "en": "English",
     "de": "German",
 }
+
+try:
+    from grex import RegExpBuilder
+
+    _HAS_GREX = True
+except ImportError:
+    _HAS_GREX = False
+
+_GREX_LOG = os.environ.get("RULECHEF_GREX_LOG") == "1"
+
 
 # ============================================================================
 # FORMAT EXAMPLES - CODE
@@ -66,13 +78,13 @@ def extract(input_data):
     entities = []
     text = input_data.get("text", "")
 
-    # Example: Find email addresses (type: EMAIL)
+    # Example: Find email addresses (type: LABEL_A)
     for match in re.finditer(r'\\S+@\\S+\\.\\S+', text):
         entities.append({
             "text": match.group(),
             "start": match.start(),
             "end": match.end(),
-            "type": "EMAIL"  # IMPORTANT: Include entity type
+            "type": "LABEL_A"  # IMPORTANT: Include entity type
         })
     return entities
 ```
@@ -206,9 +218,9 @@ Example 1 - Person names with type:
   "name": "person_entities",
   "format": "spacy",
   "content": "[{\\"ENT_TYPE\\": \\"PERSON\\"}]",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "PER"},
+  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "LABEL_A"},
   "output_key": "entities",
-  "description": "Extract person names as PER entities"
+  "description": "Extract person names as LABEL_A entities"
 }
 
 Example 2 - Organizations with type:
@@ -216,9 +228,9 @@ Example 2 - Organizations with type:
   "name": "org_entities",
   "format": "spacy",
   "content": "[{\\"ENT_TYPE\\": \\"ORG\\"}]",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"},
+  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "LABEL_B"},
   "output_key": "entities",
-  "description": "Extract organizations as ORG entities"
+  "description": "Extract organizations as LABEL_B entities"
 }
 """
 
@@ -231,9 +243,10 @@ SPACY_EXAMPLES = {
 
 
 # ============================================================================
-# SCHEMA-AWARE EXAMPLES (NER, TRANSFORMATION)
+# PROMPT GUIDANCE
 # ============================================================================
 
+<<<<<<< HEAD
 
 NER_RULE_EXAMPLES_REGEX_EN = """
 NER RULE EXAMPLES (regex):
@@ -303,30 +316,36 @@ Example 2 - Locations with spaCy:
   "output_key": "entities",
   "priority": 8
 }
+=======
+RULE_QUALITY_GUIDE = """WHAT MAKES A GOOD RULE:
+- Prefer precision over recall: a narrow rule that matches exactly what it should is better than a broad rule that matches wrong things.
+- Do not overfit to exact training strings: generalize just enough to cover unseen examples of the same pattern.
+- Use context clues when possible: words around an entity often disambiguate better than the entity text alone.
+- Write multiple focused rules instead of one giant pattern.
+- If two entity types look similar as strings, use surrounding context to disambiguate (not just capitalization).
+- It is OK to miss rare edge cases; avoid rules that match garbage.
 """
 
-TRANSFORMATION_RULE_EXAMPLES = """
-TRANSFORMATION RULE EXAMPLES:
+REGEX_TECHNIQUE_GUIDE = """REGEX TECHNIQUES:
+- Use \\b word boundaries to avoid partial word matches.
+- Use (?:...) for non-capturing groups.
+- Use alternation: (word1|word2|word3).
+- Use character classes: [A-Z], [a-z], \\d, \\s.
+- Use quantifiers: +, *, ?, {n,m}.
+- Use lookahead (?=...) / lookbehind (?<=...) for context without consuming.
+- Do NOT assume entities are capitalized; check the training data.
+- Prefer matching context (e.g. "at <ORG>") and capturing the entity span.
+>>>>>>> main
+"""
 
-Example 1 - Extract dates:
-{
-  "name": "date_pattern",
-  "format": "regex",
-  "pattern": "\\b(\\d{4})-(\\d{2})-(\\d{2})\\b",
-  "output_template": {"date": "$0", "year": "$1", "month": "$2", "day": "$3"},
-  "output_key": "dates",
-  "priority": 8
-}
-
-Example 2 - Extract prices:
-{
-  "name": "price_pattern",
-  "format": "regex",
-  "pattern": "\\$([\\d,]+(?:\\.\\d{2})?)",
-  "output_template": {"amount": "$1", "currency": "USD", "raw": "$0"},
-  "output_key": "prices",
-  "priority": 8
-}
+SPACY_TECHNIQUE_GUIDE = """SPACY TECHNIQUES:
+- Use POS tags (PROPN, NOUN, VERB) for linguistic patterns.
+- Use DEP labels (nsubj, dobj, pobj) for syntactic relationships.
+- Use SHAPE for structural patterns (e.g. "dddd" for years, "Xxxxx" for capitalized).
+- Use IN for matching any of several values.
+- Use OP for quantifiers ("?" optional, "+" one or more).
+- Dependency matcher is powerful for verb-argument patterns.
+- Do NOT use ENT_TYPE unless spaCy NER is explicitly enabled.
 """
 
 
@@ -407,6 +426,13 @@ class PromptBuilder:
         self.use_spacy_ner = use_spacy_ner
         self.lang = lang
 
+        use_grex: bool = True,
+    ):
+        self.allowed_formats = allowed_formats
+        self.use_spacy_ner = use_spacy_ner
+        self.use_grex = use_grex
+
+
     # ========================================
     # Main Prompt Builders
     # ========================================
@@ -416,6 +442,7 @@ class PromptBuilder:
         parts = [
             self._build_task_header(dataset),
             self._build_training_data_section(dataset),
+            self._build_data_evidence(dataset),
             self._build_feedback_section(dataset),
             self._build_existing_rules_section(dataset),
             self._build_task_instructions(dataset, max_rules),
@@ -440,6 +467,7 @@ class PromptBuilder:
         return f"""Refine the ruleset for this task while fixing the failures shown.
 
 {self._build_task_header(dataset)}
+{self._build_data_evidence(dataset)}
 
 CURRENT RULES:
 {rules_formatted or "None"}
@@ -482,10 +510,12 @@ Description: {task.description}
 Input schema: {task.input_schema}
 Output schema:
 {output_schema_str}
-"""
+        """
 
         # Add label descriptions for NER/classification tasks
         labels = task.get_labels()
+        if not labels:
+            labels = self._derive_labels_from_data(dataset)
         if labels:
             header += f"\nAVAILABLE ENTITY TYPES: {labels}\n"
             header += "Rules MUST use one of these types in output_template.\n"
@@ -603,6 +633,8 @@ YOUR TASK:
 4. Respects user feedback
 5. Is general and minimal (avoid redundant rules)
 
+{RULE_QUALITY_GUIDE}
+
 RULES CAN BE:"""
 
     def _build_format_instructions(self, task_type: TaskType) -> str:
@@ -640,6 +672,14 @@ RULES CAN BE:"""
                 lines.append(
                     "IMPORTANT: spaCy NER is disabled. Do NOT use ENT_TYPE or ENT_ID in spaCy patterns."
                 )
+
+        # Technique guides are format-specific; only include those that are allowed.
+        if RuleFormat.REGEX in self.allowed_formats:
+            lines.append("")
+            lines.append(REGEX_TECHNIQUE_GUIDE)
+        if RuleFormat.SPACY in self.allowed_formats:
+            lines.append("")
+            lines.append(SPACY_TECHNIQUE_GUIDE)
 
         return "\n".join(lines)
 
@@ -722,6 +762,314 @@ Each rule needs:
             section += TRANSFORMATION_RULE_EXAMPLES
 
         return section
+
+    def _derive_labels_from_data(self, dataset: Dataset) -> List[str]:
+        """Derive label strings from expected_output in examples/corrections.
+
+        This is a fallback when Task.get_labels() returns [] (common with dict schemas).
+        """
+        labels: Set[str] = set()
+        for item in list(dataset.examples) + list(dataset.corrections):
+            output = getattr(item, "expected_output", None) or {}
+            for key in ("entities", "spans"):
+                entities = output.get(key, [])
+                if not isinstance(entities, list):
+                    continue
+                for ent in entities:
+                    if not isinstance(ent, dict):
+                        continue
+                    # Support a few common field names.
+                    for field in ("type", "label", "tag"):
+                        val = ent.get(field)
+                        if isinstance(val, str) and val.strip():
+                            labels.add(val.strip())
+                            break
+        return sorted(labels)
+
+    # ========================================
+    # grex helpers
+    # ========================================
+
+    def _grex_patterns(self, strings: List[str], context: str = "") -> List[str]:
+        """Generate regex pattern hints from example strings using grex.
+
+        Returns lines to append to evidence sections. Always emits the exact
+        pattern (alternation) and additionally emits a generalized structural
+        pattern when the ratio heuristic detects real structure (< 0.7).
+        """
+        if not self.use_grex:
+            return []
+        if not _HAS_GREX:
+            return []
+        if len(strings) < 2:
+            return []
+        # grex can produce huge patterns that overfit or bloat the prompt; keep it bounded.
+        unique: List[str] = []
+        for s in strings:
+            if not isinstance(s, str):
+                continue
+            normalized = " ".join(s.split())
+            if not normalized:
+                continue
+            if normalized not in unique:
+                unique.append(normalized)
+
+        if len(unique) < 2:
+            return []
+        if len(unique) > 30:
+            return []
+        if any(len(s) > 80 for s in unique):
+            return []
+        if sum(len(s) for s in unique) > 1200:
+            return []
+
+        # Make grex deterministic: order-sensitive builders can vary with input order.
+        unique = sorted(unique)
+        try:
+            exact = RegExpBuilder.from_test_cases(unique).without_anchors().build()
+            generalized = (
+                RegExpBuilder.from_test_cases(unique)
+                .without_anchors()
+                .with_conversion_of_digits()
+                .with_conversion_of_repetitions()
+                .build()
+            )
+            lines = [f"  Exact pattern: {exact}"]
+            if generalized != exact and len(exact) > 0:
+                ratio = len(generalized) / len(exact)
+                if ratio < 0.7:
+                    lines.append(f"  Structural pattern: {generalized}")
+            if _GREX_LOG:
+                label = f" {context}" if context else ""
+                print(f"[rulechef][grex] used{label}")
+            return lines
+        except Exception:
+            return []
+
+    # ========================================
+    # Data evidence (task-type-aware)
+    # ========================================
+
+    def _build_data_evidence(self, dataset: Dataset) -> str:
+        """Build data evidence section, dispatching by task type."""
+        task_type = dataset.task.type
+        if task_type == TaskType.NER:
+            return self._build_ner_evidence(dataset)
+        elif task_type == TaskType.EXTRACTION:
+            return self._build_extraction_evidence(dataset)
+        elif task_type == TaskType.CLASSIFICATION:
+            return self._build_classification_evidence(dataset)
+        elif task_type == TaskType.TRANSFORMATION:
+            return self._build_transformation_evidence(dataset)
+        return ""
+
+    def _build_ner_evidence(self, dataset: Dataset) -> str:
+        """Summarize entity strings seen in training data for NER tasks."""
+        max_labels = 25
+        max_strings_per_label = 15
+        max_total_chars = 3000
+
+        label_to_texts: Dict[str, List[str]] = defaultdict(list)
+        saw_lowercase = False
+        saw_multiword = False
+
+        def _add(label: str, text: str):
+            nonlocal saw_lowercase, saw_multiword
+            if not label or not text:
+                return
+            normalized = " ".join(str(text).split())
+            if not normalized:
+                return
+            if (
+                any(c.isalpha() for c in normalized)
+                and normalized.lower() == normalized
+            ):
+                saw_lowercase = True
+            if " " in normalized.strip():
+                saw_multiword = True
+            existing = label_to_texts[label]
+            if normalized in existing:
+                return
+            if len(existing) < max_strings_per_label:
+                existing.append(normalized)
+
+        for item in list(dataset.examples) + list(dataset.corrections):
+            output = getattr(item, "expected_output", None) or {}
+            entities = output.get("entities", [])
+            if isinstance(entities, list):
+                for ent in entities:
+                    if not isinstance(ent, dict):
+                        continue
+                    label = ent.get("type") or ent.get("label") or ent.get("tag")
+                    text = ent.get("text")
+                    if isinstance(label, str) and isinstance(text, str):
+                        _add(label.strip(), text)
+
+        if not label_to_texts:
+            return ""
+
+        labels = sorted(label_to_texts.keys())[:max_labels]
+        lines = ["", "DATA EVIDENCE FROM TRAINING:"]
+        for label in labels:
+            vals = label_to_texts[label]
+            preview = ", ".join(json.dumps(v) for v in vals)
+            lines.append(f"- {label} ({len(vals)} unique): {preview}")
+            lines.extend(self._grex_patterns(vals, context=f"NER:{label}"))
+
+        notes: List[str] = []
+        if saw_lowercase:
+            notes.append("Some entities are lowercase; do NOT assume capitalization.")
+        if saw_multiword:
+            notes.append(
+                "Some entities contain multiple words; do NOT assume single-token matches."
+            )
+        if notes:
+            lines.append("")
+            lines.append("Note: " + " ".join(notes[:2]))
+
+        lines.append("")
+        lines.append(
+            "Computed patterns match training strings only; generalize carefully."
+        )
+
+        out = "\n".join(lines)
+        if len(out) > max_total_chars:
+            out = out[: max_total_chars - 3] + "..."
+        return out
+
+    def _build_extraction_evidence(self, dataset: Dataset) -> str:
+        """Summarize extracted span texts for EXTRACTION tasks."""
+        max_strings = 30
+        max_total_chars = 2000
+
+        texts: List[str] = []
+        for item in list(dataset.examples) + list(dataset.corrections):
+            output = getattr(item, "expected_output", None) or {}
+            spans = output.get("spans", [])
+            if not isinstance(spans, list):
+                continue
+            for span in spans:
+                if not isinstance(span, dict):
+                    continue
+                text = span.get("text")
+                if isinstance(text, str) and text.strip():
+                    normalized = " ".join(text.split())
+                    if normalized not in texts:
+                        texts.append(normalized)
+                        if len(texts) >= max_strings:
+                            break
+
+        if not texts:
+            return ""
+
+        lines = ["", "DATA EVIDENCE FROM TRAINING:"]
+        preview = ", ".join(json.dumps(t) for t in texts)
+        lines.append(f"- Extracted spans ({len(texts)} unique): {preview}")
+        lines.extend(self._grex_patterns(texts, context="EXTRACTION:spans"))
+        lines.append("")
+        lines.append(
+            "Computed patterns match training strings only; generalize carefully."
+        )
+
+        out = "\n".join(lines)
+        if len(out) > max_total_chars:
+            out = out[: max_total_chars - 3] + "..."
+        return out
+
+    def _build_classification_evidence(self, dataset: Dataset) -> str:
+        """Summarize input texts grouped by label for CLASSIFICATION tasks."""
+        max_labels = 20
+        max_inputs_per_label = 10
+        max_total_chars = 3000
+
+        label_to_inputs: Dict[str, List[str]] = defaultdict(list)
+
+        text_field = dataset.task.text_field
+
+        def _get_text(input_data: Dict) -> str:
+            if text_field and text_field in input_data:
+                return str(input_data[text_field])
+            for v in input_data.values():
+                if isinstance(v, str):
+                    return v
+            return ""
+
+        for item in list(dataset.examples) + list(dataset.corrections):
+            output = getattr(item, "expected_output", None) or {}
+            label = output.get("label") or output.get("class") or output.get("category")
+            if not isinstance(label, str) or not label.strip():
+                continue
+            input_data = getattr(item, "input", None) or {}
+            text = _get_text(input_data).strip()
+            if not text:
+                continue
+            existing = label_to_inputs[label.strip()]
+            if text not in existing and len(existing) < max_inputs_per_label:
+                existing.append(text)
+
+        if not label_to_inputs:
+            return ""
+
+        labels = sorted(label_to_inputs.keys())[:max_labels]
+        lines = ["", "DATA EVIDENCE FROM TRAINING:"]
+        for label in labels:
+            inputs = label_to_inputs[label]
+            preview = ", ".join(json.dumps(t[:80]) for t in inputs)
+            lines.append(f"- {label} ({len(inputs)} examples): {preview}")
+            lines.extend(
+                self._grex_patterns(
+                    [t[:80] for t in inputs], context=f"CLASSIFICATION:{label}"
+                )
+            )
+
+        lines.append("")
+        lines.append(
+            "Computed patterns match training strings only; generalize carefully."
+        )
+
+        out = "\n".join(lines)
+        if len(out) > max_total_chars:
+            out = out[: max_total_chars - 3] + "..."
+        return out
+
+    def _build_transformation_evidence(self, dataset: Dataset) -> str:
+        """Summarize output values per key for TRANSFORMATION tasks."""
+        max_keys = 10
+        max_values_per_key = 15
+        max_total_chars = 3000
+
+        key_to_values: Dict[str, List[str]] = defaultdict(list)
+
+        for item in list(dataset.examples) + list(dataset.corrections):
+            output = getattr(item, "expected_output", None) or {}
+            for key, value in output.items():
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                existing = key_to_values[key]
+                normalized = " ".join(value.split())
+                if normalized not in existing and len(existing) < max_values_per_key:
+                    existing.append(normalized)
+
+        if not key_to_values:
+            return ""
+
+        keys = sorted(key_to_values.keys())[:max_keys]
+        lines = ["", "DATA EVIDENCE FROM TRAINING:"]
+        for key in keys:
+            vals = key_to_values[key]
+            preview = ", ".join(json.dumps(v) for v in vals)
+            lines.append(f"- {key} ({len(vals)} unique): {preview}")
+            lines.extend(self._grex_patterns(vals, context=f"TRANSFORMATION:{key}"))
+
+        lines.append("")
+        lines.append(
+            "Computed patterns match training strings only; generalize carefully."
+        )
+
+        out = "\n".join(lines)
+        if len(out) > max_total_chars:
+            out = out[: max_total_chars - 3] + "..."
+        return out
 
     def _build_format_examples(self, task_type: TaskType) -> str:
         """Build examples for each allowed format"""

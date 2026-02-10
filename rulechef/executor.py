@@ -136,7 +136,7 @@ class RuleExecutor:
             task_type: Optional task type for inferring default output_key
         """
         # Sort by priority
-        sorted_rules = sorted(rules, key=lambda r: r.priority, reverse=True)
+        sorted_rules = sorted(rules, key=self._rule_sort_key)
 
         # Get default output key for this task type
         default_key = (
@@ -432,6 +432,12 @@ class RuleExecutor:
 
         text_fields = [v for v in input_data.values() if isinstance(v, str)]
         return max(text_fields, key=len) if text_fields else ""
+
+    def _rule_sort_key(self, rule: Rule) -> tuple:
+        """Deterministic ordering: priority desc, then name, then id."""
+        name_key = rule.name.casefold() if rule.name else ""
+        id_key = rule.id or ""
+        return (-rule.priority, name_key, id_key)
 
     def _is_dependency_pattern(self, pattern_data: List) -> bool:
         """Detect spaCy DependencyMatcher patterns."""
