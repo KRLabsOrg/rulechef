@@ -24,15 +24,17 @@ class RuleLearner:
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
         use_spacy_ner: bool = False,
+        use_grex: bool = True,
     ):
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
+        self.use_grex = use_grex
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
-            self.allowed_formats, use_spacy_ner=use_spacy_ner
+            self.allowed_formats, use_spacy_ner=use_spacy_ner, use_grex=use_grex
         )
 
     # ========================================
@@ -397,6 +399,9 @@ class RuleLearner:
             prompt += self.prompt_builder._build_corrections_section(corrections)
         if examples:
             prompt += self.prompt_builder._build_examples_section(examples)
+
+        # Entity evidence helps the model infer labels/patterns when schemas don't encode them.
+        prompt += self.prompt_builder._build_data_evidence(dataset)
 
         # Add other sections
         prompt += self.prompt_builder._build_feedback_section(dataset)

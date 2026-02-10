@@ -40,12 +40,14 @@ class RuleChef:
         model: str = "gpt-4o-mini",
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
+        use_grex: bool = True,
     ):
         self.task = task
         self.llm = client or OpenAI()
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
+        self.use_grex = use_grex
         self.dataset = Dataset(name=dataset_name, task=task)
         self.storage_path = Path(storage_path)
         # Convert string format names to RuleFormat enums if needed
@@ -62,6 +64,7 @@ class RuleChef:
             sampling_strategy=sampling_strategy,
             model=model,
             use_spacy_ner=use_spacy_ner,
+            use_grex=use_grex,
         )
 
         # Coordinator for learning decisions (swappable simple/agentic)

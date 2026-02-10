@@ -1,6 +1,5 @@
 """RuleChef - Learn rule-based models from examples and LLM interactions"""
 
-from rulechef.engine import RuleChef
 from rulechef.core import (
     Task,
     Dataset,
@@ -22,3 +21,12 @@ __all__ = [
     "Rule",
     "TaskType",
 ]
+
+
+def __getattr__(name: str):
+    # Lazy import to avoid importing heavy dependencies (e.g. openai) unless needed.
+    if name == "RuleChef":
+        from rulechef.engine import RuleChef
+
+        return RuleChef
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

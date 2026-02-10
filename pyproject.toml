@@ -38,10 +38,14 @@ agentic = [
 spacy = [
     "spacy>=3.0.0",
 ]
+grex = [
+    "grex>=1.0",
+]
 all = [
     "openai>=1.0.0",
     "pydantic-ai>=0.0.1",
     "spacy>=3.0.0",
+    "grex>=1.0",
 ]
 
 [project.urls]
