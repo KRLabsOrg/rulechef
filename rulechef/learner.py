@@ -204,7 +204,11 @@ class RuleLearner:
     def evaluate_and_refine(
         self, rules: List[Rule], dataset: Dataset, max_iterations: int = 3
     ) -> tuple:
-        """Evaluate rules and refine through agentic loop"""
+        """Evaluate rules and refine through patch-based loop.
+
+        Each iteration generates patch rules for failures and merges them
+        into the existing set, keeping working rules intact.
+        """
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
         best_rules = rules
@@ -222,7 +226,7 @@ class RuleLearner:
                 f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
             )
 
-            if accuracy > best_accuracy or (accuracy == best_accuracy and iter_num > 1):
+            if accuracy > best_accuracy:
                 best_rules = rules
                 best_accuracy = accuracy
 
@@ -232,18 +236,33 @@ class RuleLearner:
 
             if results["failures"]:
                 print(
-                    f"[{iter_num}/{max_iterations}] Refining based on {len(results['failures'])} failures..."
+                    f"[{iter_num}/{max_iterations}] Patching {len(results['failures'])} failures..."
                 )
                 start = time.time()
-                rules = self._refine_rules(rules, results["failures"], dataset)
+                patch = self.synthesize_patch_ruleset(
+                    rules, results["failures"], max_rules=10, dataset=dataset
+                )
                 elapsed = time.time() - start
-                if not rules:
-                    print("⚠ Refinement failed, keeping best rules")
-                    rules = best_rules
+                if not patch:
+                    print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
-                    print(
-                        f"[{iter_num}/{max_iterations}] Refined {len(rules)} rules ({elapsed:.1f}s)"
-                    )
+                    candidate = self._merge_patch(rules, patch)
+                    candidate_results = self._evaluate_rules(candidate, dataset)
+                    candidate_acc = candidate_results["accuracy"]
+                    if candidate_acc >= accuracy:
+                        rules = candidate
+                        print(
+                            f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
+                            f"accuracy {accuracy:.1%} → {candidate_acc:.1%} ({elapsed:.1f}s)"
+                        )
+                        if candidate_acc > best_accuracy:
+                            best_rules = rules
+                            best_accuracy = candidate_acc
+                    else:
+                        print(
+                            f"[{iter_num}/{max_iterations}] Patch made it worse "
+                            f"({accuracy:.1%} → {candidate_acc:.1%}), keeping previous"
+                        )
             else:
                 print("✓ No failures to fix!")
                 break
@@ -253,6 +272,20 @@ class RuleLearner:
             "total": results["total"],
             "correct": int(best_accuracy * results["total"]),
         }
+
+    @staticmethod
+    def _merge_patch(existing: List[Rule], patches: List[Rule]) -> List[Rule]:
+        """Merge patch rules into existing set by name."""
+        by_name = {r.name: r for r in existing}
+        for pr in patches:
+            if pr.name in by_name:
+                current = by_name[pr.name]
+                pr.times_applied = current.times_applied
+                pr.successes = current.successes
+                pr.failures = current.failures
+                pr.confidence = current.confidence
+            by_name[pr.name] = pr
+        return list(by_name.values())
 
     def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> Dict:
         """Test rules on all training data"""
