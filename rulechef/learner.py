@@ -25,11 +25,8 @@ class RuleLearner:
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
         use_spacy_ner: bool = False,
-
         lang: Lang = "en",
-=======
         use_grex: bool = True,
->>>>>>> main
     ):
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -39,11 +36,7 @@ class RuleLearner:
         self.use_grex = use_grex
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
-
-            self.allowed_formats, use_spacy_ner=use_spacy_ner, lang=lang
-
-            self.allowed_formats,
-            use_spacy_ner=use_spacy_ner,
+            self.allowed_formats, use_spacy_ner=use_spacy_ner, lang=lang,
             use_grex=use_grex,
 
         )

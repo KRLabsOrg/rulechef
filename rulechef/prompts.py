@@ -5,7 +5,8 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Any, Set
 
-from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
+from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+
 
 
 # ============================================================================
@@ -18,6 +19,7 @@ LANG_TO_FULL_NAME = {
     "en": "English",
     "de": "German",
 }
+
 
 try:
     from grex import RegExpBuilder
@@ -246,77 +248,6 @@ SPACY_EXAMPLES = {
 # PROMPT GUIDANCE
 # ============================================================================
 
-<<<<<<< HEAD
-
-NER_RULE_EXAMPLES_REGEX_EN = """
-NER RULE EXAMPLES (regex):
-
-Example 1 - Organizations with corporate suffixes:
-{
-  "name": "corporate_suffixes",
-  "format": "regex",
-  "pattern": "\\b([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*)\\s+(Inc\\.|LLC|Corp\\.|Corporation)\\b",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"},
-  "output_key": "entities",
-  "priority": 9
-}
-
-Example 2 - Person names (two capitalized words):
-{
-  "name": "person_names",
-  "format": "regex",
-  "pattern": "\\b([A-Z][a-z]+)\\s+([A-Z][a-z]+)\\b",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "PER"},
-  "output_key": "entities",
-  "priority": 7
-}
-"""
-
-
-NER_RULE_EXAMPLES_REGEX_DE = """
-NER RULE EXAMPLES (regex):
-
-
-Example 1 - Organizations with corporate suffixes:
-{
-  "name": "corporate_suffixes",
-  "format": "regex",
-  "pattern": "\\b([A-Z][a-z0-9]+(?:\\s+[A-Z][a-z]+)*)\\s+(AG|GmbH|KG|UG|OHG|Gbr)\\b",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"},
-  "output_key": "entities",
-  "priority": 9
-}
-"""
-
-NER_RULE_EXAMPLES_REGEX = {
-    "EN": NER_RULE_EXAMPLES_REGEX_EN,
-    "DE": NER_RULE_EXAMPLES_REGEX_DE,
-}
-
-
-NER_RULE_EXAMPLES_SPACY = """
-NER RULE EXAMPLES (spaCy):
-
-Example 1 - Using spaCy's built-in NER for persons:
-{
-  "name": "spacy_persons",
-  "format": "spacy",
-  "pattern": "[{\\"ENT_TYPE\\": \\"PERSON\\"}]",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "PER"},
-  "output_key": "entities",
-  "priority": 8
-}
-
-Example 2 - Locations with spaCy:
-{
-  "name": "spacy_locations",
-  "format": "spacy",
-  "pattern": "[{\\"ENT_TYPE\\": {\\"IN\\": [\\"GPE\\", \\"LOC\\"]}}]",
-  "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "LOC"},
-  "output_key": "entities",
-  "priority": 8
-}
-=======
 RULE_QUALITY_GUIDE = """WHAT MAKES A GOOD RULE:
 - Prefer precision over recall: a narrow rule that matches exactly what it should is better than a broad rule that matches wrong things.
 - Do not overfit to exact training strings: generalize just enough to cover unseen examples of the same pattern.
@@ -335,7 +266,6 @@ REGEX_TECHNIQUE_GUIDE = """REGEX TECHNIQUES:
 - Use lookahead (?=...) / lookbehind (?<=...) for context without consuming.
 - Do NOT assume entities are capitalized; check the training data.
 - Prefer matching context (e.g. "at <ORG>") and capturing the entity span.
->>>>>>> main
 """
 
 SPACY_TECHNIQUE_GUIDE = """SPACY TECHNIQUES:
@@ -420,18 +350,12 @@ class PromptBuilder:
         self,
         allowed_formats: List[RuleFormat],
         use_spacy_ner: bool = False,
-        lang: Lang = "en",
-    ):
-        self.allowed_formats = allowed_formats
-        self.use_spacy_ner = use_spacy_ner
-        self.lang = lang
-
         use_grex: bool = True,
+        lang : Lang = "en",
     ):
         self.allowed_formats = allowed_formats
         self.use_spacy_ner = use_spacy_ner
         self.use_grex = use_grex
-
 
     # ========================================
     # Main Prompt Builders
@@ -507,6 +431,7 @@ Example #{seed + 1}:"""
 
         header = f"""Task: {task.name}
 Description: {task.description}
+
 Input schema: {task.input_schema}
 Output schema:
 {output_schema_str}
@@ -553,14 +478,13 @@ Output schema:
             return ""
 
         lines = [f"\nTRAINING EXAMPLES ({len(examples)} shown):"]
-        lines.append("Learn rules from the these examples:")
-
         for ex in examples:
             lines.append(f"\nInput: {json.dumps(ex.input)}")
             lines.append(f"Output: {json.dumps(ex.expected_output)}")
-        lines.append("\n")
+
         return "\n".join(lines)
 
+    
     def _build_negative_examples_section(self, negative_examples: List[Any]) -> str:
         """Build section showing negative examples"""
         if not negative_examples:
@@ -577,6 +501,7 @@ Output schema:
             lines.append(f"Output: {json.dumps(ex.expected_output)}")
 
         return "\n".join(lines)
+
 
     def _build_feedback_section(self, dataset: Dataset) -> str:
         """Build section with user feedback"""
@@ -627,11 +552,10 @@ Output schema:
 
 YOUR TASK:
 {action} ruleset (max {max_rules} rules) that:
-1. Rely ONLY on the data provided
-2. Handles all corrections correctly (CRITICAL - these show failure modes)
-3. Works on all examples
-4. Respects user feedback
-5. Is general and minimal (avoid redundant rules)
+1. Handles all corrections correctly (CRITICAL - these show failure modes)
+2. Works on all examples
+3. Respects user feedback
+4. Is general and minimal (avoid redundant rules)
 
 {RULE_QUALITY_GUIDE}
 
@@ -747,19 +671,6 @@ Each rule needs:
 - output_key: Which output array to populate (e.g., "{primary_key}")
 """
         section += get_schema_aware_response_schema(format_options, primary_key)
-
-        # Add task-specific examples
-        if dataset.task.type == TaskType.NER:
-            example_sections = []
-            if RuleFormat.REGEX in self.allowed_formats:
-                print(self.lang)
-                example_sections.append(NER_RULE_EXAMPLES_REGEX[self.lang.upper()])
-            if RuleFormat.SPACY in self.allowed_formats and self.use_spacy_ner:
-                example_sections.append(NER_RULE_EXAMPLES_SPACY)
-            if example_sections:
-                section += "\n\n".join(example_sections)
-        elif dataset.task.type == TaskType.TRANSFORMATION:
-            section += TRANSFORMATION_RULE_EXAMPLES
 
         return section
 
