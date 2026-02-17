@@ -173,6 +173,11 @@ class RuleExecutor:
                                 normalized.append(res.to_dict())
                             else:
                                 normalized.append(res)
+                        # Stamp rule attribution on each dict result
+                        for res in normalized:
+                            if isinstance(res, dict):
+                                res["rule_id"] = rule.id
+                                res["rule_name"] = rule.name
                         # Respect rule priority: skip duplicates by position
                         for res in normalized:
                             if (
@@ -192,6 +197,10 @@ class RuleExecutor:
                         normalized = (
                             results.to_dict() if isinstance(results, Span) else results
                         )
+                        # Stamp rule attribution
+                        if isinstance(normalized, dict):
+                            normalized["rule_id"] = rule.id
+                            normalized["rule_name"] = rule.name
                         if not (
                             isinstance(normalized, dict)
                             and "start" in normalized

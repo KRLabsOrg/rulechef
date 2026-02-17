@@ -516,6 +516,7 @@ Instructions:
 - Add or tweak rules to fix the shown failures.
 - Pay close attention to user_feedback on rules AND task-level USER GUIDANCE — these are direct instructions from the user and MUST be addressed even if there are no failures.
 - If a rule has user_feedback, modify or replace that rule to address the feedback.
+- IMPORTANT: When updating an existing rule, you MUST reuse the EXACT same "name" as the original rule. Do NOT add suffixes like "_fixed", "_v2", "_updated", etc. The merge system uses name-matching to replace the old version — a different name creates a duplicate instead of replacing.
 - Prefer minimal, local changes.
 - Keep total new/updated rules <= {max_rules}.
 - Use formats: {", ".join([f.value for f in self.allowed_formats])}
