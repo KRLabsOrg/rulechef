@@ -4,11 +4,101 @@ import json
 from typing import Dict, Optional, Callable, Any
 from collections import defaultdict
 from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
+from rulechef.executor import RuleExecutor
 
 from rulechef.core import TaskType, DEFAULT_OUTPUT_KEYS
 
 # Type alias for matcher functions
 OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+
+
+def evaluate_rules_individually(
+    all_data,
+    rules,
+    executor: RuleExecutor,
+    task_type=None,
+    text_field="text",
+    threshold=0.5,
+):
+    """
+    Evaluate each rule separately on the dataset.
+    Returns metrics per rule.
+    """
+    per_rule_metrics = {}
+
+    for rule in rules:
+        tp = defaultdict(int)
+        fp = defaultdict(int)
+        fn = defaultdict(int)
+        labels = set()
+
+        for item in all_data:
+            predicted_spans = executor.apply_rules(
+                [rule], {"text": item["text"]}, task_type, text_field
+            )
+            predicted_spans = predicted_spans.get("entities", predicted_spans)
+            gold_spans = item["entities"]
+
+            for g in gold_spans:
+                labels.add(g["type"])
+            for p in predicted_spans:
+                labels.add(p["type"])
+
+            matched_gold = set()
+            for pred in predicted_spans:
+                found_match = False
+                pred_class = pred["type"]
+                for j, gold in enumerate(gold_spans):
+                    if j in matched_gold:
+                        continue
+                    if check_overlap(pred, gold, threshold):
+                        tp[gold["type"]] += 1
+                        matched_gold.add(j)
+                        found_match = True
+                        break
+                if not found_match:
+                    fp[pred_class] += 1
+
+            for j, gold in enumerate(gold_spans):
+                if j not in matched_gold:
+                    fn[gold["type"]] += 1
+
+        per_class = {}
+        for label in sorted(labels):
+            p = tp[label] / (tp[label] + fp[label]) if tp[label] + fp[label] else 0.0
+            r = tp[label] / (tp[label] + fn[label]) if tp[label] + fn[label] else 0.0
+            f1 = 2 * p * r / (p + r) if p + r else 0.0
+            per_class[label] = {
+                "precision": p,
+                "recall": r,
+                "f1": f1,
+                "tp": tp[label],
+                "fp": fp[label],
+                "fn": fn[label],
+            }
+
+        TP = sum(tp.values())
+        FP = sum(fp.values())
+        FN = sum(fn.values())
+        precision = TP / (TP + FP) if TP + FP else 0.0
+        recall = TP / (TP + FN) if TP + FN else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        )
+
+        per_rule_metrics[rule.name or rule.id or "unnamed_rule"] = {
+            "overall": {
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "TP": TP,
+                "FP": FP,
+                "FN": FN,
+            },
+            "per_class": per_class,
+        }
+
+    return per_rule_metrics
 
 
 def check_overlap(pred, gold, threshold=1):
