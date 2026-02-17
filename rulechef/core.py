@@ -319,6 +319,31 @@ class Correction:
 
 
 @dataclass
+class Feedback:
+    """
+    User feedback at any level: task, example, or rule.
+
+    - task: general guidance ("drugs usually follow dosage like 'mg'")
+    - example: feedback on a specific training item
+    - rule: feedback on a specific rule ("too broad", "too specific")
+    """
+
+    id: str
+    text: str
+    level: str  # "task" | "example" | "rule"
+    target_id: str = ""  # empty for task-level, example_id or rule_id otherwise
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "text": self.text,
+            "level": self.level,
+            "target_id": self.target_id,
+        }
+
+
+@dataclass
 class Rule:
     """
     Learned extraction rule.
@@ -401,12 +426,21 @@ class Dataset:
     examples: List[Example] = field(default_factory=list)
     corrections: List[Correction] = field(default_factory=list)
     feedback: List[str] = field(default_factory=list)
+    structured_feedback: List[Feedback] = field(default_factory=list)
     rules: List[Rule] = field(default_factory=list)
     version: int = 1
 
     def get_all_training_data(self) -> List:
         """Get all examples and corrections combined"""
         return self.corrections + self.examples
+
+    def get_feedback_for(self, level: str, target_id: str = "") -> List[Feedback]:
+        """Get feedback filtered by level and optional target."""
+        return [
+            f
+            for f in self.structured_feedback
+            if f.level == level and (not target_id or f.target_id == target_id)
+        ]
 
     def to_dict(self) -> dict:
         return {
@@ -416,6 +450,7 @@ class Dataset:
             "examples": [e.to_dict() for e in self.examples],
             "corrections": [c.to_dict() for c in self.corrections],
             "feedback": self.feedback,
+            "structured_feedback": [f.to_dict() for f in self.structured_feedback],
             "rules": [r.to_dict() for r in self.rules],
             "version": self.version,
         }

@@ -369,15 +369,22 @@ class PromptBuilder:
         dataset: Dataset,
     ) -> str:
         """Build prompt for refining rules based on failures (schema-aware)"""
-        rules_formatted = self._format_rules(current_rules)
+        rules_formatted = self._format_rules_with_feedback(current_rules, dataset)
         format_instructions = self._build_format_instructions(dataset.task.type)
         response_schema = self._build_response_schema(dataset)
+
+        # Task-level feedback
+        task_feedback_section = ""
+        task_fb = dataset.get_feedback_for("task")
+        if task_fb:
+            lines = "\n".join(f"- {f.text}" for f in task_fb)
+            task_feedback_section = f"\nUSER GUIDANCE (task-level feedback):\n{lines}\n"
 
         return f"""Refine the ruleset for this task while fixing the failures shown.
 
 {self._build_task_header(dataset)}
 {self._build_data_evidence(dataset)}
-
+{task_feedback_section}
 CURRENT RULES:
 {rules_formatted or "None"}
 
@@ -385,6 +392,7 @@ FAILURES TO FIX (include these patterns in your updated rules):
 {json.dumps(failures, indent=2)}
 
 CRITICAL: Pay special attention to correction failures (is_correction: true) - these are user-verified mistakes.
+Pay close attention to user feedback on specific rules — these are direct instructions from the user.
 
 {format_instructions}
 
@@ -995,10 +1003,30 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
             lines.append(f"{i}. {rule.name}")
             lines.append(f"   Format: {rule.format.value}")
             lines.append(f"   Priority: {rule.priority}")
-            content_preview = (
-                rule.content[:100] + "..." if len(rule.content) > 100 else rule.content
-            )
-            lines.append(f"   Content: {content_preview}")
+            lines.append(f"   Content: {rule.content}")
+            if rule.output_template:
+                lines.append(f"   Output template: {json.dumps(rule.output_template)}")
+            if rule.output_key:
+                lines.append(f"   Output key: {rule.output_key}")
+        return "\n".join(lines)
+
+    def _format_rules_with_feedback(self, rules: List[Rule], dataset: "Dataset") -> str:
+        """Format rules with any attached user feedback."""
+        lines = []
+        for i, rule in enumerate(rules, 1):
+            lines.append(f"{i}. {rule.name}")
+            lines.append(f"   Format: {rule.format.value}")
+            lines.append(f"   Priority: {rule.priority}")
+            lines.append(f"   Content: {rule.content}")
+            if rule.output_template:
+                lines.append(f"   Output template: {json.dumps(rule.output_template)}")
+            if rule.output_key:
+                lines.append(f"   Output key: {rule.output_key}")
+            # Attach rule-level feedback
+            rule_fb = dataset.get_feedback_for("rule", rule.id)
+            if rule_fb:
+                for fb in rule_fb:
+                    lines.append(f"   *** USER FEEDBACK: {fb.text}")
         return "\n".join(lines)
 
 

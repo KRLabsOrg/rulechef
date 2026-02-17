@@ -9,6 +9,11 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.evaluation import (
+    evaluate_dataset,
+    evaluate_rules_individually,
+    EvalResult,
+)
 from rulechef.executor import RuleExecutor
 from rulechef.matching import outputs_match
 from rulechef.prompts import PromptBuilder
@@ -208,70 +213,73 @@ class RuleLearner:
 
         Each iteration generates patch rules for failures and merges them
         into the existing set, keeping working rules intact.
+
+        Returns (best_rules, EvalResult).
         """
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
         best_rules = rules
-        best_accuracy = 0.0
-        results = None
+        best_f1 = 0.0
+        best_eval = EvalResult()
 
         for iteration in range(max_iterations):
             iter_num = iteration + 1
             print(f"[{iter_num}/{max_iterations}] Evaluating rules...")
 
-            results = self._evaluate_rules(rules, dataset)
-            accuracy = results["accuracy"]
+            eval_result = self._evaluate_rules(rules, dataset)
+            exact = eval_result.exact_match
+            correct = int(exact * eval_result.total_docs)
 
             print(
-                f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
+                f"[{iter_num}/{max_iterations}] Exact match: {exact:.1%} "
+                f"({correct}/{eval_result.total_docs}), "
+                f"micro F1: {eval_result.micro_f1:.1%}"
             )
 
-            if accuracy > best_accuracy:
+            if eval_result.micro_f1 > best_f1:
                 best_rules = rules
-                best_accuracy = accuracy
+                best_f1 = eval_result.micro_f1
+                best_eval = eval_result
 
-            if accuracy >= 0.90:
-                print("✓ Achieved 90%+ accuracy!")
+            if exact >= 0.90:
+                print("✓ Achieved 90%+ exact match!")
                 break
 
-            if results["failures"]:
+            if eval_result.failures:
                 print(
-                    f"[{iter_num}/{max_iterations}] Patching {len(results['failures'])} failures..."
+                    f"[{iter_num}/{max_iterations}] Patching {len(eval_result.failures)} failures..."
                 )
                 start = time.time()
                 patch = self.synthesize_patch_ruleset(
-                    rules, results["failures"], max_rules=10, dataset=dataset
+                    rules, eval_result.failures, max_rules=10, dataset=dataset
                 )
                 elapsed = time.time() - start
                 if not patch:
                     print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
                     candidate = self._merge_patch(rules, patch)
-                    candidate_results = self._evaluate_rules(candidate, dataset)
-                    candidate_acc = candidate_results["accuracy"]
-                    if candidate_acc >= accuracy:
+                    candidate_eval = self._evaluate_rules(candidate, dataset)
+                    candidate_exact = candidate_eval.exact_match
+                    if candidate_exact >= exact:
                         rules = candidate
                         print(
                             f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
-                            f"accuracy {accuracy:.1%} → {candidate_acc:.1%} ({elapsed:.1f}s)"
+                            f"exact match {exact:.1%} → {candidate_exact:.1%} ({elapsed:.1f}s)"
                         )
-                        if candidate_acc > best_accuracy:
+                        if candidate_eval.micro_f1 > best_f1:
                             best_rules = rules
-                            best_accuracy = candidate_acc
+                            best_f1 = candidate_eval.micro_f1
+                            best_eval = candidate_eval
                     else:
                         print(
                             f"[{iter_num}/{max_iterations}] Patch made it worse "
-                            f"({accuracy:.1%} → {candidate_acc:.1%}), keeping previous"
+                            f"({exact:.1%} → {candidate_exact:.1%}), keeping previous"
                         )
             else:
                 print("✓ No failures to fix!")
                 break
 
-        return best_rules, {
-            "accuracy": best_accuracy,
-            "total": results["total"],
-            "correct": int(best_accuracy * results["total"]),
-        }
+        return best_rules, best_eval
 
     @staticmethod
     def _merge_patch(existing: List[Rule], patches: List[Rule]) -> List[Rule]:
@@ -287,43 +295,15 @@ class RuleLearner:
             by_name[pr.name] = pr
         return list(by_name.values())
 
-    def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> Dict:
-        """Test rules on all training data"""
-        all_data = dataset.get_all_training_data()
-        total = len(all_data)
-        correct = 0
-        failures = []
+    def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> EvalResult:
+        """Evaluate rules on all training data. Returns EvalResult."""
+        return evaluate_dataset(rules, dataset, self._apply_rules, mode="text")
 
-        for item in all_data:
-            extracted = self._apply_rules(
-                rules, item.input, dataset.task.type, dataset.task.text_field
-            )
-            expected = item.expected_output
-
-            if outputs_match(
-                expected,
-                extracted,
-                dataset.task.type,
-                dataset.task.output_matcher,
-                matching_mode=dataset.task.matching_mode,
-            ):
-                correct += 1
-            else:
-                failures.append(
-                    {
-                        "input": item.input,
-                        "expected": expected,
-                        "got": extracted,
-                        "is_correction": isinstance(item, Correction),
-                    }
-                )
-
-        return {
-            "total": total,
-            "correct": correct,
-            "accuracy": correct / total if total > 0 else 0.0,
-            "failures": failures,
-        }
+    def evaluate_rules_per_rule(self, rules: List[Rule], dataset: Dataset) -> list:
+        """Evaluate each rule individually. Returns list of RuleMetrics."""
+        return evaluate_rules_individually(
+            rules, dataset, self._apply_rules, mode="text"
+        )
 
     def _refine_rules(
         self, current_rules: List[Rule], failures: List[Dict], dataset: Dataset
@@ -459,15 +439,25 @@ class RuleLearner:
         dataset: Optional[Dataset] = None,
     ) -> str:
         """Build prompt for targeted patch rules."""
-        rules_summary = [
-            {
+        rules_detail = []
+        for r in current_rules:
+            entry = {
                 "name": r.name,
                 "description": r.description,
                 "format": r.format.value,
+                "content": r.content,
                 "priority": r.priority,
             }
-            for r in current_rules[:10]
-        ]
+            if r.output_template:
+                entry["output_template"] = r.output_template
+            if r.output_key:
+                entry["output_key"] = r.output_key
+            # Attach rule-level feedback if available
+            if dataset:
+                rule_fb = dataset.get_feedback_for("rule", r.id)
+                if rule_fb:
+                    entry["user_feedback"] = [f.text for f in rule_fb]
+            rules_detail.append(entry)
 
         failure_snippets = []
         for f in failures[:20]:
@@ -501,19 +491,31 @@ class RuleLearner:
 }"""
             data_evidence = ""
 
+        # Collect task-level feedback
+        task_feedback_section = ""
+        if dataset:
+            task_fb = dataset.get_feedback_for("task")
+            if task_fb:
+                lines = "\n".join(f"- {f.text}" for f in task_fb)
+                task_feedback_section = (
+                    f"\nUSER GUIDANCE (task-level feedback):\n{lines}\n"
+                )
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
 {data_evidence}
-
-CURRENT RULES (summary, top 10):
-{json.dumps(rules_summary, indent=2)}
+{task_feedback_section}
+CURRENT RULES (full details, note any user_feedback on specific rules):
+{json.dumps(rules_detail, indent=2)}
 
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}
 
 Instructions:
 - Add or tweak rules to fix the shown failures.
+- Pay close attention to user_feedback on rules AND task-level USER GUIDANCE — these are direct instructions from the user and MUST be addressed even if there are no failures.
+- If a rule has user_feedback, modify or replace that rule to address the feedback.
 - Prefer minimal, local changes.
 - Keep total new/updated rules <= {max_rules}.
 - Use formats: {", ".join([f.value for f in self.allowed_formats])}

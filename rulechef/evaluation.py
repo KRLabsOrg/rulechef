@@ -1,229 +1,535 @@
-"""NER span extraction evaluation metrics"""
+"""Evaluation metrics for RuleChef: entity-level, per-class, per-rule."""
 
-from typing import List, Dict, Tuple
-from dataclasses import dataclass
+from __future__ import annotations
+
+import json
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Tuple
+
+from rulechef.core import (
+    Correction,
+    Dataset,
+    Rule,
+    TaskType,
+    DEFAULT_OUTPUT_KEYS,
+)
+
+
+# ============================================================================
+# Metric dataclasses
+# ============================================================================
 
 
 @dataclass
-class Span:
-    text: str
-    start: int
-    end: int
+class ClassMetrics:
+    """Precision / recall / F1 for a single entity type or key."""
+
+    label: str
+    tp: int = 0
+    fp: int = 0
+    fn: int = 0
+
+    @property
+    def precision(self) -> float:
+        return self.tp / (self.tp + self.fp) if (self.tp + self.fp) > 0 else 0.0
+
+    @property
+    def recall(self) -> float:
+        return self.tp / (self.tp + self.fn) if (self.tp + self.fn) > 0 else 0.0
+
+    @property
+    def f1(self) -> float:
+        p, r = self.precision, self.recall
+        return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "label": self.label,
+            "precision": round(self.precision, 4),
+            "recall": round(self.recall, 4),
+            "f1": round(self.f1, 4),
+            "tp": self.tp,
+            "fp": self.fp,
+            "fn": self.fn,
+        }
+
+
+@dataclass
+class EvalResult:
+    """Rich evaluation result across a dataset."""
+
+    # Entity-level micro-averaged
+    micro_precision: float = 0.0
+    micro_recall: float = 0.0
+    micro_f1: float = 0.0
+
+    # Macro F1 (average of per-class F1)
+    macro_f1: float = 0.0
+
+    # Per-class breakdown
+    per_class: List[ClassMetrics] = field(default_factory=list)
+
+    # Document-level exact match (legacy compat)
+    exact_match: float = 0.0
+
+    # Raw counts
+    total_tp: int = 0
+    total_fp: int = 0
+    total_fn: int = 0
+    total_docs: int = 0
+
+    # Failures for refinement prompts
+    failures: List[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "micro_precision": round(self.micro_precision, 4),
+            "micro_recall": round(self.micro_recall, 4),
+            "micro_f1": round(self.micro_f1, 4),
+            "macro_f1": round(self.macro_f1, 4),
+            "exact_match": round(self.exact_match, 4),
+            "total_tp": self.total_tp,
+            "total_fp": self.total_fp,
+            "total_fn": self.total_fn,
+            "total_docs": self.total_docs,
+            "per_class": [c.to_dict() for c in self.per_class],
+            "failures": self.failures,
+        }
+
+
+@dataclass
+class RuleMetrics:
+    """Evaluation of a single rule in isolation."""
+
+    rule_id: str
+    rule_name: str
+    precision: float = 0.0
+    recall: float = 0.0
+    f1: float = 0.0
+    matches: int = 0
+    true_positives: int = 0
+    false_positives: int = 0
+    covered_expected: int = 0  # how many expected entities this rule finds
+    total_expected: int = 0
+    per_class: List[ClassMetrics] = field(default_factory=list)
+    sample_matches: List[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "rule_id": self.rule_id,
+            "rule_name": self.rule_name,
+            "precision": round(self.precision, 4),
+            "recall": round(self.recall, 4),
+            "f1": round(self.f1, 4),
+            "matches": self.matches,
+            "true_positives": self.true_positives,
+            "false_positives": self.false_positives,
+            "covered_expected": self.covered_expected,
+            "total_expected": self.total_expected,
+            "per_class": [c.to_dict() for c in self.per_class],
+            "sample_matches": self.sample_matches[:10],
+        }
+
+
+# ============================================================================
+# Core evaluation helpers
+# ============================================================================
+
+
+def _get_entities(output: Dict, task_type: TaskType) -> List[Dict]:
+    """Extract the entity/span list from an output dict."""
+    if task_type == TaskType.NER:
+        for key in ("entities", "spans", "ner"):
+            if key in output:
+                return output[key] or []
+        return []
+    elif task_type == TaskType.EXTRACTION:
+        # Check common keys — rules may use custom output_key
+        for key in ("spans", "entities", "items", "results"):
+            if key in output:
+                val = output[key]
+                if isinstance(val, list):
+                    return val
+        # Fallback: first list value in the output
+        for v in output.values():
+            if isinstance(v, list):
+                return v
+        return []
+    elif task_type == TaskType.TRANSFORMATION:
+        # Collect all list values from output
+        items = []
+        for v in output.values():
+            if isinstance(v, list):
+                items.extend(v)
+        return items
+    elif task_type == TaskType.CLASSIFICATION:
+        label = str(output.get("label", "")).strip()
+        return [{"label": label}] if label else []
+    return []
+
+
+def _entity_key_exact(e: dict, task_type: TaskType) -> tuple:
+    """Key for exact span matching (text + type + start + end)."""
+    if task_type == TaskType.CLASSIFICATION:
+        return (str(e.get("label", "")).lower().strip(),)
+    etype = e.get("type") or e.get("label", "")
+    return (e.get("text", ""), etype, e.get("start"), e.get("end"))
+
+
+def _entity_key_text(e: dict, task_type: TaskType) -> tuple:
+    """Key for text-only matching (text + type, ignore position)."""
+    if task_type == TaskType.CLASSIFICATION:
+        return (str(e.get("label", "")).lower().strip(),)
+    etype = e.get("type") or e.get("label", "")
+    return (e.get("text", ""), etype)
+
+
+def _entity_type(e: dict) -> str:
+    """Get entity type/label."""
+    return e.get("type") or e.get("label") or "_NONE"
+
+
+def _match_entities(
+    predicted: List[dict],
+    expected: List[dict],
+    task_type: TaskType,
+    mode: str = "text",
+) -> Tuple[List[Tuple[dict, dict]], List[dict], List[dict]]:
+    """
+    Match predicted entities to expected entities.
+
+    Returns:
+        (matched_pairs, false_positives, false_negatives)
+    """
+    key_fn = _entity_key_exact if mode == "exact" else _entity_key_text
+
+    matched_pairs = []
+    unmatched_pred = []
+    used_gold = set()
+
+    for pred in predicted:
+        pred_key = key_fn(pred, task_type)
+        best_idx = None
+        for i, gold in enumerate(expected):
+            if i in used_gold:
+                continue
+            if key_fn(gold, task_type) == pred_key:
+                best_idx = i
+                break
+
+        if best_idx is not None:
+            matched_pairs.append((pred, expected[best_idx]))
+            used_gold.add(best_idx)
+        else:
+            unmatched_pred.append(pred)
+
+    unmatched_gold = [g for i, g in enumerate(expected) if i not in used_gold]
+    return matched_pairs, unmatched_pred, unmatched_gold
+
+
+# ============================================================================
+# Dataset-level evaluation
+# ============================================================================
+
+
+def evaluate_dataset(
+    rules: List[Rule],
+    dataset: Dataset,
+    apply_rules_fn,
+    mode: str = "text",
+) -> EvalResult:
+    """
+    Evaluate rules against a full dataset, producing entity-level metrics.
+
+    Args:
+        rules: Rules to evaluate
+        dataset: Dataset with examples and corrections
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict
+        mode: "text" (match by text+type) or "exact" (match by text+type+start+end)
+    """
+    task_type = dataset.task.type
+    all_data = dataset.get_all_training_data()
+    total_docs = len(all_data)
+
+    # Per-class accumulators
+    class_counts: Dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
+    exact_match_count = 0
+    failures = []
+
+    for item in all_data:
+        extracted = apply_rules_fn(
+            rules, item.input, task_type, dataset.task.text_field
+        )
+        expected_output = item.expected_output
+
+        pred_entities = _get_entities(extracted, task_type)
+        gold_entities = _get_entities(expected_output, task_type)
+
+        matched, fp_list, fn_list = _match_entities(
+            pred_entities, gold_entities, task_type, mode
+        )
+
+        # Document-level exact match
+        if not fp_list and not fn_list:
+            exact_match_count += 1
+        else:
+            failures.append(
+                {
+                    "input": item.input,
+                    "expected": expected_output,
+                    "got": extracted,
+                    "is_correction": isinstance(item, Correction),
+                }
+            )
+
+        # Accumulate per-class TP
+        for pred, gold in matched:
+            cls = _entity_type(gold)
+            if class_counts[cls].label == "":
+                class_counts[cls].label = cls
+            class_counts[cls].tp += 1
+
+        # Accumulate per-class FP
+        for pred in fp_list:
+            cls = _entity_type(pred)
+            if class_counts[cls].label == "":
+                class_counts[cls].label = cls
+            class_counts[cls].fp += 1
+
+        # Accumulate per-class FN
+        for gold in fn_list:
+            cls = _entity_type(gold)
+            if class_counts[cls].label == "":
+                class_counts[cls].label = cls
+            class_counts[cls].fn += 1
+
+    # Compute aggregates
+    per_class = sorted(class_counts.values(), key=lambda c: c.label)
+    total_tp = sum(c.tp for c in per_class)
+    total_fp = sum(c.fp for c in per_class)
+    total_fn = sum(c.fn for c in per_class)
+
+    micro_p = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
+    micro_r = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
+    micro_f1 = (
+        2 * micro_p * micro_r / (micro_p + micro_r) if (micro_p + micro_r) > 0 else 0.0
+    )
+
+    class_f1s = [c.f1 for c in per_class]
+    macro_f1 = sum(class_f1s) / len(class_f1s) if class_f1s else 0.0
+
+    return EvalResult(
+        micro_precision=micro_p,
+        micro_recall=micro_r,
+        micro_f1=micro_f1,
+        macro_f1=macro_f1,
+        per_class=per_class,
+        exact_match=exact_match_count / total_docs if total_docs > 0 else 0.0,
+        total_tp=total_tp,
+        total_fp=total_fp,
+        total_fn=total_fn,
+        total_docs=total_docs,
+        failures=failures,
+    )
+
+
+# ============================================================================
+# Per-rule evaluation
+# ============================================================================
+
+
+def evaluate_rules_individually(
+    rules: List[Rule],
+    dataset: Dataset,
+    apply_rules_fn,
+    mode: str = "text",
+    max_samples: int = 10,
+) -> List[RuleMetrics]:
+    """
+    Evaluate each rule in isolation against the dataset.
+
+    For each rule, runs it alone and computes how many expected entities it
+    produces correctly (TP), how many spurious entities it produces (FP),
+    and how many expected entities it misses (recall denominator).
+
+    Args:
+        rules: Rules to evaluate individually
+        dataset: Dataset with examples and corrections
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict
+        mode: "text" or "exact"
+        max_samples: Max sample matches to store per rule
+    """
+    task_type = dataset.task.type
+    all_data = dataset.get_all_training_data()
+
+    # Count total expected entities across all docs (for recall denominator)
+    total_expected = 0
+    for item in all_data:
+        gold_entities = _get_entities(item.expected_output, task_type)
+        total_expected += len(gold_entities)
+
+    results = []
+
+    for rule in rules:
+        class_counts: Dict[str, ClassMetrics] = defaultdict(
+            lambda: ClassMetrics(label="")
+        )
+        sample_matches = []
+        rule_total_matches = 0
+        rule_covered = 0
+
+        for item in all_data:
+            extracted = apply_rules_fn(
+                [rule], item.input, task_type, dataset.task.text_field
+            )
+            expected_output = item.expected_output
+
+            pred_entities = _get_entities(extracted, task_type)
+            gold_entities = _get_entities(expected_output, task_type)
+
+            matched, fp_list, fn_list = _match_entities(
+                pred_entities, gold_entities, task_type, mode
+            )
+
+            rule_total_matches += len(pred_entities)
+            rule_covered += len(matched)
+
+            for pred, gold in matched:
+                cls = _entity_type(gold)
+                if class_counts[cls].label == "":
+                    class_counts[cls].label = cls
+                class_counts[cls].tp += 1
+
+            for pred in fp_list:
+                cls = _entity_type(pred)
+                if class_counts[cls].label == "":
+                    class_counts[cls].label = cls
+                class_counts[cls].fp += 1
+
+            # Note: we don't count FN per-rule since a single rule isn't
+            # expected to find everything. But we track it for completeness.
+            for gold in fn_list:
+                cls = _entity_type(gold)
+                if class_counts[cls].label == "":
+                    class_counts[cls].label = cls
+                class_counts[cls].fn += 1
+
+            # Collect sample matches
+            if pred_entities and len(sample_matches) < max_samples:
+                sample_matches.append(
+                    {
+                        "input": item.input,
+                        "rule_output": pred_entities,
+                        "expected": gold_entities,
+                        "tp": len(matched),
+                        "fp": len(fp_list),
+                    }
+                )
+
+        per_class = sorted(class_counts.values(), key=lambda c: c.label)
+        rule_tp = sum(c.tp for c in per_class)
+        rule_fp = sum(c.fp for c in per_class)
+
+        precision = rule_tp / (rule_tp + rule_fp) if (rule_tp + rule_fp) > 0 else 0.0
+        recall = rule_covered / total_expected if total_expected > 0 else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+
+        results.append(
+            RuleMetrics(
+                rule_id=rule.id,
+                rule_name=rule.name,
+                precision=precision,
+                recall=recall,
+                f1=f1,
+                matches=rule_total_matches,
+                true_positives=rule_tp,
+                false_positives=rule_fp,
+                covered_expected=rule_covered,
+                total_expected=total_expected,
+                per_class=per_class,
+                sample_matches=sample_matches,
+            )
+        )
+
+    return results
+
+
+# ============================================================================
+# Pretty printing
+# ============================================================================
+
+
+def print_eval_result(result: EvalResult, name: str = "Dataset") -> None:
+    """Pretty-print an EvalResult."""
+    print(f"\n{'=' * 70}")
+    print(f"EVALUATION: {name}")
+    print(f"{'=' * 70}")
+
+    print(f"\n  Documents: {result.total_docs}")
+    print(f"  Exact match: {result.exact_match:.1%}")
+    print(f"\n  Entity-level (micro):")
+    print(f"    Precision: {result.micro_precision:.1%}")
+    print(f"    Recall:    {result.micro_recall:.1%}")
+    print(f"    F1:        {result.micro_f1:.1%}")
+    print(f"  Macro F1:    {result.macro_f1:.1%}")
+
+    if result.per_class:
+        print(
+            f"\n  {'Class':<20} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'FN':>4}"
+        )
+        print(f"  {'-' * 60}")
+        for c in result.per_class:
+            print(
+                f"  {c.label:<20} {c.precision:>5.0%} {c.recall:>5.0%} {c.f1:>5.0%}"
+                f"  {c.tp:>4} {c.fp:>4} {c.fn:>4}"
+            )
+
+    print(f"\n{'=' * 70}\n")
+
+
+def print_rule_metrics(rule_metrics: List[RuleMetrics]) -> None:
+    """Pretty-print per-rule metrics."""
+    print(f"\n{'=' * 70}")
+    print("PER-RULE METRICS")
+    print(f"{'=' * 70}")
+    print(
+        f"\n  {'Rule':<30} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'Match':>5}"
+    )
+    print(f"  {'-' * 70}")
+
+    for rm in sorted(rule_metrics, key=lambda r: r.f1, reverse=True):
+        name = rm.rule_name[:28] + ".." if len(rm.rule_name) > 30 else rm.rule_name
+        print(
+            f"  {name:<30} {rm.precision:>5.0%} {rm.recall:>5.0%} {rm.f1:>5.0%}"
+            f"  {rm.true_positives:>4} {rm.false_positives:>4} {rm.matches:>5}"
+        )
+
+    print(f"\n{'=' * 70}\n")
+
+
+# ============================================================================
+# Legacy compatibility wrappers
+# ============================================================================
 
 
 def span_iou(span1: Dict, span2: Dict) -> float:
-    """Calculate Intersection over Union for two spans"""
+    """Calculate Intersection over Union for two spans."""
     s1_start = span1.get("start", 0)
     s1_end = span1.get("end", 0)
     s2_start = span2.get("start", 0)
     s2_end = span2.get("end", 0)
-
-    # Calculate intersection
     inter_start = max(s1_start, s2_start)
     inter_end = min(s1_end, s2_end)
     intersection = max(0, inter_end - inter_start)
-
-    # Calculate union
     union = (s1_end - s1_start) + (s2_end - s2_start) - intersection
-
     if union == 0:
         return 0.0
-
     return intersection / union
-
-
-def boundary_distance(pred_span: Dict, gold_span: Dict) -> int:
-    """Calculate average boundary error distance"""
-    start_error = abs(pred_span.get("start", 0) - gold_span.get("start", 0))
-    end_error = abs(pred_span.get("end", 0) - gold_span.get("end", 0))
-    return (start_error + end_error) // 2
-
-
-def find_best_match(
-    pred_span: Dict, gold_spans: List[Dict], iou_threshold: float = 0.5
-) -> Tuple[int, float]:
-    """
-    Find best matching gold span for a predicted span.
-    Returns (index, iou) or (-1, 0.0) if no match above threshold.
-    """
-    best_idx = -1
-    best_iou = 0.0
-
-    for idx, gold_span in enumerate(gold_spans):
-        iou = span_iou(pred_span, gold_span)
-        if iou > best_iou:
-            best_iou = iou
-            best_idx = idx
-
-    if best_iou >= iou_threshold:
-        return best_idx, best_iou
-    return -1, 0.0
-
-
-def evaluate_spans(
-    predictions: List[Dict],
-    gold_standard: List[Dict],
-    exact_match_only: bool = False,
-    iou_threshold: float = 0.5,
-) -> Dict:
-    """
-    Evaluate predicted spans against gold standard.
-
-    Args:
-        predictions: List of predicted spans [{"text": str, "start": int, "end": int}, ...]
-        gold_standard: List of gold spans with same format
-        exact_match_only: If True, only exact matches (same text) count
-        iou_threshold: IoU threshold for partial match (default 0.5)
-
-    Returns:
-        Dictionary with metrics:
-        - exact_matches: Count of exact boundary matches
-        - partial_matches: Count of IoU-based matches
-        - false_positives: Predicted but not in gold
-        - false_negatives: In gold but not predicted
-        - precision: TP / (TP + FP)
-        - recall: TP / (TP + FN)
-        - f1: 2 * (precision * recall) / (precision + recall)
-        - boundary_errors: List of (pred, gold, distance) for error analysis
-    """
-
-    if not gold_standard:
-        return {
-            "exact_matches": 0,
-            "partial_matches": 0,
-            "false_positives": len(predictions),
-            "false_negatives": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
-            "accuracy_exact": 0.0,
-            "accuracy_partial": 0.0,
-            "boundary_errors": [],
-        }
-
-    matched_gold = set()
-    exact_matches = 0
-    partial_matches = 0
-    boundary_errors = []
-
-    for pred in predictions:
-        found_exact = False
-        found_partial = False
-
-        for gold_idx, gold in enumerate(gold_standard):
-            if gold_idx in matched_gold:
-                continue
-
-            # Check for exact match (same text and position)
-            if (
-                pred.get("text") == gold.get("text")
-                and pred.get("start") == gold.get("start")
-                and pred.get("end") == gold.get("end")
-            ):
-                exact_matches += 1
-                matched_gold.add(gold_idx)
-                found_exact = True
-                found_partial = True
-                break
-
-        # If no exact match, check for partial match
-        if not found_exact and not exact_match_only:
-            best_idx, iou = find_best_match(pred, gold_standard, iou_threshold)
-            if best_idx != -1 and best_idx not in matched_gold:
-                partial_matches += 1
-                matched_gold.add(best_idx)
-                found_partial = True
-                distance = boundary_distance(pred, gold_standard[best_idx])
-                boundary_errors.append(
-                    {
-                        "predicted": pred,
-                        "gold": gold_standard[best_idx],
-                        "distance": distance,
-                        "iou": iou,
-                    }
-                )
-
-    true_positives = exact_matches + partial_matches
-    false_positives = len(predictions) - true_positives
-    false_negatives = len(gold_standard) - len(matched_gold)
-
-    precision = (
-        true_positives / (true_positives + false_positives)
-        if (true_positives + false_positives) > 0
-        else 0.0
-    )
-    recall = (
-        true_positives / (true_positives + false_negatives)
-        if (true_positives + false_negatives) > 0
-        else 0.0
-    )
-    f1 = (
-        2 * (precision * recall) / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
-
-    return {
-        "exact_matches": exact_matches,
-        "partial_matches": partial_matches,
-        "true_positives": true_positives,
-        "false_positives": false_positives,
-        "false_negatives": false_negatives,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "accuracy_exact": exact_matches / len(gold_standard) if gold_standard else 0.0,
-        "accuracy_partial": true_positives / len(gold_standard)
-        if gold_standard
-        else 0.0,
-        "boundary_errors": boundary_errors,
-    }
-
-
-def print_eval_report(metrics: Dict, dataset_name: str = "Dataset"):
-    """Pretty-print evaluation metrics"""
-    print(f"\n{'=' * 70}")
-    print(f"EVALUATION REPORT: {dataset_name}")
-    print(f"{'=' * 70}\n")
-
-    print("SPAN EXTRACTION METRICS")
-    print("-" * 70)
-    print(f"Exact Match Accuracy:    {metrics['accuracy_exact']:.1%}")
-    print(f"Partial Match Accuracy:  {metrics['accuracy_partial']:.1%} (IoU > 0.5)")
-    print()
-
-    print("DETAILED METRICS")
-    print("-" * 70)
-    print(f"Precision: {metrics['precision']:.1%}")
-    print(f"Recall:    {metrics['recall']:.1%}")
-    print(f"F1 Score:  {metrics['f1']:.1%}")
-    print()
-
-    print("CONFUSION")
-    print("-" * 70)
-    print(f"True Positives:  {metrics['true_positives']}")
-    print(f"False Positives: {metrics['false_positives']}")
-    print(f"False Negatives: {metrics['false_negatives']}")
-    print()
-
-    if metrics.get("boundary_errors"):
-        print("BOUNDARY ERRORS (Sample)")
-        print("-" * 70)
-        for error in metrics["boundary_errors"][:5]:
-            pred = error["predicted"]
-            gold = error["gold"]
-            dist = error["distance"]
-            print(f"Predicted: '{pred['text']}' [{pred['start']}:{pred['end']}]")
-            print(f"Gold:      '{gold['text']}' [{gold['start']}:{gold['end']}]")
-            print(f"Boundary offset: ±{dist} chars, IoU: {error['iou']:.2f}")
-            print()
-
-    print(f"{'=' * 70}\n")
-
-
-# =============================================================================
-# Typed NER Evaluation
-# =============================================================================
 
 
 def evaluate_typed_spans(
@@ -232,23 +538,7 @@ def evaluate_typed_spans(
     type_field: str = "type",
     iou_threshold: float = 0.5,
 ) -> Dict:
-    """
-    Evaluate predicted spans with entity types against gold standard.
-    A match requires both boundary overlap (IoU) AND matching type.
-
-    Args:
-        predictions: List of predicted entities [{"text": str, "start": int, "end": int, "type": str}, ...]
-        gold_standard: List of gold entities with same format
-        type_field: Name of the type field (default "type")
-        iou_threshold: IoU threshold for boundary match (default 0.5)
-
-    Returns:
-        Dictionary with:
-        - micro: {precision, recall, f1} - overall metrics
-        - macro_f1: Average F1 across types
-        - per_type: {type: {precision, recall, f1, tp, fp, fn}} - per-type metrics
-        - counts: {tp, fp, fn} - overall counts
-    """
+    """Legacy typed span evaluation (kept for backward compatibility)."""
     from collections import defaultdict
 
     if not gold_standard and not predictions:
@@ -268,16 +558,13 @@ def evaluate_typed_spans(
         }
 
     if not predictions:
-        # Collect gold types for per-type stats
         per_type = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
         for g in gold_standard:
             gtype = g.get(type_field, "O")
             per_type[gtype]["fn"] += 1
-
         per_type_metrics = {}
         for t, counts in per_type.items():
             per_type_metrics[t] = {"precision": 0.0, "recall": 0.0, "f1": 0.0, **counts}
-
         return {
             "micro": {"precision": 0.0, "recall": 0.0, "f1": 0.0},
             "macro_f1": 0.0,
@@ -285,59 +572,44 @@ def evaluate_typed_spans(
             "counts": {"tp": 0, "fp": 0, "fn": len(gold_standard)},
         }
 
-    # Group gold by type for faster lookup
     gold_by_type = defaultdict(list)
     for i, g in enumerate(gold_standard):
         gtype = g.get(type_field, "O")
         gold_by_type[gtype].append((i, g))
 
-    # Track matches
     matched_gold = set()
     per_type_counts = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
 
-    # Match predictions to gold
     for pred in predictions:
         ptype = pred.get(type_field, "O")
         p_start = pred.get("start", 0)
         p_end = pred.get("end", 0)
-
-        # Look for matching gold with same type
         best_match_idx = None
         best_iou = 0.0
-
         for gold_idx, gold in gold_by_type.get(ptype, []):
             if gold_idx in matched_gold:
                 continue
-
             g_start = gold.get("start", 0)
             g_end = gold.get("end", 0)
-
-            # Calculate IoU
             inter_start = max(p_start, g_start)
             inter_end = min(p_end, g_end)
             intersection = max(0, inter_end - inter_start)
             union = (p_end - p_start) + (g_end - g_start) - intersection
             iou = intersection / union if union > 0 else 0.0
-
             if iou > best_iou:
                 best_iou = iou
                 best_match_idx = gold_idx
-
         if best_match_idx is not None and best_iou >= iou_threshold:
-            # True positive
             matched_gold.add(best_match_idx)
             per_type_counts[ptype]["tp"] += 1
         else:
-            # False positive
             per_type_counts[ptype]["fp"] += 1
 
-    # Count false negatives (unmatched gold)
     for gtype, gold_list in gold_by_type.items():
         for gold_idx, gold in gold_list:
             if gold_idx not in matched_gold:
                 per_type_counts[gtype]["fn"] += 1
 
-    # Calculate metrics
     def calc_prf(tp, fp, fn):
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
@@ -348,19 +620,16 @@ def evaluate_typed_spans(
         )
         return precision, recall, f1
 
-    # Micro averages (sum all tp/fp/fn)
     total_tp = sum(c["tp"] for c in per_type_counts.values())
     total_fp = sum(c["fp"] for c in per_type_counts.values())
     total_fn = sum(c["fn"] for c in per_type_counts.values())
     micro_p, micro_r, micro_f1 = calc_prf(total_tp, total_fp, total_fn)
 
-    # Per-type metrics
     per_type_metrics = {}
     for t, counts in per_type_counts.items():
         p, r, f1 = calc_prf(counts["tp"], counts["fp"], counts["fn"])
         per_type_metrics[t] = {"precision": p, "recall": r, "f1": f1, **counts}
 
-    # Macro F1 (average F1 across types)
     type_f1s = [m["f1"] for m in per_type_metrics.values()]
     macro_f1 = sum(type_f1s) / len(type_f1s) if type_f1s else 0.0
 
@@ -370,200 +639,3 @@ def evaluate_typed_spans(
         "per_type": per_type_metrics,
         "counts": {"tp": total_tp, "fp": total_fp, "fn": total_fn},
     }
-
-
-def print_typed_eval_report(metrics: Dict, dataset_name: str = "Dataset"):
-    """Pretty-print typed NER evaluation metrics"""
-    print(f"\n{'=' * 70}")
-    print(f"TYPED NER EVALUATION REPORT: {dataset_name}")
-    print(f"{'=' * 70}\n")
-
-    micro = metrics["micro"]
-    print("OVERALL METRICS (Micro)")
-    print("-" * 70)
-    print(f"Precision: {micro['precision']:.1%}")
-    print(f"Recall:    {micro['recall']:.1%}")
-    print(f"F1 Score:  {micro['f1']:.1%}")
-    print(f"\nMacro F1:  {metrics['macro_f1']:.1%}")
-    print()
-
-    print("CONFUSION")
-    print("-" * 70)
-    counts = metrics["counts"]
-    print(f"True Positives:  {counts['tp']}")
-    print(f"False Positives: {counts['fp']}")
-    print(f"False Negatives: {counts['fn']}")
-    print()
-
-    if metrics.get("per_type"):
-        print("PER-TYPE METRICS")
-        print("-" * 70)
-        for entity_type, type_metrics in sorted(metrics["per_type"].items()):
-            print(f"\n{entity_type}:")
-            print(
-                f"  Precision: {type_metrics['precision']:.1%}  "
-                f"Recall: {type_metrics['recall']:.1%}  "
-                f"F1: {type_metrics['f1']:.1%}"
-            )
-            print(
-                f"  TP: {type_metrics['tp']}  FP: {type_metrics['fp']}  FN: {type_metrics['fn']}"
-            )
-
-    print(f"\n{'=' * 70}\n")
-
-
-# =============================================================================
-# Key-Value Extraction Evaluation (for Transformation tasks)
-# =============================================================================
-
-
-def evaluate_key_value_extraction(
-    predictions: List[Dict],
-    gold_standard: List[Dict],
-    key_field: str = "key",
-    value_field: str = "value",
-) -> Dict:
-    """
-    Evaluate key-value extraction by matching (key, value) pairs exactly.
-
-    A prediction is correct if both key and value match a gold item.
-    Ignores extra fields like start/end.
-
-    Args:
-        predictions: List of predicted items [{"key": str, "value": str, ...}, ...]
-        gold_standard: List of gold items with same format
-        key_field: Name of the key field (default "key")
-        value_field: Name of the value field (default "value")
-
-    Returns:
-        Dictionary with:
-        - micro: {precision, recall, f1}
-        - per_key: {key: {precision, recall, f1, tp, fp, fn}}
-        - counts: {tp, fp, fn}
-        - matches: List of matched (pred, gold) pairs
-        - errors: List of unmatched predictions and gold items
-    """
-    from collections import defaultdict
-
-    if not gold_standard and not predictions:
-        return {
-            "micro": {"precision": 1.0, "recall": 1.0, "f1": 1.0},
-            "per_key": {},
-            "counts": {"tp": 0, "fp": 0, "fn": 0},
-            "matches": [],
-            "errors": [],
-        }
-
-    # Build gold lookup: key -> list of values
-    gold_by_key = defaultdict(list)
-    for i, g in enumerate(gold_standard):
-        k = g.get(key_field, "")
-        v = g.get(value_field, "")
-        gold_by_key[k].append((i, v, g))
-
-    # Track matches
-    matched_gold = set()
-    per_key_counts = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
-    matches = []
-    fp_errors = []
-
-    # Match predictions to gold
-    for pred in predictions:
-        pk = pred.get(key_field, "")
-        pv = pred.get(value_field, "")
-
-        # Look for matching gold with same key and value
-        found_match = False
-        for gold_idx, gv, gold in gold_by_key.get(pk, []):
-            if gold_idx in matched_gold:
-                continue
-
-            # Exact value match (or normalized)
-            if pv == gv or pv.strip() == gv.strip():
-                matched_gold.add(gold_idx)
-                per_key_counts[pk]["tp"] += 1
-                matches.append({"predicted": pred, "gold": gold})
-                found_match = True
-                break
-
-        if not found_match:
-            per_key_counts[pk]["fp"] += 1
-            fp_errors.append({"predicted": pred, "reason": "no matching gold"})
-
-    # Count false negatives (unmatched gold)
-    fn_errors = []
-    for k, gold_list in gold_by_key.items():
-        for gold_idx, gv, gold in gold_list:
-            if gold_idx not in matched_gold:
-                per_key_counts[k]["fn"] += 1
-                fn_errors.append({"gold": gold, "reason": "not predicted"})
-
-    # Calculate metrics
-    def calc_prf(tp, fp, fn):
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
-        return precision, recall, f1
-
-    # Micro averages
-    total_tp = sum(c["tp"] for c in per_key_counts.values())
-    total_fp = sum(c["fp"] for c in per_key_counts.values())
-    total_fn = sum(c["fn"] for c in per_key_counts.values())
-    micro_p, micro_r, micro_f1 = calc_prf(total_tp, total_fp, total_fn)
-
-    # Per-key metrics
-    per_key_metrics = {}
-    for k, counts in per_key_counts.items():
-        p, r, f1 = calc_prf(counts["tp"], counts["fp"], counts["fn"])
-        per_key_metrics[k] = {"precision": p, "recall": r, "f1": f1, **counts}
-
-    return {
-        "micro": {"precision": micro_p, "recall": micro_r, "f1": micro_f1},
-        "per_key": per_key_metrics,
-        "counts": {"tp": total_tp, "fp": total_fp, "fn": total_fn},
-        "matches": matches,
-        "errors": fp_errors + fn_errors,
-    }
-
-
-def print_key_value_eval_report(metrics: Dict, dataset_name: str = "Dataset"):
-    """Pretty-print key-value extraction evaluation metrics"""
-    print(f"\n{'=' * 70}")
-    print(f"KEY-VALUE EXTRACTION REPORT: {dataset_name}")
-    print(f"{'=' * 70}\n")
-
-    micro = metrics["micro"]
-    print("OVERALL METRICS")
-    print("-" * 70)
-    print(f"Precision: {micro['precision']:.1%}")
-    print(f"Recall:    {micro['recall']:.1%}")
-    print(f"F1 Score:  {micro['f1']:.1%}")
-    print()
-
-    counts = metrics["counts"]
-    print(f"Correct:   {counts['tp']}")
-    print(f"Spurious:  {counts['fp']} (predicted but wrong)")
-    print(f"Missing:   {counts['fn']} (gold but not predicted)")
-    print()
-
-    if metrics.get("per_key"):
-        print("PER-KEY METRICS")
-        print("-" * 70)
-        for key, key_metrics in sorted(metrics["per_key"].items()):
-            status = (
-                "✓"
-                if key_metrics["f1"] == 1.0
-                else "✗"
-                if key_metrics["f1"] == 0.0
-                else "~"
-            )
-            print(
-                f"{status} {key}: P={key_metrics['precision']:.0%} R={key_metrics['recall']:.0%} F1={key_metrics['f1']:.0%}  "
-                f"(TP:{key_metrics['tp']} FP:{key_metrics['fp']} FN:{key_metrics['fn']})"
-            )
-
-    print(f"\n{'=' * 70}\n")

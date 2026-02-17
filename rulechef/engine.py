@@ -13,10 +13,19 @@ from rulechef.core import (
     Dataset,
     Example,
     Correction,
+    Feedback,
     Rule,
     RuleFormat,
     TaskType,
     DEFAULT_OUTPUT_KEYS,
+)
+from rulechef.evaluation import (
+    evaluate_dataset,
+    evaluate_rules_individually,
+    print_eval_result,
+    print_rule_metrics,
+    EvalResult,
+    RuleMetrics,
 )
 from rulechef.learner import RuleLearner
 from rulechef.buffer import ExampleBuffer
@@ -142,10 +151,39 @@ class RuleChef:
         if self.auto_trigger:
             self._check_and_trigger_learning()
 
-    def add_feedback(self, feedback: str):
-        """Add general user feedback"""
-        self.dataset.feedback.append(feedback)
+    def add_feedback(
+        self,
+        feedback: str,
+        level: str = "task",
+        target_id: str = "",
+    ):
+        """
+        Add user feedback at any level.
+
+        Args:
+            feedback: The feedback text
+            level: "task" (general guidance), "example" (specific example),
+                   or "rule" (specific rule)
+            target_id: Required for "example" and "rule" levels — the id of
+                       the example or rule this feedback applies to
+        """
+        fb = Feedback(
+            id=self._generate_id(),
+            text=feedback,
+            level=level,
+            target_id=target_id,
+        )
+        self.dataset.structured_feedback.append(fb)
+
+        # Also keep legacy list for backward compat
+        if level == "task":
+            self.dataset.feedback.append(feedback)
+
         self._save_dataset()
+        print(
+            f"✓ Added {level}-level feedback"
+            + (f" for {target_id}" if target_id else "")
+        )
 
     def generate_llm_examples(self, num_examples: int = 5, seed: int = 42):
         """
@@ -287,19 +325,39 @@ class RuleChef:
         try:
             if incremental_only and self.dataset.rules:
                 print("Incremental mode: patching existing rules")
-                # Evaluate current rules to get targeted failures
                 pre_eval = self.learner._evaluate_rules(
                     self.dataset.rules, self.dataset
                 )
+
+                # If there's feedback but no failures, create a synthetic
+                # failure entry so the patch prompt still fires with feedback
+                failures = pre_eval.failures
+                has_feedback = len(self.dataset.structured_feedback) > 0
+                if not failures and has_feedback:
+                    print(
+                        "  No failures found but feedback exists — "
+                        "forcing refinement with feedback"
+                    )
+                    # Use a small sample of training data as context
+                    sample = self.dataset.get_all_training_data()[:3]
+                    failures = [
+                        {
+                            "input": item.input,
+                            "expected": item.expected_output,
+                            "got": item.expected_output,  # same — no actual error
+                            "is_correction": False,
+                            "feedback_driven": True,
+                        }
+                        for item in sample
+                    ]
+
                 patch_rules = self.learner.synthesize_patch_ruleset(
                     self.dataset.rules,
-                    pre_eval.get("failures", []),
+                    failures,
                     dataset=self.dataset,
                 )
                 rules = self._merge_rules(self.dataset.rules, patch_rules)
-                # Run evaluate/refine on merged set
             else:
-                # Synthesize initial ruleset
                 rules = self.learner.synthesize_ruleset(self.dataset)
 
                 if not rules:
@@ -310,11 +368,11 @@ class RuleChef:
 
             # Evaluate and refine (refinement uses failures to patch)
             if run_evaluation:
-                rules, metrics = self.learner.evaluate_and_refine(
+                rules, eval_result = self.learner.evaluate_and_refine(
                     rules, self.dataset, max_iterations=max_refinement_iterations
                 )
             else:
-                metrics = None
+                eval_result = None
 
             # Save learned rules
             self.dataset.rules = rules
@@ -325,13 +383,20 @@ class RuleChef:
             print(f"\n{'=' * 60}")
             print(f"Learning complete! ({elapsed:.1f}s)")
             print(f"  Rules: {len(rules)}")
-            if metrics and metrics.get("total", 0) > 0:
+            if eval_result and eval_result.total_docs > 0:
+                print(f"  Exact match: {eval_result.exact_match:.1%}")
                 print(
-                    f"  Accuracy: {metrics['accuracy']:.1%} ({metrics['correct']}/{metrics['total']})"
+                    f"  Entity P/R/F1: {eval_result.micro_precision:.1%} / "
+                    f"{eval_result.micro_recall:.1%} / {eval_result.micro_f1:.1%}"
                 )
+                for cm in eval_result.per_class:
+                    print(
+                        f"    {cm.label}: F1={cm.f1:.0%} "
+                        f"(P={cm.precision:.0%} R={cm.recall:.0%})"
+                    )
             print(f"{'=' * 60}\n")
 
-            return rules, metrics
+            return rules, eval_result
         finally:
             # Restore original sampling strategy
             if sampling_strategy:
@@ -520,14 +585,13 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         old_rules = self.dataset.rules.copy() if self.dataset.rules else None
 
         try:
-            # learn_rules() will convert buffer → dataset automatically
-            rules, metrics = self.learn_rules(
+            result = self.learn_rules(
                 sampling_strategy=decision.strategy,
                 max_refinement_iterations=decision.max_iterations,
             )
-
-            # Notify coordinator of results
-            self.coordinator.on_learning_complete(old_rules, rules, metrics)
+            if result:
+                rules, eval_result = result
+                self.coordinator.on_learning_complete(old_rules, rules, eval_result)
 
         except Exception as e:
             print(f"Error during auto-learning: {e}")
@@ -584,6 +648,57 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             "rules": len(self.dataset.rules),
             "description": self.dataset.description,
         }
+
+    def evaluate(self, verbose: bool = True) -> EvalResult:
+        """
+        Run full entity-level evaluation of current rules against the dataset.
+
+        Returns an EvalResult with micro/macro P/R/F1, per-class breakdown,
+        exact match rate, and failure details.
+        """
+        if not self.dataset.rules:
+            print("No rules to evaluate")
+            return EvalResult()
+
+        result = evaluate_dataset(
+            self.dataset.rules,
+            self.dataset,
+            self.learner._apply_rules,
+        )
+        if verbose:
+            print_eval_result(result, self.dataset.name)
+        return result
+
+    def get_rule_metrics(self, verbose: bool = True) -> List[RuleMetrics]:
+        """
+        Evaluate each rule individually against the dataset.
+
+        Returns per-rule precision/recall/F1, sample matches, and per-class
+        breakdown. Useful for identifying dead or harmful rules.
+        """
+        if not self.dataset.rules:
+            print("No rules to evaluate")
+            return []
+
+        metrics = evaluate_rules_individually(
+            self.dataset.rules,
+            self.dataset,
+            self.learner._apply_rules,
+        )
+        if verbose:
+            print_rule_metrics(metrics)
+        return metrics
+
+    def delete_rule(self, rule_id: str) -> bool:
+        """Delete a rule by id. Returns True if found and deleted."""
+        before = len(self.dataset.rules)
+        self.dataset.rules = [r for r in self.dataset.rules if r.id != rule_id]
+        if len(self.dataset.rules) < before:
+            self._save_dataset()
+            print(f"✓ Deleted rule {rule_id}")
+            return True
+        print(f"Rule {rule_id} not found")
+        return False
 
     def get_rules_summary(self) -> List[Dict]:
         """Get formatted summary of learned rules"""
@@ -686,6 +801,16 @@ Return ONLY valid JSON matching the output schema, no explanation."""
 
             # Restore feedback
             self.dataset.feedback = data.get("feedback", [])
+
+            # Restore structured feedback
+            for fb_data in data.get("structured_feedback", []):
+                fb = Feedback(
+                    id=fb_data["id"],
+                    text=fb_data["text"],
+                    level=fb_data["level"],
+                    target_id=fb_data.get("target_id", ""),
+                )
+                self.dataset.structured_feedback.append(fb)
 
             # Restore rules
             for rule_data in data.get("rules", []):

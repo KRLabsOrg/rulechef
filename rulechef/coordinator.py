@@ -172,22 +172,20 @@ class SimpleCoordinator(CoordinatorProtocol):
         self,
         old_rules: Optional[List["Rule"]],
         new_rules: List["Rule"],
-        metrics: Dict[str, Any],
+        metrics,
     ):
-        """Log learning results"""
+        """Log learning results. metrics is an EvalResult or None."""
         if self.verbose:
-            accuracy = metrics.get("accuracy", 0)
-            total = metrics.get("total", 0)
-            correct = metrics.get("correct", 0)
-
             if old_rules is None:
                 print("✓ Initial learning complete:")
             else:
                 print("✓ Refinement complete:")
 
             print(f"  {len(new_rules)} rules")
-            if total > 0:
-                print(f"  Accuracy: {accuracy:.1%} ({correct}/{total})")
+            if metrics and hasattr(metrics, "exact_match"):
+                print(
+                    f"  Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}"
+                )
 
 
 # Placeholder for future agentic implementation
@@ -284,12 +282,16 @@ class AgenticCoordinator(CoordinatorProtocol):
         self,
         old_rules: Optional[List["Rule"]],
         new_rules: List["Rule"],
-        metrics: Dict[str, Any],
+        metrics,
     ):
-        """Log learning results"""
+        """Log learning results. metrics is an EvalResult or None."""
         if self.verbose:
-            accuracy = metrics.get("accuracy", 0) if metrics else 0
-            print(f"✓ Learning complete. Accuracy: {accuracy:.1%}")
+            if metrics and hasattr(metrics, "exact_match"):
+                print(
+                    f"✓ Learning complete. Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}"
+                )
+            else:
+                print("✓ Learning complete.")
 
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
