@@ -346,7 +346,7 @@ class RuleChef:
 
             # Evaluate and refine (refinement uses failures to patch)
             if run_evaluation:
-                rules, metrics = self.learner.evaluate_and_refine(
+                rules, metrics, score_name = self.learner.evaluate_and_refine(
                     rules,
                     self.dataset,
                     ner_threshold=ner_threshold,
@@ -354,7 +354,7 @@ class RuleChef:
                 )
             else:
                 metrics = None
-
+            print(metrics)
             # Save learned rules
             self.dataset.rules = rules
             self._save_dataset()
@@ -364,12 +364,16 @@ class RuleChef:
             print(f"\n{'=' * 60}")
             print(f"Learning complete! ({elapsed:.1f}s)")
             print(f"  Rules: {len(rules)}")
-            print("METRICS", metrics)
-            if metrics and metrics.get("total", 0) > 0:
-                print(
-                    f"  Accuracy: {metrics['accuracy']:.1%} ({metrics['correct']}/{metrics['total']})"
-                )
-            print(f"{'=' * 60}\n")
+            # print("METRICS", metrics)
+            if score_name == "accuracy":
+                if metrics and metrics.get("total", 0) > 0:
+                    print(
+                        f"  Accuracy: {metrics} ({metrics['correct']}/{metrics['total']})"
+                    )
+                print(f"{'=' * 60}\n")
+            else:
+                print(f"  F1: {metrics}")
+                print(f"{'=' * 60}\n")
 
             return rules, metrics
         finally:

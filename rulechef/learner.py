@@ -78,8 +78,6 @@ class RuleLearner:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
             )
-            print(response)
-
             result = self._parse_json(response.choices[0].message.content)
             rules = self._parse_rules_from_response(result, max_rules, dataset)
 
@@ -219,8 +217,27 @@ class RuleLearner:
         """
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
+        def extract_metrics(results):
+            """Returns (score, display_str) depending on task type."""
+            if dataset.task.type == TaskType.NER:
+                m = results["ner_metrics"]["overall"]
+                per_class = results["ner_metrics"]["per_class"]
+                display = (
+                    f"Precision: {m['precision']:.4f}, "
+                    f"Recall: {m['recall']:.4f}, f1: {m['f1']:.4f}\n"
+                    + "\n".join(str(c) for c in per_class)
+                )
+                per_class = results["ner_metrics"]["per_class"]
+                score_name = "f1"
+                return m["f1"], display, score_name, per_class
+            else:
+                accuracy = results["accuracy"]
+                display = f"Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
+                score_name = "accuracy"
+                return accuracy, display, score_name, None
+
         best_rules = rules
-        best_accuracy = 0.0
+        best_score = 0.0
         results = None
 
         for iteration in range(max_iterations):
@@ -228,25 +245,18 @@ class RuleLearner:
             print(f"[{iter_num}/{max_iterations}] Evaluating rules...")
 
             results = self._evaluate_rules(rules, dataset, ner_threshold)
-            accuracy = results["accuracy"]
+            score, display, score_name, per_class = extract_metrics(results)
+            if per_class:
+                for c in per_class:
+                    print(f"  {c}")
+            print(f"[{iter_num}/{max_iterations}] {display}")
 
-            print(
-                f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
-            )
-
-            if dataset.task.type == TaskType.NER:
-                ner_metrics = results["ner_metrics"]
-                for ner_metric in ner_metrics:
-                    print(
-                        f"[{iter_num}/{max_iterations}] NER Metrics:{ner_metrics[ner_metric]})"
-                    )
-
-            if accuracy > best_accuracy:
+            if score > best_score:
                 best_rules = rules
-                best_accuracy = accuracy
+                best_score = score
 
-            if accuracy >= 0.90:
-                print("✓ Achieved 90%+ accuracy!")
+            if score >= 0.90:
+                print(f"✓ Achieved 90%+ {score_name}!")
                 break
 
             if results["failures"]:
@@ -265,30 +275,34 @@ class RuleLearner:
                     candidate_results = self._evaluate_rules(
                         candidate, dataset, ner_threshold
                     )
-                    candidate_acc = candidate_results["accuracy"]
-                    if candidate_acc >= accuracy:
+                    candidate_score = candidate_results[f"{score_name}"]
+                    if candidate_score >= score:
                         rules = candidate
                         print(
                             f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
-                            f"accuracy {accuracy:.1%} → {candidate_acc:.1%} ({elapsed:.1f}s)"
+                            f"{score_name} {score:.1%} → {candidate_score:.1%} ({elapsed:.1f}s)"
                         )
-                        if candidate_acc > best_accuracy:
+                        if candidate_score > best_score:
                             best_rules = rules
-                            best_accuracy = candidate_acc
+                            best_score = candidate_score
                     else:
                         print(
                             f"[{iter_num}/{max_iterations}] Patch made it worse "
-                            f"({accuracy:.1%} → {candidate_acc:.1%}), keeping previous"
+                            f"({score:.1%} → {candidate_score:.1%}), keeping previous"
                         )
             else:
                 print("✓ No failures to fix!")
                 break
 
-        return best_rules, {
-            "accuracy": best_accuracy,
-            "total": results["total"],
-            "correct": int(best_accuracy * results["total"]),
-        }
+        return (
+            best_rules,
+            {
+                f"{score_name}": best_score,
+                "total": results["total"],
+                "correct": int(best_score * results["total"]),
+            },
+            score_name,
+        )
 
     @staticmethod
     def _merge_patch(existing: List[Rule], patches: List[Rule]) -> List[Rule]:

@@ -65,11 +65,7 @@ def evaluate_rules_ner(all_data, rules, apply_rules_fn, task, threshold):
             labels.add(get_class(g))
         for p in predicted_spans:
             labels.add(get_class(p))
-        print("gold_spans:", gold_spans)
-        print("predicted_spans:", predicted_spans)
-        print("expected_output keys:", item.expected_output.keys())
         matched_gold = set()
-        print(labels)
         for pred in predicted_spans:
             found_match = False
             pred_class = get_class(pred)
@@ -118,7 +114,6 @@ def evaluate_rules_ner(all_data, rules, apply_rules_fn, task, threshold):
             "fp": fp[label],
             "fn": fn[label],
         }
-        print(f"{label} — Precision: {p:.4f}, Recall: {r:.4f}, F1: {f1:.4f}")
 
     TP = sum(tp.values())
     FP = sum(fp.values())
@@ -132,13 +127,11 @@ def evaluate_rules_ner(all_data, rules, apply_rules_fn, task, threshold):
     )
     total = TP + FP + FN
     accuracy = TP / total if total > 0 else 0.0
-    print("-----------\nOverall NER Metrics")
-    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
 
     return {
         "total": total,
         "correct": TP,
-        "accuracy": accuracy,
+        "f1": f1,
         "failures": failures,
         "ner_metrics": {
             "overall": {"precision": precision, "recall": recall, "f1": f1},
