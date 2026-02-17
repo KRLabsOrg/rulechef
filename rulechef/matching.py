@@ -2,11 +2,149 @@
 
 import json
 from typing import Dict, Optional, Callable, Any
+from collections import defaultdict
+from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 
 from rulechef.core import TaskType, DEFAULT_OUTPUT_KEYS
 
 # Type alias for matcher functions
 OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+
+
+def check_overlap(pred, gold, threshold=1):
+    pred_start, pred_end, pred_type = pred["start"], pred["end"], pred["type"]
+    gold_start, gold_end, gold_type = gold["start"], gold["end"], gold["type"]
+
+    if threshold == 1:
+        return pred["text"] == gold["text"] and pred_type == gold_type
+
+    overlap_start = max(pred_start, gold_start)
+
+    overlap_end = min(pred_end, gold_end)
+
+    # no overlap
+    if overlap_end <= overlap_start:
+        return False
+
+    overlap = overlap_end - overlap_start
+    # print(pred["text"], gold["text"],overlap)
+    union = max(pred_end, gold_end) - min(pred_start, gold_start)
+    iou = overlap / union
+    # print(iou,"->>>>",threshold,iou >= threshold)
+
+    return iou >= threshold and pred_type == gold_type
+
+
+def evaluate_rules_ner(all_data, rules, apply_rules_fn, task, threshold):
+    tp = defaultdict(int)
+    fp = defaultdict(int)
+    fn = defaultdict(int)
+    labels = set()
+    failures = []
+
+    def get_entities(d):
+        for key in ["entities", "spans", "ner"]:
+            if key in d:
+                return d[key]
+        return []
+
+    def get_class(e):
+        return e.get("type") or e.get("label", "")
+
+    for item in all_data:
+        predicted_spans = apply_rules_fn(rules, item.input, task.type, task.text_field)
+
+        gold_spans = get_entities(item.expected_output)
+        predicted_spans = (
+            get_entities(predicted_spans)
+            if isinstance(predicted_spans, dict)
+            else predicted_spans
+        )
+
+        for g in gold_spans:
+            labels.add(get_class(g))
+        for p in predicted_spans:
+            labels.add(get_class(p))
+        print("gold_spans:", gold_spans)
+        print("predicted_spans:", predicted_spans)
+        print("expected_output keys:", item.expected_output.keys())
+        matched_gold = set()
+        print(labels)
+        for pred in predicted_spans:
+            found_match = False
+            pred_class = get_class(pred)
+            for j, gold in enumerate(gold_spans):
+                if j in matched_gold:
+                    continue
+                if check_overlap(pred, gold, threshold):
+                    tp[get_class(gold)] += 1
+                    matched_gold.add(j)
+                    found_match = True
+                    break
+
+            if not found_match:
+                fp[pred_class] += 1
+
+                failures.append(
+                    {
+                        "input": item.input,
+                        "expected": [],
+                        "got": pred["text"],
+                        "is_correction": isinstance(item, Correction),
+                    }
+                )
+
+        for j, gold in enumerate(gold_spans):
+            if j not in matched_gold:
+                fn[get_class(gold)] += 1
+                failures.append(
+                    {
+                        "input": item.input,
+                        "expected": gold["text"],
+                        "got": [],
+                        "is_correction": isinstance(item, Correction),
+                    }
+                )
+    per_class = {}
+    for label in sorted(labels):
+        p = tp[label] / (tp[label] + fp[label]) if tp[label] + fp[label] else 0.0
+        r = tp[label] / (tp[label] + fn[label]) if tp[label] + fn[label] else 0.0
+        f1 = 2 * p * r / (p + r) if p + r else 0.0
+        per_class[label] = {
+            "precision": p,
+            "recall": r,
+            "f1": f1,
+            "tp": tp[label],
+            "fp": fp[label],
+            "fn": fn[label],
+        }
+        print(f"{label} — Precision: {p:.4f}, Recall: {r:.4f}, F1: {f1:.4f}")
+
+    TP = sum(tp.values())
+    FP = sum(fp.values())
+    FN = sum(fn.values())
+    precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+    recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
+    total = TP + FP + FN
+    accuracy = TP / total if total > 0 else 0.0
+    print("-----------\nOverall NER Metrics")
+    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+
+    return {
+        "total": total,
+        "correct": TP,
+        "accuracy": accuracy,
+        "failures": failures,
+        "ner_metrics": {
+            "overall": {"precision": precision, "recall": recall, "f1": f1},
+            "per_class": per_class,
+        },
+    }
 
 
 def outputs_match(
@@ -15,6 +153,7 @@ def outputs_match(
     task_type: TaskType = TaskType.EXTRACTION,
     custom_matcher: Optional[OutputMatcher] = None,
     matching_mode: str = "text",
+    threshold: float = 0.5,
 ) -> bool:
     """
     Check if two outputs match.
@@ -88,9 +227,6 @@ def outputs_match(
                 if fallback in d:
                     return d[fallback]
             return []
-
-        entities1 = get_entities(expected)
-        entities2 = get_entities(actual)
 
         if len(entities1) != len(entities2):
             return False

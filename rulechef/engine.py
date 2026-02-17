@@ -77,7 +77,6 @@ class RuleChef:
             use_spacy_ner=use_spacy_ner,
             lang=self.lang,
             use_grex=use_grex,
-
         )
 
         # Coordinator for learning decisions (swappable simple/agentic)
@@ -216,6 +215,7 @@ class RuleChef:
         max_refinement_iterations: int = 3,
         sampling_strategy: Optional[str] = None,
         incremental_only: bool = False,
+        ner_threshold: float = 1,
     ):
         """
         Learn rules from all collected data
@@ -323,7 +323,9 @@ class RuleChef:
                 print("Incremental mode: patching existing rules")
                 # Evaluate current rules to get targeted failures
                 pre_eval = self.learner._evaluate_rules(
-                    self.dataset.rules, self.dataset
+                    self.dataset.rules,
+                    self.dataset,
+                    ner_threshold=ner_threshold,
                 )
                 patch_rules = self.learner.synthesize_patch_ruleset(
                     self.dataset.rules,
@@ -345,7 +347,10 @@ class RuleChef:
             # Evaluate and refine (refinement uses failures to patch)
             if run_evaluation:
                 rules, metrics = self.learner.evaluate_and_refine(
-                    rules, self.dataset, max_iterations=max_refinement_iterations
+                    rules,
+                    self.dataset,
+                    ner_threshold=ner_threshold,
+                    max_iterations=max_refinement_iterations,
                 )
             else:
                 metrics = None
@@ -359,6 +364,7 @@ class RuleChef:
             print(f"\n{'=' * 60}")
             print(f"Learning complete! ({elapsed:.1f}s)")
             print(f"  Rules: {len(rules)}")
+            print("METRICS", metrics)
             if metrics and metrics.get("total", 0) > 0:
                 print(
                     f"  Accuracy: {metrics['accuracy']:.1%} ({metrics['correct']}/{metrics['total']})"

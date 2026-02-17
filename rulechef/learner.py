@@ -10,7 +10,7 @@ from openai import OpenAI
 
 from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 from rulechef.executor import RuleExecutor
-from rulechef.matching import outputs_match
+from rulechef.matching import outputs_match, evaluate_rules_ner
 from rulechef.prompts import PromptBuilder
 from rulechef.prompts import Lang, PromptBuilder
 
@@ -36,9 +36,10 @@ class RuleLearner:
         self.use_grex = use_grex
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
-            self.allowed_formats, use_spacy_ner=use_spacy_ner, lang=lang,
+            self.allowed_formats,
+            use_spacy_ner=use_spacy_ner,
+            lang=lang,
             use_grex=use_grex,
-
         )
 
     # ========================================
@@ -66,7 +67,7 @@ class RuleLearner:
     ) -> List[Rule]:
         """Generate initial ruleset from dataset"""
         prompt = self._build_synthesis_prompt(dataset, max_rules)
-        print(prompt)
+        # print(prompt)
         print("📚 Synthesizing rules from dataset...")
         start = time.time()
 
@@ -77,6 +78,7 @@ class RuleLearner:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
             )
+            print(response)
 
             result = self._parse_json(response.choices[0].message.content)
             rules = self._parse_rules_from_response(result, max_rules, dataset)
@@ -204,7 +206,11 @@ class RuleLearner:
     # ========================================
 
     def evaluate_and_refine(
-        self, rules: List[Rule], dataset: Dataset, max_iterations: int = 3
+        self,
+        rules: List[Rule],
+        dataset: Dataset,
+        ner_threshold,
+        max_iterations: int = 3,
     ) -> tuple:
         """Evaluate rules and refine through patch-based loop.
 
@@ -221,12 +227,19 @@ class RuleLearner:
             iter_num = iteration + 1
             print(f"[{iter_num}/{max_iterations}] Evaluating rules...")
 
-            results = self._evaluate_rules(rules, dataset)
+            results = self._evaluate_rules(rules, dataset, ner_threshold)
             accuracy = results["accuracy"]
 
             print(
                 f"[{iter_num}/{max_iterations}] Accuracy: {accuracy:.1%} ({results['correct']}/{results['total']})"
             )
+
+            if dataset.task.type == TaskType.NER:
+                ner_metrics = results["ner_metrics"]
+                for ner_metric in ner_metrics:
+                    print(
+                        f"[{iter_num}/{max_iterations}] NER Metrics:{ner_metrics[ner_metric]})"
+                    )
 
             if accuracy > best_accuracy:
                 best_rules = rules
@@ -249,7 +262,9 @@ class RuleLearner:
                     print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
                     candidate = self._merge_patch(rules, patch)
-                    candidate_results = self._evaluate_rules(candidate, dataset)
+                    candidate_results = self._evaluate_rules(
+                        candidate, dataset, ner_threshold
+                    )
                     candidate_acc = candidate_results["accuracy"]
                     if candidate_acc >= accuracy:
                         rules = candidate
@@ -289,43 +304,55 @@ class RuleLearner:
             by_name[pr.name] = pr
         return list(by_name.values())
 
-    def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> Dict:
+    def _evaluate_rules(
+        self, rules: List[Rule], dataset: Dataset, ner_threshold
+    ) -> Dict:
         """Test rules on all training data"""
         all_data = dataset.get_all_training_data()
         total = len(all_data)
+
         correct = 0
         failures = []
 
-        for item in all_data:
-            extracted = self._apply_rules(
-                rules, item.input, dataset.task.type, dataset.task.text_field
+        if dataset.task.type == TaskType.NER:
+            return evaluate_rules_ner(
+                all_data,
+                rules,
+                apply_rules_fn=self._apply_rules,
+                task=dataset.task,
+                threshold=ner_threshold,
             )
-            expected = item.expected_output
 
-            if outputs_match(
-                expected,
-                extracted,
-                dataset.task.type,
-                dataset.task.output_matcher,
-                matching_mode=dataset.task.matching_mode,
-            ):
-                correct += 1
-            else:
-                failures.append(
-                    {
-                        "input": item.input,
-                        "expected": expected,
-                        "got": extracted,
-                        "is_correction": isinstance(item, Correction),
-                    }
+        else:
+            for item in all_data:
+                extracted = self._apply_rules(
+                    rules, item.input, dataset.task.type, dataset.task.text_field
                 )
+                expected = item.expected_output
+                if outputs_match(
+                    expected,
+                    extracted,
+                    dataset.task.type,
+                    dataset.task.output_matcher,
+                    matching_mode=dataset.task.matching_mode,
+                ):
+                    correct += 1
+                else:
+                    failures.append(
+                        {
+                            "input": item.input,
+                            "expected": expected,
+                            "got": extracted,
+                            "is_correction": isinstance(item, Correction),
+                        }
+                    )
 
-        return {
-            "total": total,
-            "correct": correct,
-            "accuracy": correct / total if total > 0 else 0.0,
-            "failures": failures,
-        }
+            return {
+                "total": total,
+                "correct": correct,
+                "accuracy": correct / total if total > 0 else 0.0,
+                "failures": failures,
+            }
 
     def _refine_rules(
         self, current_rules: List[Rule], failures: List[Dict], dataset: Dataset
@@ -341,6 +368,7 @@ class RuleLearner:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0.2,
             )
 
             result = self._parse_json(response.choices[0].message.content)
@@ -397,6 +425,7 @@ class RuleLearner:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0.1,
             )
 
             result = self._parse_json(response.choices[0].message.content)
@@ -426,6 +455,10 @@ class RuleLearner:
             strategy=self.sampling_strategy,
         )
 
+        print(f"🔍 _build_synthesis_prompt:")
+        print(f"  Total items in dataset: {len(dataset.get_all_training_data())}")
+        print(f"  Sampled for prompt: {len(sampled_data)}")
+
         # Separate corrections and examples
         corrections = [d for d in sampled_data if isinstance(d, Correction)]
         examples = [
@@ -436,7 +469,9 @@ class RuleLearner:
         negative_examples = [
             d for d in sampled_data if not isinstance(d, Correction) and d.is_negative
         ]
-
+        print(f"  Corrections: {len(corrections)}")
+        print(f"  Examples: {len(examples)}")
+        print(f"  Negative examples: {len(negative_examples)}")
         # Build base prompt from builder
         prompt = self.prompt_builder._build_task_header(dataset)
 
@@ -461,6 +496,7 @@ class RuleLearner:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
+        print(f"🔍 Final prompt: {len(prompt):,} chars (~{len(prompt) // 4:,} tokens)")
 
         return prompt
 
