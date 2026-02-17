@@ -48,22 +48,25 @@ for key in [
 
 
 
-with st.container(border=True):
-    st.markdown(
-    "<h5 style='text-align: left; font-size:2px, font-family: Roboto Mono; color: black;'>Add data or upload existing rule file.</h5>",
-    unsafe_allow_html=True,
-)
-    with st.container(border=True, width="content", height="content", gap="small"):
-        st.page_link("./1_Add_Data.py", label="Go to Step 1: Add Data!")
-    uploaded_rules = st.file_uploader("Upload rules file (JSON)", type=["json"])
-    if uploaded_rules:
-        rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
-        rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
-        st.session_state.rules = rules
-        st.success(f"{len(rules)} rules loaded")
 
 has_data = st.session_state.task and st.session_state.data
 has_rules = bool(st.session_state.rules)
+
+if not has_data:
+    with st.container(border=True):
+        st.markdown(
+        "<h5 style='text-align: left; font-size:2px, font-family: Roboto Mono; color: black;'>Add data or upload existing rule file.</h5>",
+        unsafe_allow_html=True,
+    )
+        with st.container(border=True, width="content", height="content", gap="small"):
+            st.page_link("./1_Add_Data.py", label="Go to Step 1: Add Data!")
+        uploaded_rules = st.file_uploader("Upload rules file (JSON)", type=["json"])
+        if uploaded_rules:
+            rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
+            rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
+            st.session_state.rules = rules
+            st.success(f"{len(rules)} rules loaded")
+
 
 
 if has_data:
@@ -74,7 +77,7 @@ if has_data:
                 get_openai_client(),
                 dataset_name="myrules",
                 allowed_formats=[RuleFormat.REGEX],
-                model="gpt-5-mini-2025-08-07",
+                model= "openai/gpt-oss-120b", #"gpt-5-mini-2025-08-07", #
                 use_spacy_ner=False,
                 lang=st.session_state.language,
                 use_grex=True,
@@ -83,8 +86,8 @@ if has_data:
             output_box = st.empty()
             add_data(
                 st.session_state.chef,
-                st.session_state.positive,
-                st.session_state.negative,
+                st.session_state.examples,
+               # st.session_state.negative,
             )
             st.success("RuleChef initialized.")
 

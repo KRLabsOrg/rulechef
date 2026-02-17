@@ -30,7 +30,7 @@ for key in [
     "entity_types",
     "language",
     "data",
-    "positive",
+    "examples",
     "negative",
     "chef",
     "samples",
@@ -47,10 +47,12 @@ with st.container(border=True):
     st.subheader("Entity Labels")
 
     with st.form("task_form"):
+
+
         entity_types = st.multiselect(
             "Entity Labels",
-            ["ORG", "PER", "LOC"],
-            default=st.session_state.entity_types or ["ORG"],
+            ["person", "location", "organisation"],
+            default=st.session_state.entity_types or ["organisation"],
         )
 
         submitted = st.form_submit_button("Save")
@@ -71,34 +73,32 @@ with st.container(border=True):
 
     if uploaded_file:
         content = uploaded_file.read().decode("utf-8")
+       
         st.session_state.data = NERData.from_json(json.loads(content))
-
-        st.session_state.samples = [
-            s for s in st.session_state.data.samples if s.split == "train"
-        ]
-
-        (
-            st.session_state.positive,
-            st.session_state.negative,
-        ) = sample_data(
-            st.session_state.samples,
+    
+        st.session_state.examples = sample_data(
+            st.session_state.data.samples,
             st.session_state.entity_types,
         )
+        print(st.session_state.examples[:10]  )
 
         st.success("Training data loaded.")
 
 
 with st.container(border=True):
     st.subheader("Training Data")
-    if st.session_state.samples:
-        for sample in st.session_state.samples:
-            highlight_entities(sample.text, sample.labels)
+    
+    if st.session_state.data:
+        print(st.session_state.examples)
+        for sample in st.session_state.examples[:3]:
+            print(sample)
+            highlight_entities(sample["text"], sample["entities"])
             # for label in sample.labels:
             # st.write(label)
     else:
         st.write("No examples yet!")
 
-if st.session_state.samples:
+if st.session_state.examples:
     with st.container(border=True):
         st.write("You have training examples.")
         with st.container(border=True, width="content", height="content", gap="small"):

@@ -4,6 +4,7 @@ from rulechef import RuleChef, TaskType
 from rulechef.core import RuleFormat, Rule
 from rulechef.executor import RuleExecutor
 from utils import get_openai_client, add_data, stream_to_streamlit, highlight_entities
+from rulechef.matching import outputs_match,evaluate_rules_individually
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 from annotated_text import annotated_text

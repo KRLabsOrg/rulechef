@@ -36,13 +36,8 @@ class NEROutput(BaseModel):
 
 
 def get_openai_client() -> OpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv(
-        "OPENAI_BASE_URL",
-        "https://api.openai.com/v1",
-        # "http://localhost:11434/v1",
-        # , "http://localhost:8000/v1"
-    )
+    api_key =  "EMPTY" #os.getenv("OPENAI_API_KEY") #"EMPTY"
+    base_url = "http://a-a100-o-1:8000/v1" #"http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
 
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
@@ -50,44 +45,58 @@ def get_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def add_data(chef, samples, negative_samples):
+def add_data(chef, samples):
     for sample in samples:
         chef.add_example(
             {"text": sample["text"]},
             {"entities": sample["entities"]},
         )
-
+    """
     for negative_sample in negative_samples:
         chef.add_negative_example(
             {"text": negative_sample["text"]},
             {"entities": negative_sample["entities"]},
         )
+    """
 
-
-def sample_data(samples, allowed_classes, k=10, seed=12):
+def sample_data(samples, allowed_classes, k=50, seed=123, window_size=100):
     random.seed(seed)
 
     positive_samples = []
-    negative_samples = []
-
     for sample in samples:
-        pos, neg = [], []
+        text = sample.text
+        entities = sorted(
+            [l for l in sample.labels if l["type"] in allowed_classes],
+            key=lambda x: x["start"],
+        )
 
-        for label in sample.labels:
-
-            if label["type"] in allowed_classes:
-                pos.append(label)
+        if not entities:
+            continue
+        merged_windows = []
+        for ent in entities:
+            start = max(0, ent["start"] - window_size)
+            end = min(len(text), ent["end"] + window_size)
+            if merged_windows and start <= merged_windows[-1][1]:
+                merged_windows[-1][1] = max(end, merged_windows[-1][1])
+                merged_windows[-1][2].append(ent)
             else:
-                neg.append(label)
+                merged_windows.append([start, end, [ent]])
 
-        if pos:
-            positive_samples.append({"text": sample.text, "entities": pos})
-        if neg:
-            negative_samples.append({"text": sample.text, "entities": neg})
+        for start, end, window_entities in merged_windows:
+            snippet = text[start:end]
+            adjusted_entities = []
+            for e in window_entities:
+                adjusted_entities.append(
+                    {
+                        "text": e["text"],
+                        "start": e["start"] - start,
+                        "end": e["end"] - start,
+                        "type": e["type"],
+                    }
+                )
+            positive_samples.append({"text": snippet, "entities": adjusted_entities})
 
-    negative_samples = random.sample(negative_samples, min(k, len(negative_samples)))
-    return positive_samples, negative_samples
-
+    return positive_samples
 
 def build_task(name, description):
     return Task(
@@ -112,7 +121,7 @@ def stream_to_streamlit(output_box, title="Execution Log"):
     class StreamlitWriter(io.TextIOBase):
         def write(self, s):
             if s.strip():
-                st.session_state.terminal_output += s
+                st.session_state.terminal_output +=s
                 output_box.text_area(
                     title, value=st.session_state.terminal_output, height=300
                 )
