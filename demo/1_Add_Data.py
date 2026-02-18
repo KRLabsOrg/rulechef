@@ -47,8 +47,6 @@ with st.container(border=True):
     st.subheader("Entity Labels")
 
     with st.form("task_form"):
-
-
         entity_types = st.multiselect(
             "Entity Labels",
             ["person", "location", "organisation"],
@@ -73,25 +71,23 @@ with st.container(border=True):
 
     if uploaded_file:
         content = uploaded_file.read().decode("utf-8")
-       
+
         st.session_state.data = NERData.from_json(json.loads(content))
-    
+
         st.session_state.examples = sample_data(
             st.session_state.data.samples,
             st.session_state.entity_types,
         )
-        print(st.session_state.examples[:10]  )
+        print(st.session_state.examples[:10])
 
         st.success("Training data loaded.")
 
 
 with st.container(border=True):
     st.subheader("Training Data")
-    
+
     if st.session_state.data:
-        print(st.session_state.examples)
         for sample in st.session_state.examples[:3]:
-            print(sample)
             highlight_entities(sample["text"], sample["entities"])
             # for label in sample.labels:
             # st.write(label)

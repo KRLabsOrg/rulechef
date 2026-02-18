@@ -36,8 +36,8 @@ class NEROutput(BaseModel):
 
 
 def get_openai_client() -> OpenAI:
-    api_key =  "EMPTY" #os.getenv("OPENAI_API_KEY") #"EMPTY"
-    base_url = "http://a-a100-o-1:8000/v1" #"http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
+    api_key = "EMPTY"  # os.getenv("OPENAI_API_KEY") #"EMPTY"
+    base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
 
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
@@ -58,6 +58,7 @@ def add_data(chef, samples):
             {"entities": negative_sample["entities"]},
         )
     """
+
 
 def sample_data(samples, allowed_classes, k=50, seed=123, window_size=100):
     random.seed(seed)
@@ -98,6 +99,7 @@ def sample_data(samples, allowed_classes, k=50, seed=123, window_size=100):
 
     return positive_samples
 
+
 def build_task(name, description):
     return Task(
         name=name,
@@ -121,7 +123,7 @@ def stream_to_streamlit(output_box, title="Execution Log"):
     class StreamlitWriter(io.TextIOBase):
         def write(self, s):
             if s.strip():
-                st.session_state.terminal_output +=s
+                st.session_state.terminal_output += s
                 output_box.text_area(
                     title, value=st.session_state.terminal_output, height=300
                 )

@@ -4,7 +4,7 @@ from rulechef import RuleChef, TaskType
 from rulechef.core import RuleFormat, Rule
 from rulechef.executor import RuleExecutor
 from utils import get_openai_client, add_data, stream_to_streamlit, highlight_entities
-from rulechef.matching import outputs_match,evaluate_rules_individually
+from rulechef.matching import outputs_match, evaluate_rules_individually
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 from annotated_text import annotated_text
@@ -40,6 +40,7 @@ for key in [
     "rules",
     "executor",
     "rules_learned",
+    "active_rules",
     "result",
 ]:
     if key not in st.session_state:
@@ -68,15 +69,24 @@ if st.session_state.rules or rules_learned:
         apply_clicked = st.button("🔍︎  Extract")
 
         if apply_clicked and test_text.strip():
+            rules_to_use = (
+                st.session_state.active_rules
+                if st.session_state.active_rules
+                and len(st.session_state.active_rules) > 0
+                else st.session_state.rules
+            )
+
             if not rules_learned:
                 st.session_state.executor = RuleExecutor()
                 st.session_state.result = st.session_state.executor.apply_rules(
-                    rules=st.session_state.rules,
+                    rules=rules_to_use,
                     input_data={"text": test_text},
                     task_type=TaskType.NER,
                 )
 
             if rules_learned:
+                original_rules = st.session_state.chef.dataset.rules
+                st.session_state.chef.dataset.rules = rules_to_use
                 st.session_state.result = st.session_state.chef.extract(
                     input_data={"text": test_text},
                 )
@@ -84,7 +94,7 @@ if st.session_state.rules or rules_learned:
     if st.session_state.result:
         with st.container(border=True):
             entities = st.session_state.result.get("entities", [])
-            st.write(entities)
+
             if entities:
                 st.subheader("Rule Output")
                 highlight_entities(test_text, entities)
