@@ -15,8 +15,9 @@ OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
 def evaluate_rules_individually(
     all_data,
     rules,
-    executor: RuleExecutor,
-    task_type=None,
+    chef,
+    rules_learned=True,
+    task_type=TaskType.NER,
     text_field="text",
     threshold=0.5,
 ):
@@ -33,9 +34,18 @@ def evaluate_rules_individually(
         labels = set()
 
         for item in all_data:
-            predicted_spans = executor.apply_rules(
-                [rule], {"text": item["text"]}, task_type, text_field
-            )
+            if rules_learned:
+                predicted_spans = chef.extract(
+                    input_data={"text": item["text"]},
+                )
+            else:
+                executor = RuleExecutor()
+                predicted_spans = executor.apply_rules(
+                    [rule],
+                    {"text": item["text"]},
+                    task_type,
+                )
+
             predicted_spans = predicted_spans.get("entities", predicted_spans)
             gold_spans = item["entities"]
 
@@ -87,7 +97,7 @@ def evaluate_rules_individually(
         )
 
         per_rule_metrics[rule.name or rule.id or "unnamed_rule"] = {
-            "overall": {
+            f"overall": {
                 "precision": precision,
                 "recall": recall,
                 "f1": f1,
