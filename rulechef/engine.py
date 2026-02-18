@@ -50,6 +50,9 @@ class RuleChef:
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
         use_grex: bool = True,
+        max_rules: int = 10,
+        max_samples: int = 50,
+        synthesis_strategy: str = "auto",
     ):
         self.task = task
         self.llm = client or OpenAI()
@@ -67,6 +70,7 @@ class RuleChef:
         else:
             self.allowed_formats = [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
+        self.synthesis_strategy = synthesis_strategy
         self.learner = RuleLearner(
             self.llm,
             allowed_formats=self.allowed_formats,
@@ -74,6 +78,8 @@ class RuleChef:
             model=model,
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
+            max_rules=max_rules,
+            max_samples=max_samples,
         )
 
         # Coordinator for learning decisions (swappable simple/agentic)
@@ -358,7 +364,18 @@ class RuleChef:
                 )
                 rules = self._merge_rules(self.dataset.rules, patch_rules)
             else:
-                rules = self.learner.synthesize_ruleset(self.dataset)
+                # Choose synthesis method based on strategy
+                use_per_class = False
+                if self.synthesis_strategy == "per_class":
+                    use_per_class = True
+                elif self.synthesis_strategy == "auto":
+                    classes = self.learner._get_classes(self.dataset)
+                    use_per_class = len(classes) > 1
+
+                if use_per_class:
+                    rules = self.learner.synthesize_ruleset_per_class(self.dataset)
+                else:
+                    rules = self.learner.synthesize_ruleset(self.dataset)
 
                 if not rules:
                     print("Failed to synthesize rules")
@@ -369,7 +386,10 @@ class RuleChef:
             # Evaluate and refine (refinement uses failures to patch)
             if run_evaluation:
                 rules, eval_result = self.learner.evaluate_and_refine(
-                    rules, self.dataset, max_iterations=max_refinement_iterations
+                    rules,
+                    self.dataset,
+                    max_iterations=max_refinement_iterations,
+                    coordinator=self.coordinator,
                 )
             else:
                 eval_result = None

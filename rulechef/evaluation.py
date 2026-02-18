@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Tuple
 
 from rulechef.core import (
     Correction,
     Dataset,
     Rule,
     TaskType,
-    DEFAULT_OUTPUT_KEYS,
 )
 
 
@@ -472,7 +470,7 @@ def print_eval_result(result: EvalResult, name: str = "Dataset") -> None:
 
     print(f"\n  Documents: {result.total_docs}")
     print(f"  Exact match: {result.exact_match:.1%}")
-    print(f"\n  Entity-level (micro):")
+    print("\n  Entity-level (micro):")
     print(f"    Precision: {result.micro_precision:.1%}")
     print(f"    Recall:    {result.micro_recall:.1%}")
     print(f"    F1:        {result.micro_f1:.1%}")

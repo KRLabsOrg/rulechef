@@ -75,6 +75,18 @@ class CoordinatorProtocol(ABC):
         """
         pass
 
+    def guide_refinement(
+        self, eval_result: Any, iteration: int, max_iterations: int
+    ) -> tuple:
+        """Analyze per-class metrics and return (guidance_text, should_continue).
+
+        Called after each refinement iteration. The guidance string is injected
+        into the patch prompt. should_continue=False stops the loop early.
+
+        Default: no guidance, always continue.
+        """
+        return "", True
+
 
 class SimpleCoordinator(CoordinatorProtocol):
     """
@@ -292,6 +304,64 @@ class AgenticCoordinator(CoordinatorProtocol):
                 )
             else:
                 print("✓ Learning complete.")
+
+    def guide_refinement(
+        self, eval_result: Any, iteration: int, max_iterations: int
+    ) -> tuple:
+        """LLM-powered refinement guidance based on per-class metrics."""
+        import json
+
+        if not hasattr(eval_result, "per_class") or not eval_result.per_class:
+            return "", True
+
+        # Build per-class metrics table
+        class_lines = []
+        for cm in sorted(eval_result.per_class, key=lambda c: c.f1):
+            class_lines.append(
+                f"  {cm.label}: F1={cm.f1:.0%} P={cm.precision:.0%} R={cm.recall:.0%} "
+                f"(TP={cm.tp} FP={cm.fp} FN={cm.fn})"
+            )
+
+        prompt = f"""You are the Refinement Coordinator for a rule learning system.
+After each refinement iteration, you analyze per-class performance and guide the next patch.
+
+ITERATION: {iteration + 1}/{max_iterations}
+OVERALL: accuracy={eval_result.exact_match:.1%}, micro_F1={eval_result.micro_f1:.1%}, macro_F1={eval_result.macro_f1:.1%}
+
+PER-CLASS PERFORMANCE (sorted worst to best):
+{chr(10).join(class_lines)}
+
+Return JSON:
+{{
+  "focus_classes": ["list of class names that need the most improvement"],
+  "guidance": "Specific advice for the rule generator — which classes to prioritize, what patterns to try, what to avoid. 2-3 sentences max.",
+  "should_continue": boolean (false if performance is good enough or unlikely to improve further)
+}}
+"""
+
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+            )
+            result = json.loads(response.choices[0].message.content)
+
+            guidance = result.get("guidance", "")
+            should_continue = result.get("should_continue", True)
+            focus = result.get("focus_classes", [])
+
+            if self.verbose and guidance:
+                print(f"🤖 Coordinator: {guidance}")
+                if focus:
+                    print(f"   Focus: {', '.join(focus)}")
+
+            return guidance, should_continue
+
+        except Exception as e:
+            if self.verbose:
+                print(f"⚠ Coordinator error: {e}")
+            return "", True
 
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]

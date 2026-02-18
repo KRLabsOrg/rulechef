@@ -292,9 +292,9 @@ Return JSON:
 
 
 def get_schema_aware_response_schema(
-    format_options: List[str], primary_key: str
+    format_options: List[str], primary_key: str, is_classification: bool = False
 ) -> str:
-    """Get JSON schema for schema-aware tasks (NER, TRANSFORMATION)"""
+    """Get JSON schema for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
     format_str = '" or "'.join(format_options)
     if len(format_options) == 1 and format_options[0] == "regex":
         pattern_desc = "regex pattern"
@@ -302,6 +302,12 @@ def get_schema_aware_response_schema(
         pattern_desc = "spaCy JSON pattern"
     else:
         pattern_desc = "regex pattern OR spaCy JSON pattern"
+
+    if is_classification:
+        template_example = f'{{"{primary_key}": "class_label_here"}}'
+    else:
+        template_example = '{"text": "$0", "start": "$start", "end": "$end", "type": "LITERAL_OR_$VAR"}'
+
     return f'''
 Return JSON:
 {{
@@ -314,7 +320,7 @@ Return JSON:
       "description": "What this rule does",
       "format": "{format_str}",
       "pattern": "{pattern_desc}",
-      "output_template": {{"text": "$0", "start": "$start", "end": "$end", "type": "LITERAL_OR_$VAR"}},
+      "output_template": {template_example},
       "output_key": "{primary_key}",
       "priority": 1-10 (higher = more important),
       "reasoning": "Why this rule is needed"
@@ -584,7 +590,11 @@ RULES CAN BE:"""
     def _build_response_schema(self, dataset: Dataset) -> str:
         """Build the expected JSON response schema"""
         format_options = self._get_format_options()
-        is_schema_aware = dataset.task.type in (TaskType.NER, TaskType.TRANSFORMATION)
+        is_schema_aware = dataset.task.type in (
+            TaskType.NER,
+            TaskType.TRANSFORMATION,
+            TaskType.CLASSIFICATION,
+        )
 
         if is_schema_aware:
             return self._build_schema_aware_section(dataset, format_options)
@@ -594,8 +604,10 @@ RULES CAN BE:"""
     def _build_schema_aware_section(
         self, dataset: Dataset, format_options: List[str]
     ) -> str:
-        """Build prompt section for schema-aware tasks (NER, TRANSFORMATION)"""
+        """Build prompt section for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
         from rulechef.core import is_pydantic_schema
+
+        is_classification = dataset.task.type == TaskType.CLASSIFICATION
 
         # Get output keys - handle both dict and Pydantic schemas
         if is_pydantic_schema(dataset.task.output_schema):
@@ -610,27 +622,51 @@ RULES CAN BE:"""
         if RuleFormat.SPACY in self.allowed_formats:
             pattern_options.append("spaCy token matcher JSON pattern")
 
-        template_vars = [
-            "  - $0: Full match text",
-            "  - $start: Start character offset",
-            "  - $end: End character offset",
-        ]
-        if RuleFormat.REGEX in self.allowed_formats:
-            template_vars.append("  - $1, $2, ...: Capture groups (regex only)")
-        if RuleFormat.SPACY in self.allowed_formats:
-            template_vars.append(
-                "  - $ent_type: Entity type from spaCy NER (spaCy only)"
-            )
-            template_vars.append(
-                "  - $1.start/$1.end/$1.text: Token offsets/text within spaCy match"
-            )
-
         pattern_desc = " or ".join(pattern_options) if pattern_options else "pattern"
 
         # Get readable schema representation
         schema_str = dataset.task.get_schema_for_prompt()
 
-        section = f"""
+        if is_classification:
+            # Classification: output_template maps regex match to a label
+            section = f"""
+
+SCHEMA-AWARE RULES:
+For this classification task, each rule matches a pattern and maps it to a label via output_template.
+
+Output schema:
+{schema_str}
+
+Each rule needs:
+- pattern: The {pattern_desc} to match (keywords, phrases, or patterns indicative of the class)
+- output_template: A dict with the literal label value, e.g. {{"{primary_key}": "the_class_label"}}
+- output_key: "{primary_key}"
+
+IMPORTANT for classification:
+- Each rule should target ONE class. The rule name should reflect the class.
+- output_template must contain the LITERAL label string, not a regex variable.
+  Example: output_template: {{"{primary_key}": "card_arrival"}}
+- First matching rule wins, so order rules by priority (higher = checked first).
+- Use (?i) for case-insensitive matching where appropriate.
+"""
+        else:
+            # NER / TRANSFORMATION: output_template uses match variables
+            template_vars = [
+                "  - $0: Full match text",
+                "  - $start: Start character offset",
+                "  - $end: End character offset",
+            ]
+            if RuleFormat.REGEX in self.allowed_formats:
+                template_vars.append("  - $1, $2, ...: Capture groups (regex only)")
+            if RuleFormat.SPACY in self.allowed_formats:
+                template_vars.append(
+                    "  - $ent_type: Entity type from spaCy NER (spaCy only)"
+                )
+                template_vars.append(
+                    "  - $1.start/$1.end/$1.text: Token offsets/text within spaCy match"
+                )
+
+            section = f"""
 
 SCHEMA-AWARE RULES:
 For this task, rules must include an output_template that maps matches to the output schema.
@@ -644,7 +680,10 @@ Each rule needs:
 {os.linesep.join(template_vars)}
 - output_key: Which output array to populate (e.g., "{primary_key}")
 """
-        section += get_schema_aware_response_schema(format_options, primary_key)
+
+        section += get_schema_aware_response_schema(
+            format_options, primary_key, is_classification=is_classification
+        )
 
         return section
 

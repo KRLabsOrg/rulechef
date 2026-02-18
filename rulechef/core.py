@@ -113,12 +113,19 @@ class Span:
 
 
 class TaskType(Enum):
-    """Type of task being performed"""
+    """Type of task being performed.
 
-    EXTRACTION = "extraction"  # Returns List[Span] (untyped)
-    NER = "ner"  # Returns List[TypedSpan] with entity types
-    CLASSIFICATION = "classification"  # Returns str (Label)
-    TRANSFORMATION = "transformation"  # Returns Any (JSON/String)
+    EXTRACTION:      Find text spans (untyped). Output: {"spans": [{"text", "start", "end"}]}
+    NER:             Find typed entities.       Output: {"entities": [{"text", "start", "end", "type"}]}
+    CLASSIFICATION:  Classify input into a label. Output: {"label": "class_name"}
+    TRANSFORMATION:  Extract structured data to a custom output schema you define.
+                     Like GLiNER — define {"company": "str", "amount": "str"} and get exactly that.
+    """
+
+    EXTRACTION = "extraction"
+    NER = "ner"
+    CLASSIFICATION = "classification"
+    TRANSFORMATION = "transformation"
 
 
 # Canonical output keys per task type
