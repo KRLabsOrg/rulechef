@@ -9,7 +9,10 @@ from rulechef.core import (
     Span,
     Rule,
     TaskType,
+    RuleFormat,
 )
+from rulechef.evaluation import EvalResult, RuleMetrics, ClassMetrics
+from rulechef.coordinator import CoordinatorProtocol, SimpleCoordinator
 
 __version__ = "0.1.0"
 __all__ = [
@@ -22,13 +25,24 @@ __all__ = [
     "Span",
     "Rule",
     "TaskType",
+    "RuleFormat",
+    "EvalResult",
+    "RuleMetrics",
+    "ClassMetrics",
+    "CoordinatorProtocol",
+    "SimpleCoordinator",
+    "AgenticCoordinator",
 ]
 
 
 def __getattr__(name: str):
-    # Lazy import to avoid importing heavy dependencies (e.g. openai) unless needed.
+    # Lazy imports to avoid importing heavy dependencies (e.g. openai) unless needed.
     if name == "RuleChef":
         from rulechef.engine import RuleChef
 
         return RuleChef
+    if name == "AgenticCoordinator":
+        from rulechef.coordinator import AgenticCoordinator
+
+        return AgenticCoordinator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

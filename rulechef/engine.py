@@ -54,6 +54,33 @@ class RuleChef:
         max_samples: int = 50,
         synthesis_strategy: str = "auto",
     ):
+        """Initialize a RuleChef instance.
+
+        Args:
+            task: Task definition describing what to extract/classify.
+            client: OpenAI client instance. Creates a default client if not provided.
+            dataset_name: Name for the dataset, used as the filename for persistence.
+            storage_path: Directory path for saving/loading dataset JSON files.
+            allowed_formats: Rule formats to allow (e.g. REGEX, CODE, SPACY).
+                Defaults to [REGEX, CODE].
+            sampling_strategy: How to sample training data for prompts.
+                Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
+            coordinator: CoordinatorProtocol implementation for learning decisions.
+                Defaults to SimpleCoordinator.
+            auto_trigger: If True, check coordinator after each add_example/add_correction
+                and trigger learning automatically when ready.
+            model: OpenAI model name for LLM calls.
+            llm_fallback: If True, fall back to direct LLM extraction when rules
+                produce no results.
+            use_spacy_ner: If True, enable spaCy NER entity recognition during
+                rule execution (requires spaCy and a model).
+            use_grex: If True, use grex for regex pattern suggestion in prompts.
+            max_rules: Maximum number of rules to generate per synthesis call.
+            max_samples: Maximum training examples to include in synthesis prompts.
+            synthesis_strategy: Strategy for multi-class synthesis.
+                'auto' uses per-class when multiple classes detected, 'per_class'
+                always uses per-class, any other value uses bulk synthesis.
+        """
         self.task = task
         self.llm = client or OpenAI()
         self.model = model
@@ -109,11 +136,15 @@ class RuleChef:
     def add_example(
         self, input_data: Dict, output_data: Dict, source: str = "human_labeled"
     ):
-        """
-        Add a labeled training example.
+        """Add a labeled training example.
 
         Uses buffer-first architecture: example goes to buffer, then coordinator
         decides when to trigger learning.
+
+        Args:
+            input_data: Input dict matching the task's input_schema.
+            output_data: Expected output dict matching the task's output_schema.
+            source: Origin of the example, e.g. 'human_labeled' or 'llm_generated'.
         """
         # Add to buffer (not dataset directly)
         self.buffer.add_human_example(input_data, output_data)
@@ -134,11 +165,16 @@ class RuleChef:
         expected_output: Dict,
         feedback: Optional[str] = None,
     ):
-        """
-        Add a user correction (high value signal).
+        """Add a user correction (high value signal).
 
         Uses buffer-first architecture: correction goes to buffer, then coordinator
         decides when to trigger learning. Corrections are high-priority signals.
+
+        Args:
+            input_data: Input dict that was processed.
+            model_output: The incorrect output that was produced.
+            expected_output: The correct output the model should have produced.
+            feedback: Optional free-text explanation of what went wrong.
         """
         # Add to buffer (not dataset directly)
         self.buffer.add_human_correction(
@@ -228,20 +264,27 @@ class RuleChef:
         sampling_strategy: Optional[str] = None,
         incremental_only: bool = False,
     ):
-        """
-        Learn rules from all collected data
+        """Learn rules from all collected data.
 
-        This is the core batch learning process
+        This is the core batch learning process. Buffered examples are first
+        committed to the dataset, then rules are synthesized and optionally
+        refined through an evaluate-and-patch loop.
 
         Args:
-            run_evaluation: Whether to run evaluation/refinement loop
-                - None (default): Auto-enable if total_data >= 3, disable otherwise
-                - True: Always enable refinement (3 iterations)
-                - False: Disable refinement (faster, synthesis only)
-            min_examples: Minimum training items required
-            max_refinement_iterations: Max iterations in refinement loop (1-3, default 3)
-            sampling_strategy: Override default sampling strategy for this run
-                - Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'
+            run_evaluation: Whether to run evaluation/refinement loop.
+                None (default) auto-enables if total_data >= 3. True always
+                enables refinement. False disables it (faster, synthesis only).
+            min_examples: Minimum training items required to proceed.
+            max_refinement_iterations: Max iterations in refinement loop (1-3).
+            sampling_strategy: Override default sampling strategy for this run.
+                Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
+            incremental_only: If True and rules already exist, only generate
+                patch rules for current failures instead of full re-synthesis.
+
+        Returns:
+            Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
+                (learned_rules, eval_result) on success. eval_result is None
+                when refinement is disabled. Returns None if not enough data.
         """
 
         start_time = time.time()
@@ -427,15 +470,22 @@ class RuleChef:
     # ========================================
 
     def extract(self, input_data: Dict, validate: bool = True) -> Dict:
-        """
-        Extract from input using learned rules.
+        """Extract from input using learned rules.
 
         Works for all task types: EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION.
         Returns empty result if no rules learned, unless llm_fallback=True.
 
         Args:
-            input_data: Input data dict
-            validate: If True and output_schema is Pydantic, validate output
+            input_data: Input data dict matching the task's input_schema.
+            validate: If True and output_schema is Pydantic, validate output.
+
+        Returns:
+            Output dict whose shape depends on the task type:
+                - EXTRACTION: {"spans": [{"text", "start", "end", ...}]}
+                - NER: {"entities": [{"text", "start", "end", "type", ...}]}
+                - CLASSIFICATION: {"label": "class_name"}
+                - TRANSFORMATION: Dict with keys defined by output_schema.
+            Returns an empty structure if no rules matched or none are learned.
         """
         if not self.dataset.rules:
             # No rules learned yet
@@ -658,7 +708,13 @@ Return ONLY valid JSON matching the output schema, no explanation."""
     # ========================================
 
     def get_stats(self) -> Dict:
-        """Get dataset statistics"""
+        """Get dataset statistics.
+
+        Returns:
+            Dict with keys: 'task' (str), 'dataset' (str), 'corrections' (int),
+            'examples' (int), 'feedback' (int), 'rules' (int),
+            'description' (str).
+        """
         return {
             "task": self.dataset.task.name,
             "dataset": self.dataset.name,
@@ -670,11 +726,14 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         }
 
     def evaluate(self, verbose: bool = True) -> EvalResult:
-        """
-        Run full entity-level evaluation of current rules against the dataset.
+        """Run full entity-level evaluation of current rules against the dataset.
 
-        Returns an EvalResult with micro/macro P/R/F1, per-class breakdown,
-        exact match rate, and failure details.
+        Args:
+            verbose: If True, print a formatted evaluation summary to stdout.
+
+        Returns:
+            EvalResult with micro/macro P/R/F1, per-class breakdown,
+            exact match rate, and failure details.
         """
         if not self.dataset.rules:
             print("No rules to evaluate")
@@ -690,11 +749,16 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         return result
 
     def get_rule_metrics(self, verbose: bool = True) -> List[RuleMetrics]:
-        """
-        Evaluate each rule individually against the dataset.
+        """Evaluate each rule individually against the dataset.
 
-        Returns per-rule precision/recall/F1, sample matches, and per-class
-        breakdown. Useful for identifying dead or harmful rules.
+        Useful for identifying dead or harmful rules.
+
+        Args:
+            verbose: If True, print a formatted per-rule metrics table to stdout.
+
+        Returns:
+            List[RuleMetrics] with per-rule precision/recall/F1, sample matches,
+            and per-class breakdown.
         """
         if not self.dataset.rules:
             print("No rules to evaluate")
@@ -710,7 +774,14 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         return metrics
 
     def delete_rule(self, rule_id: str) -> bool:
-        """Delete a rule by id. Returns True if found and deleted."""
+        """Delete a rule by id.
+
+        Args:
+            rule_id: The unique identifier of the rule to delete.
+
+        Returns:
+            True if the rule was found and deleted, False otherwise.
+        """
         before = len(self.dataset.rules)
         self.dataset.rules = [r for r in self.dataset.rules if r.id != rule_id]
         if len(self.dataset.rules) < before:
@@ -721,7 +792,14 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         return False
 
     def get_rules_summary(self) -> List[Dict]:
-        """Get formatted summary of learned rules"""
+        """Get formatted summary of learned rules.
+
+        Returns:
+            List of dicts sorted by priority (descending), each with keys:
+            'name' (str), 'description' (str), 'format' (str),
+            'priority' (int), 'confidence' (str), 'times_applied' (int),
+            'success_rate' (str).
+        """
         summaries = []
         for rule in sorted(self.dataset.rules, key=lambda r: r.priority, reverse=True):
             success_rate = (

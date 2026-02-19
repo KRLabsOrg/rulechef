@@ -13,7 +13,6 @@ from openai import OpenAI
 from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
 from rulechef.evaluation import (
     evaluate_dataset,
-    evaluate_rules_individually,
     EvalResult,
 )
 from rulechef.executor import RuleExecutor
@@ -34,6 +33,20 @@ class RuleLearner:
         max_rules: int = 10,
         max_samples: int = 50,
     ):
+        """Initialize the rule learner.
+
+        Args:
+            llm: OpenAI client instance for LLM calls.
+            allowed_formats: Rule formats to generate (e.g. REGEX, CODE, SPACY).
+                Defaults to [REGEX, CODE].
+            sampling_strategy: How to sample training data for prompts.
+                Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
+            model: OpenAI model name for synthesis and patch calls.
+            use_spacy_ner: If True, enable spaCy NER during rule execution.
+            use_grex: If True, use grex for regex pattern suggestion in prompts.
+            max_rules: Maximum number of rules to generate per synthesis call.
+            max_samples: Maximum training examples to include in prompts.
+        """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
@@ -72,7 +85,11 @@ class RuleLearner:
         dataset: Dataset,
         max_rules: Optional[int] = None,
     ) -> List[Rule]:
-        """Generate initial ruleset from dataset"""
+        """Generate initial ruleset from dataset.
+
+        Returns:
+            List[Rule] of synthesized rules, or empty list on failure.
+        """
         max_rules = max_rules or self.max_rules
         prompt = self._build_synthesis_prompt(dataset, max_rules)
 
@@ -104,7 +121,18 @@ class RuleLearner:
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
     ) -> List[Rule]:
-        """Synthesize rules one class at a time for better focus and coverage."""
+        """Synthesize rules one class at a time for better focus and coverage.
+
+        Args:
+            dataset: Dataset with training examples.
+            max_rules_per_class: Maximum rules to generate for each class.
+            max_counter_examples: Maximum counter-examples (other classes) to
+                include per class prompt to prevent false positives.
+
+        Returns:
+            List[Rule] combining rules from all classes. Falls back to bulk
+            synthesis if no classes are found.
+        """
         classes = self._get_classes(dataset)
         if not classes:
             print("⚠ No classes found, falling back to bulk synthesis")
@@ -294,14 +322,20 @@ class RuleLearner:
         """Evaluate rules and refine through patch-based loop.
 
         Each iteration generates patch rules for failures and merges them
-        into the existing set, keeping working rules intact.
+        into the existing set, keeping working rules intact. Stops early
+        if exact match reaches 90% or the coordinator signals to stop.
 
         Args:
+            rules: Initial set of rules to refine.
+            dataset: Dataset to evaluate against.
+            max_iterations: Maximum refinement iterations (1-3).
             coordinator: Optional CoordinatorProtocol. If provided, its
                 guide_refinement() is called each iteration for LLM-powered
                 guidance on which classes to focus and when to stop.
 
-        Returns (best_rules, EvalResult).
+        Returns:
+            Tuple of (best_rules, best_eval_result) where best_rules is
+            the rule set with the highest micro F1 seen across iterations.
         """
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
@@ -401,38 +435,6 @@ class RuleLearner:
         """Evaluate rules on all training data. Returns EvalResult."""
         return evaluate_dataset(rules, dataset, self._apply_rules, mode="text")
 
-    def evaluate_rules_per_rule(self, rules: List[Rule], dataset: Dataset) -> list:
-        """Evaluate each rule individually. Returns list of RuleMetrics."""
-        return evaluate_rules_individually(
-            rules, dataset, self._apply_rules, mode="text"
-        )
-
-    def _refine_rules(
-        self, current_rules: List[Rule], failures: List[Dict], dataset: Dataset
-    ) -> Optional[List[Rule]]:
-        """Refine rules based on failures"""
-        sampled_failures = self._sample_failures(failures, max_samples=20)
-        prompt = self.prompt_builder.build_refinement_prompt(
-            current_rules, sampled_failures, dataset
-        )
-
-        try:
-            response = self.llm.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-            )
-
-            result = self._parse_json(response.choices[0].message.content)
-            rules = self._parse_rules_from_response(
-                result, max_rules=20, dataset=dataset
-            )
-            return rules if rules else None
-
-        except Exception as e:
-            print(f"Error refining rules: {e}")
-            return None
-
     def _coerce_spacy_content(self, content) -> Optional[List]:
         """Coerce spaCy content into a list of patterns."""
         if isinstance(content, list):
@@ -462,9 +464,13 @@ class RuleLearner:
         guidance: str = "",
         class_metrics: Optional[List] = None,
     ) -> List[Rule]:
-        """
-        Generate incremental rules targeted at specific failures.
-        Returns only new/updated rules; caller merges with existing set.
+        """Generate incremental rules targeted at specific failures.
+
+        Returns only new/updated rules; the caller is responsible for
+        merging them into the existing rule set.
+
+        Returns:
+            List[Rule] of patch rules, or empty list on failure.
         """
         max_rules = max_rules or self.max_rules
         sampled_failures = self._sample_failures(

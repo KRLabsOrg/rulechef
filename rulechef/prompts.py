@@ -1035,20 +1035,6 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
             options.append("spacy")
         return options
 
-    def _format_rules(self, rules: List[Rule]) -> str:
-        """Format rules for display in prompts"""
-        lines = []
-        for i, rule in enumerate(rules, 1):
-            lines.append(f"{i}. {rule.name}")
-            lines.append(f"   Format: {rule.format.value}")
-            lines.append(f"   Priority: {rule.priority}")
-            lines.append(f"   Content: {rule.content}")
-            if rule.output_template:
-                lines.append(f"   Output template: {json.dumps(rule.output_template)}")
-            if rule.output_key:
-                lines.append(f"   Output key: {rule.output_key}")
-        return "\n".join(lines)
-
     def _format_rules_with_feedback(self, rules: List[Rule], dataset: "Dataset") -> str:
         """Format rules with any attached user feedback."""
         lines = []
@@ -1067,16 +1053,3 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
                 for fb in rule_fb:
                     lines.append(f"   *** USER FEEDBACK: {fb.text}")
         return "\n".join(lines)
-
-
-# ============================================================================
-# CONVENIENCE FUNCTION
-# ============================================================================
-
-
-def format_output(output: Dict) -> str:
-    """Format output for prompt display"""
-    spans = output.get("spans", [])
-    return json.dumps(
-        [{"text": s["text"], "start": s["start"], "end": s["end"]} for s in spans]
-    )

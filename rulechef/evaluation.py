@@ -21,7 +21,14 @@ from rulechef.core import (
 
 @dataclass
 class ClassMetrics:
-    """Precision / recall / F1 for a single entity type or key."""
+    """Precision / recall / F1 for a single entity type or key.
+
+    Attributes:
+        label: The class/entity type name.
+        tp: True positive count.
+        fp: False positive count.
+        fn: False negative count.
+    """
 
     label: str
     tp: int = 0
@@ -55,7 +62,22 @@ class ClassMetrics:
 
 @dataclass
 class EvalResult:
-    """Rich evaluation result across a dataset."""
+    """Rich evaluation result across a dataset.
+
+    Attributes:
+        micro_precision: Entity-level micro-averaged precision.
+        micro_recall: Entity-level micro-averaged recall.
+        micro_f1: Entity-level micro-averaged F1 score.
+        macro_f1: Macro F1 (unweighted average of per-class F1 scores).
+        per_class: Per-class precision/recall/F1 breakdown.
+        exact_match: Fraction of documents with perfect output (0.0-1.0).
+        total_tp: Total true positive count across all classes.
+        total_fp: Total false positive count across all classes.
+        total_fn: Total false negative count across all classes.
+        total_docs: Number of documents evaluated.
+        failures: List of failure dicts with keys 'input', 'expected', 'got',
+            'is_correction'. Used by the refinement loop to generate patches.
+    """
 
     # Entity-level micro-averaged
     micro_precision: float = 0.0
@@ -98,7 +120,22 @@ class EvalResult:
 
 @dataclass
 class RuleMetrics:
-    """Evaluation of a single rule in isolation."""
+    """Evaluation of a single rule in isolation.
+
+    Attributes:
+        rule_id: Unique identifier of the evaluated rule.
+        rule_name: Human-readable name of the rule.
+        precision: Precision of this rule alone (TP / (TP + FP)).
+        recall: Recall of this rule alone (covered / total expected entities).
+        f1: F1 score derived from precision and recall.
+        matches: Total number of entities this rule produced.
+        true_positives: Entities that matched an expected entity.
+        false_positives: Entities that did not match any expected entity.
+        covered_expected: How many expected entities this rule correctly finds.
+        total_expected: Total expected entities across the full dataset.
+        per_class: Per-class breakdown of TP/FP/FN for this rule.
+        sample_matches: Up to 10 sample match dicts showing rule behavior.
+    """
 
     rule_id: str
     rule_name: str
@@ -237,14 +274,17 @@ def evaluate_dataset(
     apply_rules_fn,
     mode: str = "text",
 ) -> EvalResult:
-    """
-    Evaluate rules against a full dataset, producing entity-level metrics.
+    """Evaluate rules against a full dataset, producing entity-level metrics.
 
     Args:
-        rules: Rules to evaluate
-        dataset: Dataset with examples and corrections
-        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict
-        mode: "text" (match by text+type) or "exact" (match by text+type+start+end)
+        rules: Rules to evaluate.
+        dataset: Dataset with examples and corrections.
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
+        mode: 'text' (match by text+type) or 'exact' (match by text+type+start+end).
+
+    Returns:
+        EvalResult with micro/macro metrics, per-class breakdown, exact match
+        rate, and a list of failure dicts for refinement.
     """
     task_type = dataset.task.type
     all_data = dataset.get_all_training_data()
@@ -344,19 +384,22 @@ def evaluate_rules_individually(
     mode: str = "text",
     max_samples: int = 10,
 ) -> List[RuleMetrics]:
-    """
-    Evaluate each rule in isolation against the dataset.
+    """Evaluate each rule in isolation against the dataset.
 
     For each rule, runs it alone and computes how many expected entities it
     produces correctly (TP), how many spurious entities it produces (FP),
     and how many expected entities it misses (recall denominator).
 
     Args:
-        rules: Rules to evaluate individually
-        dataset: Dataset with examples and corrections
-        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict
-        mode: "text" or "exact"
-        max_samples: Max sample matches to store per rule
+        rules: Rules to evaluate individually.
+        dataset: Dataset with examples and corrections.
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
+        mode: 'text' or 'exact'.
+        max_samples: Max sample matches to store per rule.
+
+    Returns:
+        List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
+        match counts, per-class breakdown, and sample matches.
     """
     task_type = dataset.task.type
     all_data = dataset.get_all_training_data()

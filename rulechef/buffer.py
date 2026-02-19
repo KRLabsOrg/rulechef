@@ -19,9 +19,14 @@ class ObservedExample:
 
 
 class ExampleBuffer:
-    """Thread-safe buffer for incoming examples from multiple sources"""
+    """Thread-safe buffer for incoming examples from multiple sources."""
 
     def __init__(self):
+        """Initialize an empty example buffer.
+
+        Examples accumulate until mark_learned() is called, which advances
+        the cursor so get_new_examples() only returns unprocessed items.
+        """
         self.examples: List[ObservedExample] = []
         self.last_learn_index = 0
         self.lock = threading.Lock()
@@ -32,7 +37,13 @@ class ExampleBuffer:
         output_data: Dict[str, Any],
         metadata: Dict = None,
     ):
-        """Add example observed from LLM interaction"""
+        """Add example observed from LLM interaction.
+
+        Args:
+            input_data: Input dict that was sent to the LLM.
+            output_data: Output dict parsed from the LLM response.
+            metadata: Optional metadata dict (e.g. model name, seed).
+        """
         with self.lock:
             self.examples.append(
                 ObservedExample(
@@ -47,7 +58,12 @@ class ExampleBuffer:
     def add_human_example(
         self, input_data: Dict[str, Any], output_data: Dict[str, Any]
     ):
-        """Add human-labeled example"""
+        """Add human-labeled example.
+
+        Args:
+            input_data: Input dict matching the task's input_schema.
+            output_data: Expected output dict matching the task's output_schema.
+        """
         with self.lock:
             self.examples.append(
                 ObservedExample(
@@ -65,7 +81,14 @@ class ExampleBuffer:
         actual_output: Dict[str, Any],
         feedback: Optional[str] = None,
     ):
-        """Add human correction of model output"""
+        """Add human correction of model output.
+
+        Args:
+            input_data: Input dict that was processed.
+            expected_output: The correct output the model should have produced.
+            actual_output: The incorrect output that was produced.
+            feedback: Optional free-text explanation of what went wrong.
+        """
         metadata = {}
         if feedback is not None:
             metadata["feedback"] = feedback
@@ -104,7 +127,13 @@ class ExampleBuffer:
             self.last_learn_index = len(self.examples)
 
     def get_stats(self) -> Dict[str, int]:
-        """Get buffer statistics"""
+        """Get buffer statistics.
+
+        Returns:
+            Dict with keys: 'total_examples' (int), 'new_examples' (int),
+            'new_corrections' (int), 'llm_observations' (int),
+            'human_examples' (int).
+        """
         with self.lock:
             new_examples = self.examples[self.last_learn_index :]
             return {

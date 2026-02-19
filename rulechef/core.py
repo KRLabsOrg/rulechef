@@ -82,7 +82,14 @@ class RuleFormat(Enum):
 
 @dataclass
 class Span:
-    """A text span with position"""
+    """A text span with character-level position information.
+
+    Attributes:
+        text: The matched text content.
+        start: Start character offset (inclusive) in the source string.
+        end: End character offset (exclusive) in the source string.
+        score: Confidence score for the match, between 0.0 and 1.0.
+    """
 
     text: str
     start: int
@@ -279,9 +286,15 @@ def _format_json_schema_for_prompt(schema: Dict[str, Any], indent: int = 0) -> s
 
 @dataclass
 class Example:
-    """
-    Regular training example
-    Lower priority than corrections
+    """Regular training example. Lower priority than corrections.
+
+    Attributes:
+        id: Unique identifier.
+        input: Input data dict matching the task's input_schema.
+        expected_output: Expected output dict matching the task's output_schema.
+        source: Origin of the example ('human_labeled' or 'llm_generated').
+        confidence: Confidence score for this example (0.0-1.0).
+        timestamp: When the example was created.
     """
 
     id: str
@@ -303,9 +316,18 @@ class Example:
 
 @dataclass
 class Correction:
-    """
-    User correction - HIGHEST value signal
-    Contains both wrong output and correct output
+    """User correction -- the highest value training signal.
+
+    Contains both the wrong output and the correct output so the learner
+    can understand what to fix.
+
+    Attributes:
+        id: Unique identifier.
+        input: Input data dict that was processed.
+        model_output: The incorrect output that was produced.
+        expected_output: The correct output the model should have produced.
+        feedback: Optional free-text explanation of what went wrong.
+        timestamp: When the correction was created.
     """
 
     id: str
@@ -327,12 +349,18 @@ class Correction:
 
 @dataclass
 class Feedback:
-    """
-    User feedback at any level: task, example, or rule.
+    """User feedback at any level: task, example, or rule.
 
     - task: general guidance ("drugs usually follow dosage like 'mg'")
     - example: feedback on a specific training item
     - rule: feedback on a specific rule ("too broad", "too specific")
+
+    Attributes:
+        id: Unique identifier.
+        text: The feedback text.
+        level: Feedback scope -- 'task', 'example', or 'rule'.
+        target_id: Empty for task-level; example_id or rule_id otherwise.
+        timestamp: When the feedback was created.
     """
 
     id: str
@@ -352,16 +380,29 @@ class Feedback:
 
 @dataclass
 class Rule:
-    """
-    Learned extraction rule.
+    """Learned extraction rule.
 
-    For schema-aware rules (NER, TRANSFORMATION), use:
-    - pattern: The regex/spaCy pattern to match
-    - output_template: JSON template for each match with variables like $0, $start, $end
-    - output_key: Which key in the output dict to populate (e.g., "entities")
+    For schema-aware rules (NER, TRANSFORMATION), use output_template and
+    output_key to control how matches are mapped to structured output.
+    For legacy rules (EXTRACTION), content holds the pattern directly.
 
-    For legacy rules (EXTRACTION), use:
-    - content: The pattern (alias for backward compatibility)
+    Attributes:
+        id: Unique identifier.
+        name: Human-readable rule name (used for merge-by-name in patching).
+        description: What this rule matches or does.
+        format: Rule format (REGEX, CODE, or SPACY).
+        content: Pattern string (regex, code, or JSON-encoded spaCy pattern).
+            Also accessible via the ``pattern`` property.
+        priority: Execution priority (1-10, higher runs first).
+        confidence: Confidence score (0.0-1.0), adjusted based on success rate.
+        times_applied: Total number of times this rule has been applied.
+        successes: Number of successful applications.
+        failures: Number of failed applications.
+        created_at: When the rule was created.
+        output_template: JSON template for each match, using variables like
+            $0, $1, $start, $end, $ent_type. None for plain span extraction.
+        output_key: Which key in the output dict to populate (e.g. 'entities').
+            Inferred from task type if not set.
     """
 
     id: str
@@ -425,7 +466,19 @@ class Rule:
 
 @dataclass
 class Dataset:
-    """Complete training dataset"""
+    """Complete training dataset containing examples, corrections, feedback, and rules.
+
+    Attributes:
+        name: Dataset name, used as the persistence filename.
+        task: Task definition describing the extraction/classification goal.
+        description: Optional human-readable description.
+        examples: List of labeled training examples.
+        corrections: List of user corrections (highest-value training signal).
+        feedback: Legacy list of plain-text feedback strings (task-level only).
+        structured_feedback: Structured feedback entries at task/example/rule level.
+        rules: Learned rules (populated by learn_rules).
+        version: Dataset schema version for forward compatibility.
+    """
 
     name: str
     task: Task

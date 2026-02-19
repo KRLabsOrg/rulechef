@@ -17,8 +17,21 @@ def substitute_template(
     ent_label: Optional[str] = None,
     token_spans: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """
-    Substitute template variables with actual values from a match.
+    """Substitute template variables with actual values from a match.
+
+    Args:
+        template: Output template dict with variable placeholders.
+        match_text: The full matched text ($0).
+        start: Start character offset ($start).
+        end: End character offset ($end).
+        groups: Regex capture groups ($1, $2, ...).
+        ent_type: spaCy entity type string ($ent_type).
+        ent_label: spaCy entity label string ($ent_label).
+        token_spans: Per-token span dicts for spaCy dependency matches
+            ($1.text, $1.start, $1.end, etc.).
+
+    Returns:
+        Dict with all template variables replaced by their actual values.
 
     Variables:
     - $0: Full match text
@@ -114,6 +127,12 @@ class RuleExecutor:
     """Executes rules against input data"""
 
     def __init__(self, use_spacy_ner: bool = False):
+        """Initialize the rule executor.
+
+        Args:
+            use_spacy_ner: If True, run spaCy's NER pipeline during rule
+                execution so that ENT_TYPE/ENT_ID patterns are available.
+        """
         self._nlp = None  # Lazy-loaded spaCy model
         self.use_spacy_ner = use_spacy_ner
 
@@ -124,16 +143,21 @@ class RuleExecutor:
         task_type: Optional[TaskType] = None,
         text_field: Optional[str] = None,
     ) -> Dict:
-        """
-        Apply rules to input and return output.
+        """Apply rules to input and return aggregated output.
 
-        Uses unified schema-based execution. If a rule has no output_key,
-        infers it from task_type using DEFAULT_OUTPUT_KEYS.
+        Rules are sorted by priority and applied sequentially. Results are
+        deduplicated by span position. If a rule has no output_key, it is
+        inferred from task_type using DEFAULT_OUTPUT_KEYS.
 
         Args:
-            rules: List of rules to apply
-            input_data: Input data dict
-            task_type: Optional task type for inferring default output_key
+            rules: List of rules to apply.
+            input_data: Input data dict.
+            task_type: Task type for inferring the default output_key.
+            text_field: Input key to use for regex/spaCy matching.
+
+        Returns:
+            Output dict with results keyed by output_key (e.g. 'entities',
+            'spans', 'label'). Empty dict if no rules matched.
         """
         # Sort by priority
         sorted_rules = sorted(rules, key=self._rule_sort_key)
@@ -238,7 +262,17 @@ class RuleExecutor:
     def execute_rule(
         self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
     ) -> Any:
-        """Execute a single rule"""
+        """Execute a single rule against input data.
+
+        Args:
+            rule: The rule to execute.
+            input_data: Input data dict.
+            text_field: Input key to use for regex/spaCy matching.
+
+        Returns:
+            List of Span or dict results for regex/spaCy rules, or
+            arbitrary return value from code rules. Empty list on no match.
+        """
         if rule.format == RuleFormat.REGEX:
             return self._execute_regex_rule(rule, input_data, text_field)
         elif rule.format == RuleFormat.CODE:
@@ -532,36 +566,3 @@ class RuleExecutor:
         if isinstance(results, list) and results:
             return self._normalize_label(results[0])
         return None
-
-    def _deduplicate_spans(self, spans: List[Span]) -> List[Span]:
-        """Remove overlapping spans"""
-        if not spans:
-            return []
-
-        span_objects = []
-        for s in spans:
-            if isinstance(s, dict):
-                span_objects.append(
-                    Span(
-                        text=s["text"],
-                        start=s["start"],
-                        end=s["end"],
-                        score=s.get("score", 0.5),
-                    )
-                )
-            else:
-                span_objects.append(s)
-
-        sorted_spans = sorted(span_objects, key=lambda s: s.score, reverse=True)
-        unique = []
-
-        for span in sorted_spans:
-            is_dup = False
-            for existing in unique:
-                if span.overlap_ratio(existing) > 0.7:
-                    is_dup = True
-                    break
-            if not is_dup:
-                unique.append(span)
-
-        return unique[:5]

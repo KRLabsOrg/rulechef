@@ -41,6 +41,17 @@ spacy = [
 grex = [
     "grex>=1.0",
 ]
+benchmark = [
+    "datasets>=2.0.0",
+]
+docs = [
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.24",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
 all = [
     "openai>=1.0.0",
     "pydantic-ai>=0.0.1",
@@ -50,6 +61,7 @@ all = [
 
 [project.urls]
 Homepage = "https://github.com/KRLabsOrg/rulechef"
+Documentation = "https://krlabsorg.github.io/rulechef"
 Repository = "https://github.com/KRLabsOrg/rulechef"
 
 [project.scripts]
