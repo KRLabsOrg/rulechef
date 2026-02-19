@@ -6,9 +6,9 @@ To measure how well RuleChef performs on a real task, we benchmarked on a subset
 
 ### Setup
 
-- **5 classes** selected: `beneficiary_not_allowed`, `card_arrival`, `disposable_card_limits`, `exchange_rate`, `pending_cash_withdrawal`
+- **5 classes** pinned: `beneficiary_not_allowed`, `card_arrival`, `disposable_card_limits`, `exchange_rate`, `pending_cash_withdrawal`
 - **5-shot per class** (25 training examples total)
-- **Dev set**: remaining ~666 unused training examples (for refinement)
+- **Dev set**: remaining ~660 unused training examples (for refinement)
 - **Test set**: 200 held-out examples from the official test split (never seen during learning)
 - **Regex-only** rules (no code, no spaCy)
 - **Agentic coordinator** guiding 15 refinement iterations
@@ -18,50 +18,55 @@ To measure how well RuleChef performs on a real task, we benchmarked on a subset
 
 | Metric | Value |
 |--------|-------|
-| Accuracy (exact match) | **67.0%** |
-| Micro Precision | **95.0%** |
-| Micro Recall | 67.0% |
-| Macro F1 | **78.6%** |
-| Rules learned | ~25 |
-| Learning time | ~90s |
-| Per-query latency | **0.05ms** |
+| Accuracy (exact match) | **60.5%** |
+| Micro Precision | **100%** |
+| Micro Recall | 60.5% |
+| Micro F1 | **75.4%** |
+| Macro F1 | **71.7%** |
+| Coverage | 60.5% (121/200) |
+| Rules learned | 108 |
+| Learning time | ~144s |
+| Per-query latency | **0.19ms** |
 
 ### Per-Class Breakdown
 
 | Class | Precision | Recall | F1 |
 |-------|-----------|--------|-----|
 | exchange_rate | 100% | 95% | 97% |
-| card_arrival | 100% | 90% | 95% |
-| pending_cash_withdrawal | 100% | 75% | 86% |
-| disposable_card_limits | 88% | 70% | 78% |
-| beneficiary_not_allowed | 83% | 30% | 44% |
+| pending_cash_withdrawal | 100% | 82% | 90% |
+| card_arrival | 100% | 62% | 77% |
+| disposable_card_limits | 100% | 40% | 57% |
+| beneficiary_not_allowed | 100% | 22% | 37% |
+
+### Sample Rules
+
+Here are a few of the 108 regex rules RuleChef learned (full set in [`benchmarks/results_banking77.json`](https://github.com/KRLabsOrg/rulechef/blob/main/benchmarks/results_banking77.json)):
+
+```
+exchange_rate_keywords       (?i)\bexchange\s+rates?\b
+track_card_delivery          (?i)\b(?:track|delivery|status|arrival|come|received).*\bcard\b
+cash_withdrawal_pending      (?i)\b(?:cash|withdrawal|atm).*\b(?:pending|still|waiting)\b
+disposable_limit_keywords    (?i)\bdisposable\s+cards?\b(?=.*\b(?:maximum|limit|how many)\b)
+beneficiary_ultra_broad      (?i)\bbeneficiar(?:y|ies)\b.*\b(?:not allowed|fail|denied|can't)\b
+```
 
 ### Key Takeaways
 
-1. **Precision is extremely high** — rules almost never produce false positives. This matters in production where wrong answers are worse than no answer.
+1. **Precision is perfect** — zero false positives across all classes. In production, wrong answers are worse than no answer, and rules never give wrong answers.
 
-2. **Recall scales with complexity**. Simple keyword patterns (`exchange_rate`) are easy; nuanced paraphrases (`beneficiary_not_allowed`) need more examples or refinement iterations.
+2. **Recall scales with complexity**. Simple keyword patterns (`exchange_rate` at 95%) are easy; nuanced paraphrases (`beneficiary_not_allowed` at 22%) need more examples or refinement iterations.
 
-3. **Zero runtime cost**. After learning, every query is a regex match — no API calls, no tokens, no latency. At 0.05ms per query, you can process 20K queries per second on a single CPU.
+3. **Zero runtime cost**. After learning, every query is a regex match — no API calls, no tokens, no latency. At 0.19ms per query, you can process ~5K queries per second on a single CPU.
 
-4. **The agentic coordinator matters**. Without it (simple heuristic coordinator, 3 iterations), accuracy was 47.5% and F1 was 63.3%. The coordinator's per-class guidance pushed F1 from 63.3% to 78.6%.
-
-### Comparison: With vs Without Agentic Coordinator
-
-| | Simple Coordinator | Agentic Coordinator |
-|---|---|---|
-| Iterations | 3 | 15 |
-| Accuracy | 47.5% | 67.0% |
-| Macro F1 | 63.3% | 78.6% |
-| Micro Precision | 95%+ | 95.0% |
+4. **The agentic coordinator matters**. Without it (simple heuristic coordinator, 3 iterations), accuracy drops to ~49% and Macro F1 to ~60%. The coordinator's per-class guidance lifts Macro F1 from ~60% to 71.7%.
 
 ### Reproduce
 
 ```bash
 pip install rulechef[benchmark]
 python benchmarks/benchmark_banking77.py \
-    --shots 5 --num-classes 5 \
-    --max-iterations 15 --agentic \
+    --classes beneficiary_not_allowed,card_arrival,disposable_card_limits,exchange_rate,pending_cash_withdrawal \
+    --shots 5 --max-iterations 15 --agentic \
     --base-url https://api.groq.com/openai/v1 \
     --model moonshotai/kimi-k2-instruct-0905
 ```

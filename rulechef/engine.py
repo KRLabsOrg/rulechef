@@ -38,7 +38,7 @@ class RuleChef:
 
     def __init__(
         self,
-        task: Task,
+        task: Optional[Task] = None,
         client: Optional[OpenAI] = None,
         dataset_name: str = "default",
         storage_path: str = "./rulechef_data",
@@ -58,6 +58,8 @@ class RuleChef:
 
         Args:
             task: Task definition describing what to extract/classify.
+                Optional — if None, use start_observing() and the task will
+                be auto-discovered from observed LLM calls.
             client: OpenAI client instance. Creates a default client if not provided.
             dataset_name: Name for the dataset, used as the filename for persistence.
             storage_path: Directory path for saving/loading dataset JSON files.
@@ -87,27 +89,15 @@ class RuleChef:
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
         self.use_grex = use_grex
-        self.dataset = Dataset(name=dataset_name, task=task)
         self.storage_path = Path(storage_path)
-        # Convert string format names to RuleFormat enums if needed
-        if allowed_formats:
-            self.allowed_formats = [
-                RuleFormat(f) if isinstance(f, str) else f for f in allowed_formats
-            ]
-        else:
-            self.allowed_formats = [RuleFormat.REGEX, RuleFormat.CODE]
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
-        self.learner = RuleLearner(
-            self.llm,
-            allowed_formats=self.allowed_formats,
-            sampling_strategy=sampling_strategy,
-            model=model,
-            use_spacy_ner=use_spacy_ner,
-            use_grex=use_grex,
-            max_rules=max_rules,
-            max_samples=max_samples,
-        )
+
+        # Save constructor args for lazy initialization (when task=None)
+        self._dataset_name = dataset_name
+        self._allowed_formats_raw = allowed_formats
+        self._max_rules = max_rules
+        self._max_samples = max_samples
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -120,14 +110,61 @@ class RuleChef:
 
         # Observation mode components
         self._observer: Optional[OpenAIObserver] = None
+        self._pending_raw_observations: List = []
         self._learning_thread: Optional[threading.Thread] = None
         self._stop_learning = threading.Event()
 
         # Create storage directory
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
-        # Load existing dataset if available
+        # Dataset and learner: created now if task is provided, lazily otherwise
+        if task is not None:
+            self._initialize_with_task(task)
+        else:
+            self.dataset = None
+            self.learner = None
+            self.allowed_formats = None
+
+    def _initialize_with_task(self, task: Task) -> None:
+        """Create dataset and learner from task.
+
+        Called from __init__ when task is provided, or after auto-discovery.
+        """
+        self.task = task
+
+        # Convert string format names to RuleFormat enums
+        if self._allowed_formats_raw:
+            self.allowed_formats = [
+                RuleFormat(f) if isinstance(f, str) else f
+                for f in self._allowed_formats_raw
+            ]
+        else:
+            self.allowed_formats = [RuleFormat.REGEX, RuleFormat.CODE]
+
+        self.dataset = Dataset(name=self._dataset_name, task=task)
+        self.learner = RuleLearner(
+            self.llm,
+            allowed_formats=self.allowed_formats,
+            sampling_strategy=self.sampling_strategy,
+            model=self.model,
+            use_spacy_ner=self.use_spacy_ner,
+            use_grex=self.use_grex,
+            max_rules=self._max_rules,
+            max_samples=self._max_samples,
+        )
+
+        # Load existing dataset if on disk
         self._load_dataset()
+
+    def _require_task(self, method_name: str) -> None:
+        """Raise if task has not been set yet."""
+        if self.task is None:
+            raise RuntimeError(
+                f"Cannot call {method_name}() before a task is defined. "
+                "Either pass task= to RuleChef(), call discover_task(), "
+                "or call learn_rules() after start_observing() which triggers "
+                "auto-discovery."
+            )
 
     # ========================================
     # Data Collection
@@ -146,6 +183,7 @@ class RuleChef:
             output_data: Expected output dict matching the task's output_schema.
             source: Origin of the example, e.g. 'human_labeled' or 'llm_generated'.
         """
+        self._require_task("add_example")
         # Add to buffer (not dataset directly)
         self.buffer.add_human_example(input_data, output_data)
 
@@ -176,6 +214,7 @@ class RuleChef:
             expected_output: The correct output the model should have produced.
             feedback: Optional free-text explanation of what went wrong.
         """
+        self._require_task("add_correction")
         # Add to buffer (not dataset directly)
         self.buffer.add_human_correction(
             input_data,
@@ -209,6 +248,7 @@ class RuleChef:
             target_id: Required for "example" and "rule" levels — the id of
                        the example or rule this feedback applies to
         """
+        self._require_task("add_feedback")
         fb = Feedback(
             id=self._generate_id(),
             text=feedback,
@@ -233,6 +273,7 @@ class RuleChef:
 
         Examples go to buffer and can trigger learning if auto_trigger=True.
         """
+        self._require_task("generate_llm_examples")
         print(f"\n🤖 Generating {num_examples} examples with LLM...")
         for i in range(num_examples):
             input_data = self.learner.generate_synthetic_input(self.task, seed + i)
@@ -251,6 +292,71 @@ class RuleChef:
         # Check coordinator once after generating all
         if self.auto_trigger:
             self._check_and_trigger_learning()
+
+    def add_observation(
+        self,
+        input_data: Dict,
+        output_data: Dict,
+        metadata: Optional[Dict] = None,
+    ):
+        """Add a structured LLM observation. Works with any LLM provider.
+
+        Use this to feed RuleChef data from any source — Anthropic, Groq,
+        local models, LangChain, etc. You extract the input/output yourself.
+
+        Unlike add_example(), no task definition is required — observations
+        can be collected before the task is known.
+
+        Args:
+            input_data: Input dict (e.g. {"text": "the query"}).
+            output_data: Output dict (e.g. {"label": "the_class"}).
+            metadata: Optional metadata (e.g. {"model": "claude-3"}).
+        """
+        self.buffer.add_llm_observation(
+            input_data, output_data, metadata=metadata or {}
+        )
+
+        stats = self.buffer.get_stats()
+        print(
+            f"✓ Added observation (buffer: {stats['new_examples']} new, "
+            f"{stats['total_examples']} total)"
+        )
+
+        if self.auto_trigger:
+            self._check_and_trigger_learning()
+
+    def add_raw_observation(
+        self,
+        messages: List[Dict],
+        response: str,
+        metadata: Optional[Dict] = None,
+    ):
+        """Add a raw LLM interaction for auto-discovery. Works with any LLM.
+
+        Use this when you don't know the task schema yet. Pass the raw
+        messages and response text — RuleChef will analyze these at
+        learn_rules() time to discover the task type, input/output schema,
+        and extract structured training data.
+
+        Args:
+            messages: List of message dicts
+                (e.g. [{"role": "user", "content": "..."}]).
+            response: The LLM's response as a plain string.
+            metadata: Optional metadata (e.g. {"model": "gpt-4o"}).
+        """
+        from rulechef.openai_wrapper import RawObservation
+
+        self._pending_raw_observations.append(
+            RawObservation(
+                messages=list(messages),
+                response_content=response,
+                metadata=metadata or {},
+            )
+        )
+        total = len(self._pending_raw_observations)
+        if self._observer:
+            total += self._observer.get_stats()["observed"]
+        print(f"✓ Added raw observation ({total} total)")
 
     # ========================================
     # Learning
@@ -288,6 +394,58 @@ class RuleChef:
         """
 
         start_time = time.time()
+
+        # Merge any manually-added raw observations into the observer
+        if self._pending_raw_observations:
+            if self._observer is None:
+                self._observer = OpenAIObserver(
+                    buffer=self.buffer,
+                    task=self.task,
+                    original_create=self.llm.chat.completions.create,
+                )
+            with self._observer._lock:
+                self._observer._raw_observations.extend(self._pending_raw_observations)
+            self._pending_raw_observations.clear()
+
+        # OBSERVATION INTEGRATION: discover task and/or map raw observations
+        if self._observer is not None:
+            self._observer._skip = True
+            try:
+                # Auto-discover task if not yet defined
+                if self.task is None:
+                    obs_stats = self._observer.get_stats()
+                    if obs_stats["observed"] == 0:
+                        raise RuntimeError(
+                            "No observations captured yet. Make some LLM calls "
+                            "through the observed client before calling learn_rules()."
+                        )
+                    print("\n🔍 Auto-discovering task from observed LLM calls...")
+                    task = self._observer.discover_task(self.llm, self.model)
+                    self._initialize_with_task(task)
+                    self._observer.task = task
+                    print(f"✓ Discovered task: {task.name} ({task.type.value})")
+
+                # Map raw observations to task schema (auto/mapped modes)
+                if not self._observer._custom_extractors:
+                    pending = self._observer.get_stats()["pending"]
+                    if pending > 0:
+                        print(
+                            f"\n📋 Mapping {pending} raw observations to task schema..."
+                        )
+                        added = self._observer.map_pending(
+                            self.task, self.llm, self.model
+                        )
+                        print(f"✓ Mapped {added} observations to buffer")
+            finally:
+                self._observer._skip = False
+
+        # Guard: task must be defined by now (either provided or discovered)
+        if self.task is None:
+            raise RuntimeError(
+                "Task not defined. Either pass task= to RuleChef(), "
+                "call discover_task(), or use start_observing() to enable "
+                "auto-discovery."
+            )
 
         # FIRST: Convert any buffered examples to dataset
         buffer_stats = self.buffer.get_stats()
@@ -371,6 +529,10 @@ class RuleChef:
         if sampling_strategy:
             self.learner.sampling_strategy = sampling_strategy
 
+        # Prevent self-observation during synthesis/refinement LLM calls
+        if self._observer:
+            self._observer._skip = True
+
         try:
             if incremental_only and self.dataset.rules:
                 print("Incremental mode: patching existing rules")
@@ -441,6 +603,14 @@ class RuleChef:
             self.dataset.rules = rules
             self._save_dataset()
 
+            # Audit rules for redundancy/merging (coordinator-driven)
+            audit = self.coordinator.audit_rules(
+                rules, self.get_rule_metrics(verbose=False)
+            )
+            if audit.actions:
+                rules = self._apply_audit(audit, eval_result)
+                eval_result = self.evaluate(verbose=False) if eval_result else None
+
             elapsed = time.time() - start_time
 
             print(f"\n{'=' * 60}")
@@ -461,6 +631,9 @@ class RuleChef:
 
             return rules, eval_result
         finally:
+            # Re-enable observation
+            if self._observer:
+                self._observer._skip = False
             # Restore original sampling strategy
             if sampling_strategy:
                 self.learner.sampling_strategy = original_strategy
@@ -487,6 +660,7 @@ class RuleChef:
                 - TRANSFORMATION: Dict with keys defined by output_schema.
             Returns an empty structure if no rules matched or none are learned.
         """
+        self._require_task("extract")
         if not self.dataset.rules:
             # No rules learned yet
             if self.llm_fallback:
@@ -566,47 +740,117 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         check_interval: int = 60,
         extract_input: Optional[Callable] = None,
         extract_output: Optional[Callable] = None,
+        min_observations_for_discovery: int = 5,
     ):
         """
-        Start observing OpenAI-compatible client calls to collect training examples.
+        Start observing OpenAI-compatible client calls to collect training data.
+
+        Works in three modes:
+        - Auto mode (task=None): raw capture, schema discovered at learn_rules() time
+        - Mapped mode (task provided): raw capture, LLM maps to schema at learn_rules()
+        - Custom extractor mode (task + extractors): immediate parsing, zero overhead
 
         Args:
-            openai_client: OpenAI client (or compatible API)
-            auto_learn: If True, automatically triggers learning when coordinator decides
-            check_interval: Seconds between coordinator checks (default 60)
-            extract_input: Custom function to parse API kwargs into task input
-            extract_output: Custom function to parse API response into task output
+            openai_client: OpenAI client (or compatible API).
+            auto_learn: If True, automatically triggers learning when coordinator decides.
+            check_interval: Seconds between coordinator checks (default 60).
+            extract_input: Custom function (api_kwargs → input dict). Optional.
+            extract_output: Custom function (response → output dict). Optional.
+            min_observations_for_discovery: Min raw observations before auto-discovery
+                can run (default 5). Only relevant when task=None.
 
         Returns:
-            Wrapped client - use this for API calls
+            The same client (monkey-patched in place).
 
         Example:
-            chef = RuleChef(task)
-            client = chef.start_observing(openai_client, auto_learn=True)
-
-            # Use client normally, RuleChef observes
-            response = client.chat.completions.create(...)
-
-            # Auto-learns when ready
+            chef = RuleChef(client=client)  # No task needed
+            wrapped = chef.start_observing(client, auto_learn=False)
+            # Use wrapped as normal — RuleChef captures calls
+            response = wrapped.chat.completions.create(...)
+            chef.learn_rules()  # Discovers task + maps + learns
         """
-        # Create observer
+        # Save original create BEFORE patching — critical for:
+        # 1. Self-observation prevention (internal calls use this)
+        # 2. Discovery/mapping LLM calls use this
+        original_create = openai_client.chat.completions.create
+
         self._observer = OpenAIObserver(
-            self.buffer, self.task, extract_input, extract_output
+            buffer=self.buffer,
+            task=self.task,
+            original_create=original_create,
+            extract_input=extract_input,
+            extract_output=extract_output,
+            min_observations_for_discovery=min_observations_for_discovery,
         )
 
-        # Attach to client
-        wrapped_client = self._observer.attach(openai_client)
+        self._observer.attach(openai_client)
 
-        # Start auto-learning loop if requested
         if auto_learn:
             self._start_learning_loop(check_interval)
             print(
                 f"✓ Started observing with auto-learning (check every {check_interval}s)"
             )
         else:
-            print("✓ Started observing (manual learning mode)")
+            mode = "auto-discover" if self.task is None else "mapped"
+            print(f"✓ Started observing ({mode} mode, manual learning)")
 
-        return wrapped_client
+        return openai_client
+
+    def discover_task(self) -> Task:
+        """Discover the task schema from accumulated raw observations.
+
+        Uses LLM to analyze captured LLM interactions and infer the task type,
+        input/output schema, and text field. Requires at least
+        min_observations_for_discovery raw observations (from start_observing()
+        or add_raw_observation()).
+
+        Returns:
+            The discovered Task instance (also stored as self.task).
+
+        Raises:
+            RuntimeError: If no raw observations available or using custom extractors.
+            ValueError: If not enough observations or LLM returns invalid JSON.
+        """
+        # Merge any pending raw observations
+        if self._pending_raw_observations:
+            if self._observer is None:
+                self._observer = OpenAIObserver(
+                    buffer=self.buffer,
+                    task=self.task,
+                    original_create=self.llm.chat.completions.create,
+                )
+            with self._observer._lock:
+                self._observer._raw_observations.extend(self._pending_raw_observations)
+            self._pending_raw_observations.clear()
+
+        if self._observer is None:
+            raise RuntimeError(
+                "No raw observations available. Call start_observing() or "
+                "add_raw_observation() first."
+            )
+        if self._observer._custom_extractors:
+            raise RuntimeError(
+                "Cannot discover task in custom extractor mode — "
+                "task must be provided with custom extractors."
+            )
+
+        self._observer._skip = True
+        try:
+            task = self._observer.discover_task(self.llm, self.model)
+        finally:
+            self._observer._skip = False
+
+        self._initialize_with_task(task)
+        self._observer.task = task
+
+        print(f"✓ Discovered task: {task.name}")
+        print(f"  Type: {task.type.value}")
+        print(f"  Input: {task.input_schema}")
+        print(f"  Output: {task.output_schema}")
+        if task.text_field:
+            print(f"  Text field: {task.text_field}")
+
+        return task
 
     def stop_observing(self):
         """Stop observing LLM calls and background learning"""
@@ -630,16 +874,35 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         def loop():
             while not self._stop_learning.is_set():
                 try:
-                    # Ask coordinator if we should learn
-                    decision = self.coordinator.should_trigger_learning(
-                        self.buffer, self.dataset.rules
-                    )
+                    should_learn = False
+                    reason = ""
 
-                    if decision.should_learn:
+                    # In auto/mapped mode, check raw observation count
+                    if self._observer and not self._observer._custom_extractors:
+                        obs_stats = self._observer.get_stats()
+                        pending = obs_stats["pending"]
+                        threshold = self._observer.min_observations_for_discovery
+                        if pending >= threshold:
+                            should_learn = True
+                            reason = f"{pending} raw observations ready"
+                    else:
+                        # Custom extractors or no observer — check buffer
+                        current_rules = self.dataset.rules if self.dataset else []
+                        decision = self.coordinator.should_trigger_learning(
+                            self.buffer, current_rules
+                        )
+                        should_learn = decision.should_learn
+                        reason = decision.reasoning
+
+                    if should_learn:
                         print(f"\n{'=' * 60}")
-                        print(f"Auto-triggering learning: {decision.reasoning}")
+                        print(f"Auto-triggering learning: {reason}")
                         print(f"{'=' * 60}")
-                        self._auto_learn(decision)
+                        self._auto_learn(
+                            decision
+                            if not self._observer or self._observer._custom_extractors
+                            else None
+                        )
 
                 except Exception as e:
                     print(f"Error in learning loop: {e}")
@@ -650,15 +913,18 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         self._learning_thread = threading.Thread(target=loop, daemon=True)
         self._learning_thread.start()
 
-    def _auto_learn(self, decision):
+    def _auto_learn(self, decision=None):
         """Execute learning based on coordinator decision"""
-        old_rules = self.dataset.rules.copy() if self.dataset.rules else None
+        old_rules = (
+            self.dataset.rules.copy() if self.dataset and self.dataset.rules else None
+        )
 
         try:
-            result = self.learn_rules(
-                sampling_strategy=decision.strategy,
-                max_refinement_iterations=decision.max_iterations,
-            )
+            kwargs = {}
+            if decision is not None:
+                kwargs["sampling_strategy"] = decision.strategy
+                kwargs["max_refinement_iterations"] = decision.max_iterations
+            result = self.learn_rules(**kwargs)
             if result:
                 rules, eval_result = result
                 self.coordinator.on_learning_complete(old_rules, rules, eval_result)
@@ -672,9 +938,8 @@ Return ONLY valid JSON matching the output schema, no explanation."""
 
         Called after add_example() or add_correction() when auto_trigger=True.
         """
-        decision = self.coordinator.should_trigger_learning(
-            self.buffer, self.dataset.rules
-        )
+        current_rules = self.dataset.rules if self.dataset else []
+        decision = self.coordinator.should_trigger_learning(self.buffer, current_rules)
 
         if decision.should_learn:
             print(f"\n{'=' * 60}")
@@ -684,9 +949,8 @@ Return ONLY valid JSON matching the output schema, no explanation."""
 
     def trigger_manual_learning(self):
         """Manually trigger learning from buffered examples"""
-        decision = self.coordinator.should_trigger_learning(
-            self.buffer, self.dataset.rules
-        )
+        current_rules = self.dataset.rules if self.dataset else []
+        decision = self.coordinator.should_trigger_learning(self.buffer, current_rules)
 
         if decision.should_learn:
             print(f"✓ Triggering learning: {decision.reasoning}")
@@ -697,11 +961,16 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             return False
 
     def get_buffer_stats(self) -> Dict:
-        """Get statistics about buffered examples"""
-        return {
+        """Get statistics about buffered examples and observations."""
+        stats = {
             **self.buffer.get_stats(),
             "coordinator_analysis": self.coordinator.analyze_buffer(self.buffer),
         }
+        if self._observer:
+            stats["observer"] = self._observer.get_stats()
+        if self._pending_raw_observations:
+            stats["pending_raw_observations"] = len(self._pending_raw_observations)
+        return stats
 
     # ========================================
     # Utils
@@ -715,6 +984,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             'examples' (int), 'feedback' (int), 'rules' (int),
             'description' (str).
         """
+        self._require_task("get_stats")
         return {
             "task": self.dataset.task.name,
             "dataset": self.dataset.name,
@@ -735,6 +1005,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             EvalResult with micro/macro P/R/F1, per-class breakdown,
             exact match rate, and failure details.
         """
+        self._require_task("evaluate")
         if not self.dataset.rules:
             print("No rules to evaluate")
             return EvalResult()
@@ -760,6 +1031,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             List[RuleMetrics] with per-rule precision/recall/F1, sample matches,
             and per-class breakdown.
         """
+        self._require_task("get_rule_metrics")
         if not self.dataset.rules:
             print("No rules to evaluate")
             return []
@@ -782,6 +1054,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         Returns:
             True if the rule was found and deleted, False otherwise.
         """
+        self._require_task("delete_rule")
         before = len(self.dataset.rules)
         self.dataset.rules = [r for r in self.dataset.rules if r.id != rule_id]
         if len(self.dataset.rules) < before:
@@ -800,6 +1073,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             'priority' (int), 'confidence' (str), 'times_applied' (int),
             'success_rate' (str).
         """
+        self._require_task("get_rules_summary")
         summaries = []
         for rule in sorted(self.dataset.rules, key=lambda r: r.priority, reverse=True):
             success_rate = (
@@ -853,6 +1127,83 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         if len(pruned) < len(merged):
             print(f"🧹 Pruned {len(merged) - len(pruned)} weak rules")
         return pruned
+
+    def _apply_audit(self, audit, eval_result) -> List[Rule]:
+        """Apply audit actions (merge/remove) with F1 safety net."""
+        import re as re_mod
+
+        pre_audit_rules = list(self.dataset.rules)
+        pre_f1 = eval_result.micro_f1 if eval_result else None
+        rules_by_id = {r.id: r for r in self.dataset.rules}
+        changed = False
+
+        for action in audit.actions:
+            if action.action == "merge" and len(action.rule_ids) >= 2:
+                # Find the source rules
+                sources = [
+                    rules_by_id[rid] for rid in action.rule_ids if rid in rules_by_id
+                ]
+                if len(sources) < 2:
+                    continue
+
+                # Validate the merged pattern compiles
+                if action.merged_pattern:
+                    try:
+                        re_mod.compile(action.merged_pattern)
+                    except re_mod.error:
+                        continue
+
+                # Create merged rule from the highest-priority source
+                base = max(sources, key=lambda r: r.priority)
+                merged = Rule(
+                    id=self._generate_id(),
+                    name=action.merged_name or base.name,
+                    description=f"Merged: {action.reason}",
+                    format=base.format,
+                    content=action.merged_pattern or base.content,
+                    priority=base.priority,
+                    output_template=base.output_template,
+                    output_key=base.output_key,
+                )
+
+                # Remove sources, add merged
+                self.dataset.rules = [
+                    r for r in self.dataset.rules if r.id not in action.rule_ids
+                ]
+                self.dataset.rules.append(merged)
+                rules_by_id = {r.id: r for r in self.dataset.rules}
+                changed = True
+
+            elif action.action == "remove":
+                for rid in action.rule_ids:
+                    if rid in rules_by_id:
+                        self.dataset.rules = [
+                            r for r in self.dataset.rules if r.id != rid
+                        ]
+                        del rules_by_id[rid]
+                        changed = True
+
+        if not changed:
+            return self.dataset.rules
+
+        # Safety net: revert if F1 dropped
+        if pre_f1 is not None:
+            post_eval = self.evaluate(verbose=False)
+            if post_eval.micro_f1 < pre_f1 - 0.01:
+                print(
+                    f"⚠ Audit dropped F1 ({pre_f1:.2f} → "
+                    f"{post_eval.micro_f1:.2f}), reverting"
+                )
+                self.dataset.rules = pre_audit_rules
+                self._save_dataset()
+                return self.dataset.rules
+
+        before = len(pre_audit_rules)
+        after = len(self.dataset.rules)
+        if after != before:
+            print(f"🧹 Audit: {before} → {after} rules")
+        self._save_dataset()
+        return self.dataset.rules
 
     # ========================================
     # Persistence

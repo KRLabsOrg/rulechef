@@ -17,7 +17,7 @@
     <img src="https://img.shields.io/pypi/v/rulechef.svg" alt="PyPI">
   </a>
   <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/pypi/pyversions/rulechef.svg" alt="Python">
+    <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
   </a>
 </p>
 
@@ -274,6 +274,24 @@ chef.learn_rules(max_refinement_iterations=10)
 # and stops early when performance plateaus.
 ```
 
+### Rule Pruning
+
+With `prune_after_learn=True`, the agentic coordinator audits rules after learning -- merging redundant rules and removing pure noise. A safety net reverts if F1 drops:
+
+```python
+coordinator = AgenticCoordinator(client, prune_after_learn=True)
+chef = RuleChef(task, client, coordinator=coordinator)
+
+chef.learn_rules()
+# After synthesis+refinement:
+# 1. LLM analyzes rules + per-rule metrics
+# 2. Merges similar patterns (e.g. two regexes → one)
+# 3. Removes precision=0 rules (pure false positives)
+# 4. Re-evaluates — reverts if F1 drops
+```
+
+In the CLI: `learn --agentic --prune`.
+
 ### Incremental Patching
 
 After the initial learn, you can patch existing rules without full re-synthesis:
@@ -286,14 +304,31 @@ chef.learn_rules(incremental_only=True)  # Patch, don't re-synthesize
 
 ### Observation Mode
 
-Passively observe an existing OpenAI client to collect training data:
+Collect training data from any LLM -- no task definition needed:
 
 ```python
-wrapped_client = chef.start_observing(openai_client, auto_learn=True)
+# Works with any LLM provider (Anthropic, Groq, local models, etc.)
+chef = RuleChef(client=client, model="gpt-4o-mini")  # No task needed
+chef.add_observation({"text": "what's the exchange rate?"}, {"label": "exchange_rate"})
+chef.learn_rules()  # Auto-discovers the task schema
+```
 
-# Use wrapped_client as normal -- RuleChef collects examples in the background
-response = wrapped_client.chat.completions.create(...)
+For raw LLM interactions where you don't know the schema:
 
+```python
+chef.add_raw_observation(
+    messages=[{"role": "user", "content": "classify: what's the rate?"}],
+    response="exchange_rate",
+)
+chef.learn_rules()  # Discovers task + maps observations + learns rules
+```
+
+For OpenAI-compatible clients, auto-capture with monkey-patching:
+
+```python
+wrapped = chef.start_observing(openai_client, auto_learn=False)
+response = wrapped.chat.completions.create(...)  # Observed automatically
+chef.learn_rules()
 chef.stop_observing()
 ```
 
@@ -318,28 +353,61 @@ task = Task(..., output_schema=Output, type=TaskType.NER)
 # RuleChef automatically discovers labels: ["PERSON", "ORG", "LOCATION"]
 ```
 
+### grex: Regex Pattern Suggestions
+
+When `use_grex=True` (default), [grex](https://github.com/pemistahl/grex) analyzes your training examples and adds regex pattern hints to the synthesis prompt. The LLM sees concrete patterns alongside the raw examples, producing better rules — especially for structured data like dates, IDs, and amounts:
+
+```
+DATA EVIDENCE FROM TRAINING:
+- DATE (5 unique): "2024-01-15", "2024-02-28", "2023-12-01", ...
+  Exact pattern: (2023\-12\-01|2024\-01\-15|2024\-02\-28|...)
+  Structural pattern: \d{4}\-\d{2}\-\d{2}
+```
+
+Install with `pip install rulechef[grex]`. Disable with `use_grex=False`.
+
 ## Benchmark: Banking77
 
-On the [Banking77](https://huggingface.co/datasets/legacy-datasets/banking77) intent classification dataset (5-class subset, 5-shot per class):
+On the [Banking77](https://huggingface.co/datasets/legacy-datasets/banking77) intent classification dataset (5-class subset, 5-shot per class, regex-only):
 
 | Metric | Value |
 |--------|-------|
-| Accuracy | 67% |
-| Micro Precision | 95% |
-| Macro F1 | 78.6% |
-| Rules learned | ~25 |
-| Per-query latency | 0.05ms |
+| Accuracy | 60.5% |
+| Micro Precision | 100% |
+| Macro F1 | 71.7% |
+| Rules learned | 108 |
+| Per-query latency | 0.19ms |
 
-With agentic coordinator guiding 15 refinement iterations against a dev set. Full benchmark: `python benchmarks/benchmark_banking77.py`.
+With agentic coordinator guiding 15 refinement iterations against a dev set. Zero false positives — rules never give a wrong answer, they just abstain when unsure. Full results and learned rules: [`benchmarks/results_banking77.json`](benchmarks/results_banking77.json). Reproduce: `python benchmarks/benchmark_banking77.py --classes beneficiary_not_allowed,card_arrival,disposable_card_limits,exchange_rate,pending_cash_withdrawal --shots 5 --max-iterations 15 --agentic`.
 
 ## CLI
 
-Interactive CLI for quick experimentation:
+Interactive CLI for quick experimentation across all task types:
 
 ```bash
 export OPENAI_API_KEY=your_key
 rulechef
 ```
+
+The CLI walks you through a setup wizard (task name, type, labels, model, base URL) and drops you into a command loop:
+
+```
+Commands:
+  add        Add a training example
+  correct    Add a correction
+  extract    Run extraction on input
+  learn      Learn rules (--iterations N, --incremental, --agentic, --prune)
+  evaluate   Evaluate rules against dataset
+  rules      List learned rules (rules <id> for detail)
+  delete     Delete a rule by ID
+  feedback   Add feedback (task/rule level)
+  generate   Generate synthetic examples with LLM
+  stats      Show dataset statistics
+  help       Show commands
+  quit       Exit
+```
+
+Works with any OpenAI-compatible API (Groq, Together, Ollama, etc.) via the base URL prompt.
 
 ## License
 

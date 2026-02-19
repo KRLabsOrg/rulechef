@@ -1,0 +1,1154 @@
+{
+  "config": {
+    "shots": 5,
+    "model": "moonshotai/kimi-k2-instruct-0905",
+    "format": "regex",
+    "max_rules": 100,
+    "max_samples": 200,
+    "max_iterations": 15,
+    "seed": 42,
+    "train_size": 25,
+    "test_size": 200
+  },
+  "results": {
+    "accuracy": 0.605,
+    "coverage": 0.605,
+    "micro_precision": 1.0,
+    "micro_recall": 0.605,
+    "micro_f1": 0.7538940809968847,
+    "macro_f1": 0.7172949685669843,
+    "num_rules": 108,
+    "learning_time_s": 143.9,
+    "eval_time_s": 0.038,
+    "per_query_ms": 0.19
+  },
+  "per_class": [
+    {
+      "label": "beneficiary_not_allowed",
+      "precision": 1.0,
+      "recall": 0.225,
+      "f1": 0.36734693877551017,
+      "tp": 9,
+      "fp": 0,
+      "fn": 31
+    },
+    {
+      "label": "card_arrival",
+      "precision": 1.0,
+      "recall": 0.625,
+      "f1": 0.7692307692307693,
+      "tp": 25,
+      "fp": 0,
+      "fn": 15
+    },
+    {
+      "label": "disposable_card_limits",
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1": 0.5714285714285715,
+      "tp": 16,
+      "fp": 0,
+      "fn": 24
+    },
+    {
+      "label": "exchange_rate",
+      "precision": 1.0,
+      "recall": 0.95,
+      "f1": 0.9743589743589743,
+      "tp": 38,
+      "fp": 0,
+      "fn": 2
+    },
+    {
+      "label": "pending_cash_withdrawal",
+      "precision": 1.0,
+      "recall": 0.825,
+      "f1": 0.9041095890410958,
+      "tp": 33,
+      "fp": 0,
+      "fn": 7
+    }
+  ],
+  "rules": [
+    {
+      "name": "beneficiary_denied",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\b.*\\b(?:not go through|did not go through|fail|error|denied|not allowed|can\\'t|cannot|unable)\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_to_beneficiary_fail",
+      "format": "regex",
+      "content": "(?i)\\btransfer to (?:a )?beneficiary\\b.*\\b(?:fail|fails|denied|not allowed|can\\'t|cannot|error)\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_rules",
+      "format": "regex",
+      "content": "(?i)\\bwhat are.*\\brules on (?:a )?beneficiar(y|ies)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cant_transfer_account",
+      "format": "regex",
+      "content": "(?i)\\bcan'?t.*\\btransfer to (?:an )?account\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "why_beneficiary_fail",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\b.*\\bbeneficiary\\b.*\\b(fail|fails|denied|denies|not allowed)\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "track_card_delivery",
+      "format": "regex",
+      "content": "(?i)\\b(?:(track|tracking|delivery|delivered|status|arrival|come|received|here)|(?:not.*(?:come|arrive|received|here)|haven't.*received|still.*not.*(?:get|come)|has.*still.*not.*come))\\b.*\\bcard\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "waiting_card_arrival",
+      "format": "regex",
+      "content": "(?i)\\b(waiting|wait|still.*not.*get|didn't.*receive|issued.*ago)\\b.*\\bcard\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "new_card_check",
+      "format": "regex",
+      "content": "(?i)\\bnew\\s+card\\b.*\\b(check|status|when|how)\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "share_card_tracking",
+      "format": "regex",
+      "content": "(?i)\\b(share|give|provide|send).*\\b(card.*tracking|tracking.*number)\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "should_keep_waiting_card",
+      "format": "regex",
+      "content": "(?i)\\b(should.*keep.*waiting|how.*long.*wait).*\\bcard\\b",
+      "priority": 4,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_limit_keywords",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+cards?\\b(?=.*\\b(?:maximum|limit|limitations?|most|more|multiple|how many|number|restrictions?|make|create|per day)\\b)(?!.*\\b(?:exchange\\s+rate|cash\\s+withdrawal|beneficiary|card\\s+(?:arrival|tracking|status|delivery))\\b)",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_many_disposable",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+many\\s+disposable\\s+cards?\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "max_disposable_cards",
+      "format": "regex",
+      "content": "(?i)\\bmaximum\\s+(?:number\\s+of\\s+)?disposable\\s+cards?\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "can_i_have_more",
+      "format": "regex",
+      "content": "(?i)\\bcan\\s+i\\s+(?:have|get|create)\\s+more\\s+disposable\\s+cards?\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "limitations_on_disposable",
+      "format": "regex",
+      "content": "(?i)\\blimitations?\\s+on\\s+(?:the\\s+)?disposable\\s+cards?\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_keywords",
+      "format": "regex",
+      "content": "(?i)\\bexchange\\s+rates?\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_exact",
+      "format": "regex",
+      "content": "^i need to know about exchange rate$",
+      "priority": 5,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cash_withdrawal_pending",
+      "format": "regex",
+      "content": "(?i)\\b(?:(cash|withdrawal|atm|machine|money).*\\b(?:pending|still|waiting|in progress|not completed|not seen|haven't seen)|(?:pending|still|waiting|in progress|not completed|not seen|haven't seen).*\\b(?:cash|withdrawal|atm|machine|money))\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_status_time",
+      "format": "regex",
+      "content": "(?i)\\bpending\\s+(?:status\\s+)?(?:still\\s+)?(?:be\\s+)?(?:there|show|stay).*\\b(?:long|time|shouldn.*t|still)",
+      "priority": 4,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_long_withdrawal",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+will\\s+my\\s+(?:cash\\s+)?withdrawal\\s+take\\b",
+      "priority": 3,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "atm_pending_app",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:atm|cash).*)?\\bpending\\s+.*\\bapp\\b|\\bapp\\b.*\\bpending\\s+(?:status\\s+)?.*(?:cash|atm)",
+      "priority": 2,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_past_tense_pending",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:took|removed|made).*\\bcash.*\\bwithdrawal|cash.*withdrawal.*(?:taken|done)).*\\bpending\\b",
+      "priority": 1,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_denied_option",
+      "format": "regex",
+      "content": "(?i)\\bdenied.*\\boption.*\\btransfer\\b.*\\bbeneficiary\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_restrictions",
+      "format": "regex",
+      "content": "(?i)\\brestrictions?.*\\bdisposable\\s+cards?\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_not_come",
+      "format": "regex",
+      "content": "(?i)\\bcard\\b.*\\bnot\\s+(?:yet\\s+)?come\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_show_verify",
+      "format": "regex",
+      "content": "(?i)\\b(?:withdrawal|withdraw).*\\b(?:show|verify)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_variations",
+      "format": "regex",
+      "content": "(?i)\\b(?:rate\\s+of\\s+exchange|money.*worth.*(?:other\\s+countries|abroad)|process\\s+for\\s+exchanges?)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_invite_fail",
+      "format": "regex",
+      "content": "(?i)\\b(?:invite|add)\\s+(?:a\\s+)?beneficiary\\b.*\\b(?:not\\s+(?:allowed|possible)|fail|denied|error|can'?t|cannot|unable)",
+      "priority": 12,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_family_block",
+      "format": "regex",
+      "content": "(?i)\\b(?:my|the)\\s+(?:mom|dad|mother|father|sister|brother|son|daughter|wife|husband|partner)\\b.*\\b(?:not\\s+allowed|blocked|denied|can'?t\\s+add)",
+      "priority": 11,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_money_unable",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\s+(?:money|funds)\\b.*\\b(?:unable|fail|error|not\\s+(?:going|go)\\s+through|denied)",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_many_times_disposable",
+      "format": "regex",
+      "content": "(?i)\\bhow many (?:times|payments) (?:can i )?(?:use|make|spend|pay with) (?:my )?disposable (?:virtual )?card\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transaction_limit_disposable",
+      "format": "regex",
+      "content": "(?i)\\btransaction\\s+limit\\s+(?:for|on)\\s+(?:a\\s+)?disposable\\s+card",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_isnt_here",
+      "format": "regex",
+      "content": "(?i)\\bcard\\s+(?:isn'?t|ain'?t)\\s+here(?:\\s+yet)?\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_long_see_cash",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+until\\s+i\\s+(?:see|spot|find)\\s+(?:a\\s+)?cash\\s+withdrawal",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_not_showing",
+      "format": "regex",
+      "content": "(?i)\\bwithdrawal\\s+(?:isn'?t|is\\s+not|ain'?t)\\s+(?:showing|appearing|visible|there)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "verify_withdraw_time",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+does\\s+it\\s+take\\s+to\\s+(?:verify|confirm)\\s+(?:a\\s+)?cash\\s+withdraw",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "money_value_abroad",
+      "format": "regex",
+      "content": "(?i)\\bmoney.*(?:will|would).*have.*travel.*abroad\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "rates_of_exchange",
+      "format": "regex",
+      "content": "(?i)\\b(?:how\\s+much\\s+are\\s+the\\s+)?rates?\\s+of\\s+exchange\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_transfer_error_out",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\b.*\\berror\\s+out\\b.*\\bnot\\s+possible\\b",
+      "priority": 15,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_virtual_card_limit",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+virtual\\s+card\\b.*\\blimit\\s+to\\s+how\\s+many\\s+times\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_lost_delivery",
+      "format": "regex",
+      "content": "(?i)\\bcard\\b.*\\blost\\s+in\\s+delivery\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "atm_declined_no_cash",
+      "format": "regex",
+      "content": "(?i)\\batm\\b.*\\bdeclined\\b.*\\bnot?\\s+receive\\s+cash\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "unable_transfer_money_before",
+      "format": "regex",
+      "content": "(?i)\\bunable\\s+to\\s+transfer\\s+money\\b.*\\bwas\\s+able\\s+before\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "virtual_card_not_premium",
+      "format": "regex",
+      "content": "(?i)\\bnot\\s+a\\s+premium\\s+customer\\b.*\\bvirtual\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "why_not_got_new_card",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+have\\s+i\\s+not\\s+got\\s+(?:my\\s+)?new\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "currency_value_question",
+      "format": "regex",
+      "content": "(?i)\\bwhat\\s+value\\s+(?:can\\s+i\\s+get\\s+)?for\\s+(?:my\\s+)?currency\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "reasons_not_process_payment",
+      "format": "regex",
+      "content": "(?i)\\breasons?\\s+why.*not\\s+able\\s+to\\s+process\\s+(?:a\\s+)?payment\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "temp_cards_daily",
+      "format": "regex",
+      "content": "(?i)\\bcreate.*several.*temp\\s+cards.*every\\s+day\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "where_is_my_card",
+      "format": "regex",
+      "content": "(?i)\\bwhere\\s+is\\s+(?:my\\s+)?card\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "atm_deposit_not_available",
+      "format": "regex",
+      "content": "(?i)\\batm\\s+deposit\\s+(?:isn'?t|is\\s+not|ain'?t)\\s+available\\s+yet\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_do_currency_exchanges",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+do\\s+(?:you|i)\\s+do\\s+currency\\s+exchanges\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_ultra_broad",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiar(y|ies)\\b.*\\b(?:not (?:allowed|possible)|fail|stop|blocked|denied|can[\\u2019']?t|cannot|unable|error|issue|problem|go through|did not go through)\\b",
+      "priority": 15,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_ultra_broad",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?cards?\\b.*\\b(?:limit|restrict|amount|number|how\\s+many|max|several|times|use|transaction|stipulations?|descriptions?)\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_arrival_colloquial",
+      "format": "regex",
+      "content": "(?i)\\bcard\\b.*\\b(?:never arrived|supposed to arrive.*hasn[\\u2019']?t|not (?:here|arrived|come|delivered)(?: yet)?|hasn[\\u2019']?t (?:shown up|come|arrived|delivered)|on route to me|how much longer.*until.*get.*new card|where.*card.*ordered|isn[\\u2019']?t here|hasn[\\u2019']?t come in yet|want to find out what happened to my new card|when will my new card be delivered|where is my new card if I haven[\\u2019']?t received it yet|was there a number to track that I could get)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_colloquial",
+      "format": "regex",
+      "content": "(?i)\\b(?:exchange|exchanging|rates?).*\\b(?:looking\\s+like|how\\s+much.*are|foreign.*transfers|cash.*foreign)\\b|\\bhow\\s+much.*money.*travel.*abroad\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_withdrawal_colloquial",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:cash|withdrawal|atm).*\\b(?:isn[\\u2019']?t|is not|ain[\\u2019']?t|stillpending)\\s+(?:showing|appearing|visible|there|in account|reflected)|why (?:isn[\\u2019']?t|is not).*\\bwithdrawal.*show|withdrawal.*not shown on (?:my )?statement|atm deposit (?:isn[\\u2019']?t|is not|ain[\\u2019']?t) available yet|i withdrew cash and don[\\u2019']?t see it reflected on the balance|why has my withdrawal not posted|withdrawal hasn[\\u2019']?t shown on my statement)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_limits_virtual",
+      "format": "regex",
+      "content": "(?i)\\blimits?\\s+to\\s+disposable\\s+virtual\\s+cards?\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_transactions_amount",
+      "format": "regex",
+      "content": "(?i)\\b(?:certain\\s+)?amount\\s+of\\s+transactions?\\b.*\\bwith\\s+(?:one\\s+)?disposable\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "when_new_card_arrive",
+      "format": "regex",
+      "content": "(?i)\\bwhen\\s+will\\s+(?:my\\s+)?new\\s+card\\s+arrive\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cash_withdrawal_showing",
+      "format": "regex",
+      "content": "(?i)\\bcash\\s+withdrawal\\b.*\\bnot?\\s+showing\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_shown_statement",
+      "format": "regex",
+      "content": "(?i)\\bwithdrawal\\b.*\\bnot?\\s+shown\\s+on\\s+(?:my\\s+)?statement\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "money_equal_value_abroad",
+      "format": "regex",
+      "content": "(?i)\\bmoney\\b.*\\bequal\\s+value\\b.*\\btravel.*abroad\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cash_foreign_transfers",
+      "format": "regex",
+      "content": "(?i)\\bcash\\s+foreign\\s+transfers?\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "havent_gotten_card",
+      "format": "regex",
+      "content": "(?i)\\bhaven'?t\\s+gotten\\s+(?:my\\s+)?(?:credit\\s+)?card\\b.*\\bin\\s+the\\s+mail\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "balance_not_following_atm",
+      "format": "regex",
+      "content": "(?i)\\bbalance\\b.*\\bnot\\s+what.*\\bfollowing.*atm.*withdrawal\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "reasons_not_process_payment_broad",
+      "format": "regex",
+      "content": "(?i)\\breasons? why.*not able to process (?:a )?payment\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_error_out_not_possible",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\b.*\\berror\\s+out\\b.*\\bnot\\s+possible\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "unable_transfer_was_able_before",
+      "format": "regex",
+      "content": "(?i)\\bunable to transfer (?:money|funds)\\b.*\\bwas able before\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "number_transactions_disposable",
+      "format": "regex",
+      "content": "(?i)\\bnumber\\s+of\\s+transactions\\b.*\\b(?:for|on)\\s+(?:one\\s+)?disposable\\s+card\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "max_amount_disposable_cards",
+      "format": "regex",
+      "content": "(?i)\\bmax(?:imum)?\\s+amount\\s+of\\s+disposable\\s+cards?\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "ordered_card_track_delivery",
+      "format": "regex",
+      "content": "(?i)\\bordered\\s+(?:a\\s+)?(?:credit\\s+)?card\\b.*\\btrack(?:ing)?.*\\bdelivery\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "when_did_send_card",
+      "format": "regex",
+      "content": "(?i)\\bwhen\\s+did\\s+(?:you|revolut)\\s+send\\s+(?:me\\s+)?(?:my\\s+)?(?:new\\s+)?card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_long_ship_card",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+does\\s+it\\s+take\\s+for\\s+(?:a\\s+)?(?:new\\s+)?card\\s+to\\s+ship\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "isnt_withdrawal_showing",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+(?:isn[\\u2019']?t|is\\s+not)\\s+(?:my\\s+)?(?:cash\\s+)?withdrawal\\s+(?:showing|appearing)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "atm_deposit_not_available_yet",
+      "format": "regex",
+      "content": "(?i)\\batm\\s+deposit\\s+(?:is\\s+not|isn[\\u2019']?t)\\s+available\\s+yet\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_not_shown_statement",
+      "format": "regex",
+      "content": "(?i)\\bwithdrawal (?:is not|isn[\\u2019']?t) shown on (?:my )?statement\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "virtual_card_not_work_hotel",
+      "format": "regex",
+      "content": "(?i)\\bvirtual card\\b.*\\bdidn[\\u2019']?t work\\b.*\\bwhy not\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "stillpending_cash_withdrawal",
+      "format": "regex",
+      "content": "(?i)\\batm\\s+withdraw(?:al)?\\s+is\\s+stillpending\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_much_longer_card",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+much\\s+longer\\s+until\\s+i\\s+get\\s+(?:my\\s+)?new\\s+card\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "where_card_i_ordered",
+      "format": "regex",
+      "content": "(?i)\\bwhere.*\\bcard.*\\bordered\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "max_disposable_cards_plural",
+      "format": "regex",
+      "content": "(?i)\\bmaximum\\s+(?:disposable\\s+virtual\\s+)?cards?\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "payments_virtual_card",
+      "format": "regex",
+      "content": "(?i)\\bpayments?\\b.*\\busing\\s+a\\s+virtual\\s+card\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "max_transactions_disposable",
+      "format": "regex",
+      "content": "(?i)\\bmaximum\\s+transactions?\\b.*\\bon\\s+a\\s+disposable\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_descriptions",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+cards?\\b.*\\b(?:descriptions?|list.*descriptions?)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "max_transactions_put_disposable",
+      "format": "regex",
+      "content": "(?i)\\bmaximum.*\\btransactions?\\b.*\\bput\\s+on\\s+(?:a\\s+)?disposable\\s+card\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_many_days_courier",
+      "format": "regex",
+      "content": "(?i)\\bmaximum.*\\bhow\\s+many\\s+days.*\\bget.*\\bcourier\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "hasnt_card_come_in",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+hasn[\\u2019']?t\\s+(?:my\\s+)?card\\s+come\\s+in\\s+yet\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "withdrawal_hasnt_shown_statement",
+      "format": "regex",
+      "content": "(?i)\\bwithdrawal\\b.*\\bhasn[\\u2019']?t\\s+shown\\s+on\\s+(?:my\\s+)?statement\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "stillpending_withdraw_message",
+      "format": "regex",
+      "content": "(?i)\\bstill\\s+pending\\s+(?:message\\s+)?on\\s+(?:a\\s+)?withdraw\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "i_want_disposable_feature",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+cards?\\b.*\\bwhat.*\\bto\\s+do.*\\bget.*\\bthat\\s+feature\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_many_active_transactions_disposable",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+many\\s+active\\s+transactions?\\b.*\\bwith\\s+(?:a\\s+)?disposable\\s+card\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "i_withdrew_cash_when_show",
+      "format": "regex",
+      "content": "(?i)\\bi\\s+withdrew\\s+(?:some\\s+)?cash\\b.*\\bwhen.*\\bgoing\\s+to\\s+show\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_money_unable_broad",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\s+(?:money|funds)\\b.*\\b(?:unable|fail|error|not\\s+(?:going|go)\\s+through|denied|couldn[\\u2019']?t|can[\\u2019']?t|cannot)\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "why_transfer_stopped",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+was\\s+(?:my\\s+)?transfer\\s+stopped\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "where_is_card_i_ordered",
+      "format": "regex",
+      "content": "(?i)\\bwhere.*\\bcard.*\\bordered\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_long_atm_deposit_available",
+      "format": "regex",
+      "content": "(?i)\\bhow.*\\batm\\s+deposit\\b.*\\bnot\\s+available\\s+yet\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "reasons_not_process_payment_ultra",
+      "format": "regex",
+      "content": "(?i)\\breasons?\\s+why.*\\bnot\\s+able\\s+to\\s+process\\s+(?:a\\s+)?payment\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "unable_transfer_was_able_before_ultra",
+      "format": "regex",
+      "content": "(?i)\\bunable\\s+to\\s+transfer\\s+(?:money|funds)\\b.*\\bwas\\s+able\\s+to?\\s+before\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_error_out_not_possible",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\b.*\\berror\\s+out\\b.*\\bnot\\s+possible\\b",
+      "priority": 15,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "couldnt_transfer_money_why",
+      "format": "regex",
+      "content": "(?i)\\bcouldn[\\u2019']?t\\s+transfer\\s+(?:money|funds)\\b.*\\bwhy\\s+not\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "amount_disposable_cards",
+      "format": "regex",
+      "content": "(?i)\\bamount\\s+of\\s+disposable\\s+cards?\\b",
+      "priority": 14,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "stipulations_disposable",
+      "format": "regex",
+      "content": "(?i)\\bstipulations?\\b.*\\bdisposable\\s+cards?\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "new_card_not_delivered_yet",
+      "format": "regex",
+      "content": "(?i)\\bnew\\s+card\\b.*\\bnot\\s+(?:yet\\s+)?delivered\\b.*\\bwhat\\s+is\\s+going\\s+on\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "where_card_ordered",
+      "format": "regex",
+      "content": "(?i)\\bwhere.*\\bcard.*\\bordered\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "card_arrival"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "atm_charge_declined_no_cash",
+      "format": "regex",
+      "content": "(?i)\\batm\\s+charge\\b.*\\bdeclined\\b.*\\bdid\\s+not\\s+receive\\s+cash\\b",
+      "priority": 13,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "deposit_atm_not_cleared",
+      "format": "regex",
+      "content": "(?i)\\bdeposit\\s+in\\s+the\\s+atm\\b.*\\bnot\\s+cleared\\s+yet\\b",
+      "priority": 12,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transaction_still_pending",
+      "format": "regex",
+      "content": "(?i)\\btransaction\\b.*\\bstill\\s+pending\\b",
+      "priority": 11,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "explain_pending_transactions",
+      "format": "regex",
+      "content": "(?i)\\bexplain\\s+pending\\s+transactions?\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    }
+  ]
+}

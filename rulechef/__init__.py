@@ -12,7 +12,12 @@ from rulechef.core import (
     RuleFormat,
 )
 from rulechef.evaluation import EvalResult, RuleMetrics, ClassMetrics
-from rulechef.coordinator import CoordinatorProtocol, SimpleCoordinator
+from rulechef.coordinator import (
+    CoordinatorProtocol,
+    SimpleCoordinator,
+    AuditResult,
+    AuditAction,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -32,6 +37,8 @@ __all__ = [
     "CoordinatorProtocol",
     "SimpleCoordinator",
     "AgenticCoordinator",
+    "AuditResult",
+    "AuditAction",
 ]
 
 

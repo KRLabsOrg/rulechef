@@ -75,12 +75,35 @@ Each iteration, the agentic coordinator:
 !!! note "Extra required"
     The agentic coordinator requires `pip install rulechef[agentic]`.
 
+### Rule Pruning
+
+Over multiple refinement iterations, rulesets can accumulate redundant rules. Enable `prune_after_learn` to audit and consolidate rules after learning:
+
+```python
+coordinator = AgenticCoordinator(
+    client,
+    model="gpt-4o-mini",
+    prune_after_learn=True,
+)
+chef = RuleChef(task, client, coordinator=coordinator)
+chef.learn_rules()
+```
+
+The audit prefers **merging** over removing:
+
+- **Merge**: Two regex rules with similar patterns targeting the same label get combined into one (e.g. `(?:bad|awful)` + `(?:terrible|worst)` → `(?:bad|awful|terrible|worst)`)
+- **Remove**: Only rules that are pure noise (precision=0, all matches are false positives)
+
+A safety net re-evaluates after pruning and **reverts all changes** if F1 drops by more than 1%. Rules with low scores are kept -- they may cover rare edge cases not in the training set.
+
+In the CLI: `learn --agentic --prune`.
+
 ## Custom Coordinators
 
 Implement the `CoordinatorProtocol`:
 
 ```python
-from rulechef.coordinator import CoordinatorProtocol, CoordinationDecision
+from rulechef.coordinator import CoordinatorProtocol, CoordinationDecision, AuditResult
 
 class MyCoordinator(CoordinatorProtocol):
     def should_trigger_learning(self, buffer, current_rules):
@@ -103,9 +126,13 @@ class MyCoordinator(CoordinatorProtocol):
             return "", False  # Stop — good enough
         return "Focus on recall", True
 
-    def on_learning_complete(self, rules, eval_result):
+    def on_learning_complete(self, old_rules, new_rules, metrics):
         """Called after learning finishes."""
         pass
+
+    def audit_rules(self, rules, rule_metrics):
+        """Return AuditResult with merge/remove actions. Default: no-op."""
+        return AuditResult()
 ```
 
 ### CoordinationDecision Fields

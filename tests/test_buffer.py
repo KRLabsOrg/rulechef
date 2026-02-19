@@ -1,6 +1,5 @@
 """Tests for rulechef.buffer — example buffering logic."""
 
-
 from rulechef.buffer import ExampleBuffer, ObservedExample
 
 

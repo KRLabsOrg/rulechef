@@ -9,6 +9,8 @@ The main orchestrator class.
         - add_example
         - add_correction
         - add_feedback
+        - add_observation
+        - add_raw_observation
         - learn_rules
         - extract
         - evaluate
@@ -16,5 +18,6 @@ The main orchestrator class.
         - delete_rule
         - get_stats
         - get_rules_summary
+        - discover_task
         - start_observing
         - stop_observing

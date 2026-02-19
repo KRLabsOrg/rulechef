@@ -1,6 +1,5 @@
 """Tests for rulechef.matching — output comparison logic."""
 
-
 from rulechef.core import TaskType
 from rulechef.matching import outputs_match
 

@@ -1,12 +1,31 @@
 """Coordination layer for learning decisions - swappable simple/agentic implementations"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from rulechef.buffer import ExampleBuffer
     from rulechef.core import Rule
+
+
+@dataclass
+class AuditAction:
+    """A single audit action: remove or merge."""
+
+    action: str  # "remove" or "merge"
+    rule_ids: List[str]  # IDs involved (1 for remove, 2+ for merge)
+    reason: str
+    merged_pattern: Optional[str] = None  # New pattern for merges
+    merged_name: Optional[str] = None
+
+
+@dataclass
+class AuditResult:
+    """Result of a rule audit."""
+
+    actions: List[AuditAction] = field(default_factory=list)
+    analysis: str = ""
 
 
 @dataclass
@@ -86,6 +105,22 @@ class CoordinatorProtocol(ABC):
         Default: no guidance, always continue.
         """
         return "", True
+
+    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+        """Audit rules for redundancy, dead rules, and conflicts.
+
+        Called after learning completes when pruning is enabled.
+        Returns an AuditResult with actions (remove/merge).
+        The engine applies actions and reverts if performance drops.
+
+        Args:
+            rules: Current learned rules.
+            rule_metrics: Per-rule RuleMetrics from evaluate_rules_individually.
+
+        Returns:
+            AuditResult with actions to take.
+        """
+        return AuditResult()
 
 
 class SimpleCoordinator(CoordinatorProtocol):
@@ -219,6 +254,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         min_batch_size: int = 5,
         min_correction_batch: int = 1,
         verbose: bool = True,
+        prune_after_learn: bool = False,
     ):
         """
         Args:
@@ -227,12 +263,14 @@ class AgenticCoordinator(CoordinatorProtocol):
             min_batch_size: Minimum new examples before asking LLM
             min_correction_batch: Minimum corrections before asking LLM
             verbose: Print coordination decisions
+            prune_after_learn: If True, audit and prune/merge rules after learning
         """
         self.llm = llm_client
         self.model = model
         self.min_batch_size = min_batch_size
         self.min_correction_batch = min_correction_batch
         self.verbose = verbose
+        self.prune_after_learn = prune_after_learn
 
     def should_trigger_learning(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
@@ -362,6 +400,122 @@ Return JSON:
             if self.verbose:
                 print(f"⚠ Coordinator error: {e}")
             return "", True
+
+    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+        """LLM-powered rule audit: merge redundant rules, remove pure noise."""
+        import json
+
+        if not self.prune_after_learn or len(rules) <= 1:
+            return AuditResult()
+
+        # Build a compact summary of each rule + its metrics
+        rule_entries = []
+        metrics_by_id = {m.rule_id: m for m in rule_metrics}
+
+        for rule in rules:
+            m = metrics_by_id.get(rule.id)
+            entry = {
+                "id": rule.id,
+                "name": rule.name,
+                "format": rule.format.value,
+                "pattern": rule.content[:300],
+                "priority": rule.priority,
+                "output_key": rule.output_key,
+            }
+            if rule.output_template:
+                entry["output_template"] = rule.output_template
+            if m:
+                entry["metrics"] = {
+                    "matches": m.matches,
+                    "precision": round(m.precision, 2),
+                    "recall": round(m.recall, 2),
+                    "f1": round(m.f1, 2),
+                    "true_positives": m.true_positives,
+                    "false_positives": m.false_positives,
+                }
+            rule_entries.append(entry)
+
+        prompt = f"""You are a Rule Auditor for a rule-based extraction/classification system.
+
+Analyze these {len(rules)} rules and their per-rule metrics.
+
+RULES:
+{json.dumps(rule_entries, indent=2)}
+
+Your job is to CONSOLIDATE the ruleset. Prefer MERGING over removing.
+
+ACTIONS:
+1. MERGE: Two+ regex rules with similar patterns targeting the same output/label.
+   Combine their patterns into one rule (e.g. merge `(?:bad|awful)` and `(?:terrible|worst)` into `(?:bad|awful|terrible|worst)`).
+   Only merge rules of the same format and same output_template/output_key.
+2. REMOVE: Only for rules that are pure noise — precision=0 AND matches>0 (every match is wrong).
+
+IMPORTANT — do NOT remove:
+- Rules with low F1/recall — they may catch rare but important cases
+- Rules with 0 matches — the training set may be small, they could help on unseen data
+- The only rule for a class/label — even if it looks weak
+
+Return JSON:
+{{
+  "analysis": "Brief summary (1-2 sentences)",
+  "actions": [
+    {{"action": "merge", "rule_ids": ["id1", "id2"], "merged_pattern": "new regex pattern", "merged_name": "Combined rule name", "reason": "why"}},
+    {{"action": "remove", "rule_ids": ["id"], "reason": "why"}}
+  ]
+}}
+
+Return {{"analysis": "All rules are useful", "actions": []}} if no changes needed.
+"""
+
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+            )
+            result = json.loads(response.choices[0].message.content)
+
+            actions = []
+            for a in result.get("actions", []):
+                action_type = a.get("action", "")
+                rule_ids = a.get("rule_ids", [])
+                if not rule_ids:
+                    continue
+
+                actions.append(
+                    AuditAction(
+                        action=action_type,
+                        rule_ids=rule_ids,
+                        reason=a.get("reason", ""),
+                        merged_pattern=a.get("merged_pattern"),
+                        merged_name=a.get("merged_name"),
+                    )
+                )
+
+            audit = AuditResult(
+                actions=actions,
+                analysis=result.get("analysis", ""),
+            )
+
+            if self.verbose:
+                if not actions:
+                    print(f"🔍 Audit: {audit.analysis}")
+                else:
+                    print(f"\n🔍 Rule audit: {audit.analysis}")
+                    for a in actions:
+                        if a.action == "merge":
+                            print(
+                                f"   Merge {a.rule_ids} → {a.merged_name}: {a.reason}"
+                            )
+                        elif a.action == "remove":
+                            print(f"   Remove {a.rule_ids[0]}: {a.reason}")
+
+            return audit
+
+        except Exception as e:
+            if self.verbose:
+                print(f"⚠ Audit error: {e}")
+            return AuditResult()
 
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]

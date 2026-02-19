@@ -1,6 +1,5 @@
 """Tests for rulechef.coordinator — SimpleCoordinator decision logic."""
 
-
 from rulechef.buffer import ExampleBuffer
 from rulechef.core import Rule, RuleFormat
 from rulechef.coordinator import CoordinationDecision, SimpleCoordinator

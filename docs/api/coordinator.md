@@ -31,3 +31,12 @@ Coordinator protocol and implementations for learning decision logic.
         - analyze_buffer
         - guide_refinement
         - on_learning_complete
+        - audit_rules
+
+## AuditResult
+
+::: rulechef.coordinator.AuditResult
+
+## AuditAction
+
+::: rulechef.coordinator.AuditAction

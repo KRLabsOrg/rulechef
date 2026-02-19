@@ -239,6 +239,24 @@ class Task:
             # Note: output_matcher is not serializable, so not included
         }
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "Task":
+        """Reconstruct a Task from its to_dict() representation.
+
+        Note: output_schema is always a plain dict (Pydantic model classes
+        cannot be reconstructed from JSON schema). output_matcher is not
+        restored.
+        """
+        return cls(
+            name=d["name"],
+            description=d["description"],
+            input_schema=d["input_schema"],
+            output_schema=d["output_schema"],
+            type=TaskType(d.get("type", "extraction")),
+            matching_mode=d.get("matching_mode", "text"),
+            text_field=d.get("text_field"),
+        )
+
 
 def _format_json_schema_for_prompt(schema: Dict[str, Any], indent: int = 0) -> str:
     """Format a JSON schema into a readable string for LLM prompts"""

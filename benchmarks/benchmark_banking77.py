@@ -54,7 +54,9 @@ def load_banking77():
     return to_records(ds["train"]), to_records(ds["test"]), label_names
 
 
-def sample_few_shot(train_data, shots_per_class, seed=42, num_classes=None):
+def sample_few_shot(
+    train_data, shots_per_class, seed=42, num_classes=None, classes=None
+):
     """Sample K examples per intent class, stratified. Optionally limit to N classes.
 
     Returns (train_sample, remaining, selected_classes).
@@ -66,7 +68,12 @@ def sample_few_shot(train_data, shots_per_class, seed=42, num_classes=None):
         by_label[ex["label"]].append(ex)
 
     labels = sorted(by_label.keys())
-    if num_classes and num_classes < len(labels):
+    if classes:
+        missing = set(classes) - set(labels)
+        if missing:
+            print(f"WARNING: classes not found in dataset: {missing}")
+        labels = sorted(c for c in classes if c in by_label)
+    elif num_classes and num_classes < len(labels):
         rng.shuffle(labels)
         labels = sorted(labels[:num_classes])
 
@@ -104,8 +111,13 @@ def run_benchmark(args):
     )
 
     # 2. Few-shot sample (optionally limited to N classes)
+    classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
     train_sample, train_remaining, selected_classes = sample_few_shot(
-        train_all, args.shots, seed=args.seed, num_classes=args.num_classes
+        train_all,
+        args.shots,
+        seed=args.seed,
+        num_classes=args.num_classes,
+        classes=classes,
     )
     num_classes = len(selected_classes)
     print(
@@ -429,6 +441,12 @@ def main():
         type=int,
         default=None,
         help="Limit to N random classes (default: all 77)",
+    )
+    parser.add_argument(
+        "--classes",
+        type=str,
+        default=None,
+        help="Comma-separated list of specific class names to use (overrides --num-classes)",
     )
     parser.add_argument(
         "--max-rules",
