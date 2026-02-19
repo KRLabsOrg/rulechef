@@ -183,7 +183,7 @@ def run_benchmark(args):
         storage_path=storage_dir,
         allowed_formats=allowed_formats,
         model=args.model,
-        use_grex=True,
+        use_grex=not args.no_grex,
         max_rules=args.max_rules,
         max_samples=args.max_samples,
         coordinator=coordinator,
@@ -234,6 +234,31 @@ def run_benchmark(args):
     print(f"  Rules generated: {len(rules)}")
 
     # 8. Refine against eval set (unused training data), test set stays held out
+    iteration_metrics = []
+
+    def on_iteration(iteration, iter_rules, eval_result):
+        """Callback to log per-iteration metrics on the dev set."""
+        iteration_metrics.append(
+            {
+                "iteration": iteration,
+                "num_rules": len(iter_rules),
+                "exact_match": eval_result.exact_match,
+                "micro_precision": eval_result.micro_precision,
+                "micro_recall": eval_result.micro_recall,
+                "micro_f1": eval_result.micro_f1,
+                "macro_f1": eval_result.macro_f1,
+                "per_class": [
+                    {
+                        "label": cm.label,
+                        "f1": cm.f1,
+                        "precision": cm.precision,
+                        "recall": cm.recall,
+                    }
+                    for cm in (eval_result.per_class or [])
+                ],
+            }
+        )
+
     if args.max_iterations > 0:
         print(
             f"\nRefining against eval set ({len(train_remaining)} examples, max {args.max_iterations} iterations)..."
@@ -244,6 +269,7 @@ def run_benchmark(args):
             eval_dataset,
             max_iterations=args.max_iterations,
             coordinator=chef.coordinator,
+            iteration_callback=on_iteration,
         )
         t_refine = time.time() - t0_refine
         t_learn += t_refine
@@ -358,6 +384,8 @@ def run_benchmark(args):
             "seed": args.seed,
             "train_size": len(train_sample),
             "test_size": len(test_data),
+            "use_grex": not args.no_grex,
+            "agentic": args.agentic,
         },
         "results": {
             "accuracy": test_eval.exact_match,
@@ -383,6 +411,7 @@ def run_benchmark(args):
             }
             for cm in (test_eval.per_class or [])
         ],
+        "iteration_metrics": iteration_metrics,
         "rules": [
             {
                 "name": r.name,
@@ -485,6 +514,11 @@ def main():
         "--agentic",
         action="store_true",
         help="Use AgenticCoordinator for LLM-guided refinement",
+    )
+    parser.add_argument(
+        "--no-grex",
+        action="store_true",
+        help="Disable grex regex pattern suggestions (for ablation)",
     )
 
     args = parser.parse_args()

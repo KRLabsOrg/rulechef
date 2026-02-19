@@ -29,7 +29,11 @@ from rulechef.evaluation import (
 )
 from rulechef.learner import RuleLearner
 from rulechef.buffer import ExampleBuffer
-from rulechef.coordinator import CoordinatorProtocol, SimpleCoordinator
+from rulechef.coordinator import (
+    CoordinatorProtocol,
+    SimpleCoordinator,
+    AgenticCoordinator,
+)
 from rulechef.openai_wrapper import OpenAIObserver
 
 
@@ -53,6 +57,7 @@ class RuleChef:
         max_rules: int = 10,
         max_samples: int = 50,
         synthesis_strategy: str = "auto",
+        training_logger=None,
     ):
         """Initialize a RuleChef instance.
 
@@ -82,6 +87,8 @@ class RuleChef:
             synthesis_strategy: Strategy for multi-class synthesis.
                 'auto' uses per-class when multiple classes detected, 'per_class'
                 always uses per-class, any other value uses bulk synthesis.
+            training_logger: Optional TrainingDataLogger instance for capturing
+                all LLM calls as training data for model distillation.
         """
         self.task = task
         self.llm = client or OpenAI()
@@ -92,6 +99,7 @@ class RuleChef:
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
+        self.training_logger = training_logger
 
         # Save constructor args for lazy initialization (when task=None)
         self._dataset_name = dataset_name
@@ -101,6 +109,10 @@ class RuleChef:
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
+
+        # Propagate training logger to coordinator if it's agentic
+        if self.training_logger and isinstance(self.coordinator, AgenticCoordinator):
+            self.coordinator.training_logger = self.training_logger
 
         # Buffer for observed examples (buffer-first architecture)
         self.buffer = ExampleBuffer()
@@ -151,6 +163,7 @@ class RuleChef:
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
+            training_logger=self.training_logger,
         )
 
         # Load existing dataset if on disk

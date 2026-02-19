@@ -39,6 +39,7 @@ __all__ = [
     "AgenticCoordinator",
     "AuditResult",
     "AuditAction",
+    "TrainingDataLogger",
 ]
 
 
@@ -52,4 +53,8 @@ def __getattr__(name: str):
         from rulechef.coordinator import AgenticCoordinator
 
         return AgenticCoordinator
+    if name == "TrainingDataLogger":
+        from rulechef.training_logger import TrainingDataLogger
+
+        return TrainingDataLogger
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

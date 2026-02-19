@@ -83,4 +83,5 @@ nav:
     - Evaluation: api/evaluation.md
     - Coordinator: api/coordinator.md
     - Executor: api/executor.md
+    - Training Logger: api/training-logger.md
   - Benchmarks: benchmarks.md

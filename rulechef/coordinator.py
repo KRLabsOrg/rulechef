@@ -255,6 +255,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         min_correction_batch: int = 1,
         verbose: bool = True,
         prune_after_learn: bool = False,
+        training_logger=None,
     ):
         """
         Args:
@@ -264,6 +265,7 @@ class AgenticCoordinator(CoordinatorProtocol):
             min_correction_batch: Minimum corrections before asking LLM
             verbose: Print coordination decisions
             prune_after_learn: If True, audit and prune/merge rules after learning
+            training_logger: Optional TrainingDataLogger for capturing LLM calls.
         """
         self.llm = llm_client
         self.model = model
@@ -271,6 +273,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.min_correction_batch = min_correction_batch
         self.verbose = verbose
         self.prune_after_learn = prune_after_learn
+        self.training_logger = training_logger
 
     def should_trigger_learning(
         self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
@@ -383,11 +386,28 @@ Return JSON:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
             )
-            result = json.loads(response.choices[0].message.content)
+            response_text = response.choices[0].message.content
+            result = json.loads(response_text)
 
             guidance = result.get("guidance", "")
             should_continue = result.get("should_continue", True)
             focus = result.get("focus_classes", [])
+
+            if self.training_logger:
+                self.training_logger.log(
+                    "guide_refinement",
+                    [{"role": "user", "content": prompt}],
+                    response_text,
+                    {
+                        "iteration": iteration + 1,
+                        "max_iterations": max_iterations,
+                        "exact_match": eval_result.exact_match,
+                        "micro_f1": eval_result.micro_f1,
+                        "macro_f1": eval_result.macro_f1,
+                        "focus_classes": focus,
+                        "should_continue": should_continue,
+                    },
+                )
 
             if self.verbose and guidance:
                 print(f"🤖 Coordinator: {guidance}")
@@ -492,10 +512,24 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                     )
                 )
 
+            response_text = response.choices[0].message.content
             audit = AuditResult(
                 actions=actions,
                 analysis=result.get("analysis", ""),
             )
+
+            if self.training_logger:
+                self.training_logger.log(
+                    "audit_rules",
+                    [{"role": "user", "content": prompt}],
+                    response_text,
+                    {
+                        "num_rules": len(rules),
+                        "num_actions": len(actions),
+                        "action_types": [a.action for a in actions],
+                        "analysis": result.get("analysis", ""),
+                    },
+                )
 
             if self.verbose:
                 if not actions:
@@ -569,7 +603,22 @@ Return JSON:
             response_format={"type": "json_object"},
         )
 
-        result = json.loads(response.choices[0].message.content)
+        response_text = response.choices[0].message.content
+        result = json.loads(response_text)
+
+        if self.training_logger:
+            self.training_logger.log(
+                "trigger_decision",
+                [{"role": "user", "content": prompt}],
+                response_text,
+                {
+                    "new_examples": len(new_data),
+                    "new_corrections": len([e for e in new_data if e.is_correction]),
+                    "current_rules": len(current_rules) if current_rules else 0,
+                    "should_learn": result.get("should_learn", False),
+                    "strategy": result.get("strategy", "balanced"),
+                },
+            )
 
         return CoordinationDecision(
             should_learn=result.get("should_learn", False),

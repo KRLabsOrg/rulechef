@@ -66,6 +66,87 @@ chef.stop_observing()
 
 When `auto_learn=True`, learning triggers automatically based on the coordinator's decision. Streaming calls (`stream=True`) are also observed — RuleChef wraps the stream to capture content after it completes.
 
+## Training Data Logger (Distillation)
+
+RuleChef can capture every LLM call made during rule synthesis as structured training data, suitable for fine-tuning a smaller model to replace the LLM. The logger is fully optional — pass a `TrainingDataLogger` instance and all calls (synthesis, patching, coordination, auditing) are written to a JSONL file.
+
+```python
+from rulechef import RuleChef, TrainingDataLogger
+
+logger = TrainingDataLogger(
+    "training_data/run_001.jsonl",
+    run_metadata={"model": "kimi-k2", "dataset": "banking77"},
+)
+chef = RuleChef(task, client, training_logger=logger)
+
+chef.add_example(...)
+chef.learn_rules()
+
+print(logger.stats)   # {"rule_synthesis": 5, "rule_patch": 3, "guide_refinement": 10, ...}
+print(logger.count)    # 18 total entries
+```
+
+### Output format
+
+Each line in the JSONL file is a self-contained training example:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "...prompt..."},
+    {"role": "assistant", "content": "...response..."}
+  ],
+  "call_type": "rule_synthesis",
+  "metadata": {
+    "model": "kimi-k2",
+    "dataset": "banking77",
+    "task_name": "Intent Classification",
+    "dataset_size": 25,
+    "num_rules_in_response": 8,
+    "response_valid": true
+  },
+  "timestamp": "2026-02-19T14:30:00+00:00"
+}
+```
+
+For fine-tuning, use only the `messages` field. The `metadata` and `call_type` are for filtering — e.g. keep only entries where `response_valid` is true, or only runs where the final F1 exceeded a threshold.
+
+### Call types
+
+| Call type | Source | Description |
+|-----------|--------|-------------|
+| `rule_synthesis` | Learner | Bulk rule generation from examples |
+| `rule_synthesis_per_class` | Learner | Per-class rule generation |
+| `rule_patch` | Learner | Patch rules targeted at failures |
+| `synthetic_generation` | Learner | Synthetic example generation |
+| `guide_refinement` | Coordinator | Per-iteration refinement guidance |
+| `audit_rules` | Coordinator | Rule pruning/merging audit |
+| `trigger_decision` | Coordinator | Should-learn decision |
+
+### Generating training data at scale
+
+To generate a diverse training corpus, run RuleChef across multiple datasets with varied configurations:
+
+```python
+import itertools
+from rulechef import RuleChef, TrainingDataLogger, AgenticCoordinator
+
+datasets = ["banking77", "clinc150", "snips", ...]
+shots = [3, 5, 10]
+
+for ds_name, n_shots in itertools.product(datasets, shots):
+    logger = TrainingDataLogger(
+        f"training_data/{ds_name}_{n_shots}shot.jsonl",
+        run_metadata={"dataset": ds_name, "shots": n_shots},
+    )
+    coordinator = AgenticCoordinator(client, training_logger=logger)
+    chef = RuleChef(task, client, coordinator=coordinator, training_logger=logger)
+    # ... add examples, learn rules ...
+```
+
+!!! tip
+    The logger appends to the file, so multiple runs can safely write to the same path. Each entry carries its own `run_metadata` and timestamp.
+
 ## Pydantic Output Schemas
 
 Use Pydantic models for type-safe, validated outputs:

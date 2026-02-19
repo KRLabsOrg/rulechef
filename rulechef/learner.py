@@ -32,6 +32,7 @@ class RuleLearner:
         use_grex: bool = True,
         max_rules: int = 10,
         max_samples: int = 50,
+        training_logger=None,
     ):
         """Initialize the rule learner.
 
@@ -46,6 +47,7 @@ class RuleLearner:
             use_grex: If True, use grex for regex pattern suggestion in prompts.
             max_rules: Maximum number of rules to generate per synthesis call.
             max_samples: Maximum training examples to include in prompts.
+            training_logger: Optional TrainingDataLogger for capturing LLM calls.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -55,6 +57,7 @@ class RuleLearner:
         self.use_grex = use_grex
         self.max_rules = max_rules
         self.max_samples = max_samples
+        self.training_logger = training_logger
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
@@ -104,8 +107,24 @@ class RuleLearner:
                 response_format={"type": "json_object"},
             )
 
-            result = self._parse_json(response.choices[0].message.content)
+            response_text = response.choices[0].message.content
+            result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset)
+
+            if self.training_logger:
+                self.training_logger.log(
+                    "rule_synthesis",
+                    [{"role": "user", "content": prompt}],
+                    response_text,
+                    {
+                        "task_name": dataset.task.name if dataset.task else None,
+                        "task_type": dataset.task.type.value if dataset.task else None,
+                        "dataset_size": len(dataset.examples),
+                        "num_rules_in_response": len(rules),
+                        "response_valid": bool(rules),
+                        "max_rules": max_rules,
+                    },
+                )
 
             elapsed = time.time() - start
             print(f"✓ Synthesized {len(rules)} rules ({elapsed:.1f}s)")
@@ -177,11 +196,31 @@ class RuleLearner:
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                 )
-                result = self._parse_json(response.choices[0].message.content)
+                response_text = response.choices[0].message.content
+                result = self._parse_json(response_text)
                 rules = self._parse_rules_from_response(
                     result, max_rules_per_class, dataset
                 )
                 all_rules.extend(rules)
+
+                if self.training_logger:
+                    self.training_logger.log(
+                        "rule_synthesis_per_class",
+                        [{"role": "user", "content": prompt}],
+                        response_text,
+                        {
+                            "task_name": dataset.task.name if dataset.task else None,
+                            "task_type": dataset.task.type.value
+                            if dataset.task
+                            else None,
+                            "dataset_size": len(dataset.examples),
+                            "target_class": target_class,
+                            "num_counter_examples": len(counter_examples),
+                            "num_rules_in_response": len(rules),
+                            "response_valid": bool(rules),
+                        },
+                    )
+
                 elapsed = time.time() - start
                 print(
                     f"  [{i + 1}/{len(classes)}] {target_class}: {len(rules)} rules ({elapsed:.1f}s)"
@@ -318,6 +357,7 @@ class RuleLearner:
         dataset: Dataset,
         max_iterations: int = 3,
         coordinator=None,
+        iteration_callback=None,
     ) -> tuple:
         """Evaluate rules and refine through patch-based loop.
 
@@ -332,6 +372,9 @@ class RuleLearner:
             coordinator: Optional CoordinatorProtocol. If provided, its
                 guide_refinement() is called each iteration for LLM-powered
                 guidance on which classes to focus and when to stop.
+            iteration_callback: Optional callable(iteration: int, rules: List[Rule],
+                eval_result: EvalResult) called after each evaluation. Useful for
+                logging per-iteration metrics in benchmarks.
 
         Returns:
             Tuple of (best_rules, best_eval_result) where best_rules is
@@ -361,6 +404,9 @@ class RuleLearner:
                 best_rules = rules
                 best_f1 = eval_result.micro_f1
                 best_eval = eval_result
+
+            if iteration_callback:
+                iteration_callback(iter_num, rules, eval_result)
 
             if exact >= 0.90:
                 print("✓ Achieved 90%+ exact match!")
@@ -497,8 +543,29 @@ class RuleLearner:
                 response_format={"type": "json_object"},
             )
 
-            result = self._parse_json(response.choices[0].message.content)
+            response_text = response.choices[0].message.content
+            result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
+
+            if self.training_logger:
+                self.training_logger.log(
+                    "rule_patch",
+                    [{"role": "user", "content": prompt}],
+                    response_text,
+                    {
+                        "task_name": dataset.task.name
+                        if dataset and dataset.task
+                        else None,
+                        "task_type": dataset.task.type.value
+                        if dataset and dataset.task
+                        else None,
+                        "num_failures": len(sampled_failures),
+                        "num_existing_rules": len(current_rules),
+                        "num_rules_in_response": len(rules),
+                        "response_valid": bool(rules),
+                        "guidance": guidance[:200] if guidance else None,
+                    },
+                )
 
             elapsed = time.time() - start
             print(f"✓ Patch synthesis returned {len(rules)} rules ({elapsed:.1f}s)")
@@ -969,12 +1036,30 @@ Instructions:
             messages=[{"role": "user", "content": prompt}],
         )
 
-        text = response.choices[0].message.content
+        response_text = response.choices[0].message.content
         try:
+            text = response_text
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
-            return json.loads(text.strip())
-        except:
-            return {"question": "When?", "context": "In 1995"}
+            result = json.loads(text.strip())
+            valid = True
+        except Exception:
+            result = {"question": "When?", "context": "In 1995"}
+            valid = False
+
+        if self.training_logger:
+            self.training_logger.log(
+                "synthetic_generation",
+                [{"role": "user", "content": prompt}],
+                response_text,
+                {
+                    "task_name": task.name if task else None,
+                    "task_type": task.type.value if task else None,
+                    "seed": seed,
+                    "response_valid": valid,
+                },
+            )
+
+        return result
