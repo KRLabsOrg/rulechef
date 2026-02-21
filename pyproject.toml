@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rulechef"
-version = "0.1.1"
+version = "0.1.2"
 description = "Learn rule-based models from examples and LLM interactions"
 requires-python = ">=3.10"
 readme = {file = "README.md", content-type = "text/markdown"}
