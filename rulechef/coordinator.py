@@ -94,9 +94,7 @@ class CoordinatorProtocol(ABC):
         """
         pass
 
-    def guide_refinement(
-        self, eval_result: Any, iteration: int, max_iterations: int
-    ) -> tuple:
+    def guide_refinement(self, eval_result: Any, iteration: int, max_iterations: int) -> tuple:
         """Analyze per-class metrics and return (guidance_text, should_continue).
 
         Called after each refinement iteration. The guidance string is injected
@@ -160,9 +158,7 @@ class SimpleCoordinator(CoordinatorProtocol):
         # First learn: need enough examples
         if current_rules is None:
             should_learn = new_examples_count >= self.trigger_threshold
-            reasoning = (
-                f"First learn: {new_examples_count}/{self.trigger_threshold} examples"
-            )
+            reasoning = f"First learn: {new_examples_count}/{self.trigger_threshold} examples"
             strategy = "balanced"  # Start with balanced sampling
             max_iterations = 3
 
@@ -175,7 +171,9 @@ class SimpleCoordinator(CoordinatorProtocol):
             )
 
             if corrections_count >= self.correction_threshold:
-                reasoning = f"Corrections accumulated: {corrections_count}/{self.correction_threshold}"
+                reasoning = (
+                    f"Corrections accumulated: {corrections_count}/{self.correction_threshold}"
+                )
                 strategy = "corrections_first"  # Focus on fixing mistakes
                 max_iterations = 2  # Faster refinement for corrections
             elif new_examples_count >= self.trigger_threshold:
@@ -230,9 +228,7 @@ class SimpleCoordinator(CoordinatorProtocol):
 
             print(f"  {len(new_rules)} rules")
             if metrics and hasattr(metrics, "exact_match"):
-                print(
-                    f"  Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}"
-                )
+                print(f"  Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}")
 
 
 # Placeholder for future agentic implementation
@@ -346,9 +342,7 @@ class AgenticCoordinator(CoordinatorProtocol):
             else:
                 print("✓ Learning complete.")
 
-    def guide_refinement(
-        self, eval_result: Any, iteration: int, max_iterations: int
-    ) -> tuple:
+    def guide_refinement(self, eval_result: Any, iteration: int, max_iterations: int) -> tuple:
         """LLM-powered refinement guidance based on per-class metrics."""
         import json
 
@@ -538,9 +532,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                     print(f"\n🔍 Rule audit: {audit.analysis}")
                     for a in actions:
                         if a.action == "merge":
-                            print(
-                                f"   Merge {a.rule_ids} → {a.merged_name}: {a.reason}"
-                            )
+                            print(f"   Merge {a.rule_ids} → {a.merged_name}: {a.reason}")
                         elif a.action == "remove":
                             print(f"   Remove {a.rule_ids[0]}: {a.reason}")
 
@@ -574,7 +566,9 @@ NEW DATA SAMPLES (up to 10):
 """
         for ex in samples:
             type_str = "CORRECTION" if ex.is_correction else "EXAMPLE"
-            prompt += f"- [{type_str}] Input: {json.dumps(ex.input)} -> Output: {json.dumps(ex.output)}\n"
+            prompt += (
+                f"- [{type_str}] Input: {json.dumps(ex.input)} -> Output: {json.dumps(ex.output)}\n"
+            )
 
         prompt += """
 DECISION CRITERIA:

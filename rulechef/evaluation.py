@@ -294,17 +294,13 @@ def evaluate_dataset(
     failures = []
 
     for item in all_data:
-        extracted = apply_rules_fn(
-            rules, item.input, task_type, dataset.task.text_field
-        )
+        extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
 
         pred_entities = _get_entities(extracted, task_type)
         gold_entities = _get_entities(expected_output, task_type)
 
-        matched, fp_list, fn_list = _match_entities(
-            pred_entities, gold_entities, task_type, mode
-        )
+        matched, fp_list, fn_list = _match_entities(pred_entities, gold_entities, task_type, mode)
 
         # Document-level exact match
         if not fp_list and not fn_list:
@@ -348,9 +344,7 @@ def evaluate_dataset(
 
     micro_p = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
     micro_r = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
-    micro_f1 = (
-        2 * micro_p * micro_r / (micro_p + micro_r) if (micro_p + micro_r) > 0 else 0.0
-    )
+    micro_f1 = 2 * micro_p * micro_r / (micro_p + micro_r) if (micro_p + micro_r) > 0 else 0.0
 
     class_f1s = [c.f1 for c in per_class]
     macro_f1 = sum(class_f1s) / len(class_f1s) if class_f1s else 0.0
@@ -411,17 +405,13 @@ def evaluate_rules_individually(
     results = []
 
     for rule in rules:
-        class_counts: dict[str, ClassMetrics] = defaultdict(
-            lambda: ClassMetrics(label="")
-        )
+        class_counts: dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
         sample_matches = []
         rule_total_matches = 0
         rule_covered = 0
 
         for item in all_data:
-            extracted = apply_rules_fn(
-                [rule], item.input, task_type, dataset.task.text_field
-            )
+            extracted = apply_rules_fn([rule], item.input, task_type, dataset.task.text_field)
             expected_output = item.expected_output
 
             pred_entities = _get_entities(extracted, task_type)
@@ -472,11 +462,7 @@ def evaluate_rules_individually(
 
         precision = rule_tp / (rule_tp + rule_fp) if (rule_tp + rule_fp) > 0 else 0.0
         recall = rule_covered / total_expected if total_expected > 0 else 0.0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
         results.append(
             RuleMetrics(
@@ -518,9 +504,7 @@ def print_eval_result(result: EvalResult, name: str = "Dataset") -> None:
     print(f"  Macro F1:    {result.macro_f1:.1%}")
 
     if result.per_class:
-        print(
-            f"\n  {'Class':<20} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'FN':>4}"
-        )
+        print(f"\n  {'Class':<20} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'FN':>4}")
         print(f"  {'-' * 60}")
         for c in result.per_class:
             print(
@@ -536,9 +520,7 @@ def print_rule_metrics(rule_metrics: list[RuleMetrics]) -> None:
     print(f"\n{'=' * 70}")
     print("PER-RULE METRICS")
     print(f"{'=' * 70}")
-    print(
-        f"\n  {'Rule':<30} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'Match':>5}"
-    )
+    print(f"\n  {'Rule':<30} {'Prec':>6} {'Rec':>6} {'F1':>6}  {'TP':>4} {'FP':>4} {'Match':>5}")
     print(f"  {'-' * 70}")
 
     for rm in sorted(rule_metrics, key=lambda r: r.f1, reverse=True):
@@ -652,11 +634,7 @@ def evaluate_typed_spans(
     def calc_prf(tp, fp, fn):
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         return precision, recall, f1
 
     total_tp = sum(c["tp"] for c in per_type_counts.values())

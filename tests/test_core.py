@@ -84,9 +84,7 @@ class TestTask:
         assert errors == []
 
     def test_validate_output_pydantic_valid(self, ner_task):
-        valid_output = {
-            "entities": [{"text": "Aspirin", "start": 0, "end": 7, "type": "DRUG"}]
-        }
+        valid_output = {"entities": [{"text": "Aspirin", "start": 0, "end": 7, "type": "DRUG"}]}
         is_valid, errors = ner_task.validate_output(valid_output)
         assert is_valid is True
         assert errors == []

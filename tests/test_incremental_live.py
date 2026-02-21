@@ -60,9 +60,7 @@ def test_incremental_patch_flow_with_live_llm():
         pre_patch = chef.extract(new_input)
 
         # Incremental patch attempt
-        chef.learn_rules(
-            run_evaluation=False, incremental_only=True, max_refinement_iterations=1
-        )
+        chef.learn_rules(run_evaluation=False, incremental_only=True, max_refinement_iterations=1)
         post_patch = chef.extract(new_input)
 
         # Basic sanity: extraction returns a spans list both times
@@ -70,12 +68,8 @@ def test_incremental_patch_flow_with_live_llm():
         assert "spans" in post_patch
 
         # Prefer post-patch to be closer to expected; allow live LLM variation
-        post_matches = outputs_match(
-            expected, post_patch, task.type, task.output_matcher
-        )
+        post_matches = outputs_match(expected, post_patch, task.type, task.output_matcher)
         if not post_matches:
-            pytest.skip(
-                "Live LLM did not produce expected span; manual inspection needed"
-            )
+            pytest.skip("Live LLM did not produce expected span; manual inspection needed")
 
         assert _span_texts(post_patch), "Post-patch spans should not be empty"

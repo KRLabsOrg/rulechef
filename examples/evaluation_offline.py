@@ -117,9 +117,7 @@ dataset.corrections.append(
     )
 )
 
-print(
-    f"Dataset: {len(dataset.examples)} examples, {len(dataset.corrections)} corrections"
-)
+print(f"Dataset: {len(dataset.examples)} examples, {len(dataset.corrections)} corrections")
 
 # ── Hand-crafted rules (good, decent, broad, and dead) ────────────────────
 
@@ -259,9 +257,7 @@ for rm in dead_rules:
     dataset.rules = [r for r in dataset.rules if r.id != rm.rule_id]
 
 eval_after = evaluate_dataset(dataset.rules, dataset, apply_rules_fn)
-print(
-    f"\n  Before cleanup: micro_f1={eval_result.micro_f1:.3f}, {eval_result.total_fp} FP"
-)
+print(f"\n  Before cleanup: micro_f1={eval_result.micro_f1:.3f}, {eval_result.total_fp} FP")
 print(f"  After cleanup:  micro_f1={eval_after.micro_f1:.3f}, {eval_after.total_fp} FP")
 
 print("\nDone!")

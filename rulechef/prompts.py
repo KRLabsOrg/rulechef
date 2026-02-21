@@ -306,7 +306,9 @@ def get_schema_aware_response_schema(
     if is_classification:
         template_example = f'{{"{primary_key}": "class_label_here"}}'
     else:
-        template_example = '{"text": "$0", "start": "$start", "end": "$end", "type": "LITERAL_OR_$VAR"}'
+        template_example = (
+            '{"text": "$0", "start": "$start", "end": "$end", "type": "LITERAL_OR_$VAR"}'
+        )
 
     return f'''
 Return JSON:
@@ -507,9 +509,7 @@ Output schema:
                 if rule.times_applied > 0
                 else "untested"
             )
-            lines.append(
-                f"\n- {rule.name} (priority {rule.priority}, success: {success_rate})"
-            )
+            lines.append(f"\n- {rule.name} (priority {rule.priority}, success: {success_rate})")
             lines.append(f"  Format: {rule.format.value}")
             lines.append(
                 f"  Pattern: {rule.content[:100]}{'...' if len(rule.content) > 100 else ''}"
@@ -565,9 +565,7 @@ RULES CAN BE:"""
                 "IMPORTANT: For CODE rules, write standard multi-line Python functions with proper indentation. Do NOT write one-liners."
             )
         if RuleFormat.SPACY not in self.allowed_formats:
-            lines.append(
-                "IMPORTANT: Do NOT include spaCy rules. Only return the listed formats."
-            )
+            lines.append("IMPORTANT: Do NOT include spaCy rules. Only return the listed formats.")
         if RuleFormat.SPACY in self.allowed_formats:
             lines.append(
                 "IMPORTANT: spaCy rules must be valid JSON arrays of token dicts (spaCy Matcher patterns). Do NOT include Python/spacy code; only JSON."
@@ -601,9 +599,7 @@ RULES CAN BE:"""
         else:
             return get_standard_response_schema(format_options)
 
-    def _build_schema_aware_section(
-        self, dataset: Dataset, format_options: list[str]
-    ) -> str:
+    def _build_schema_aware_section(self, dataset: Dataset, format_options: list[str]) -> str:
         """Build prompt section for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
         from rulechef.core import is_pydantic_schema
 
@@ -659,9 +655,7 @@ IMPORTANT for classification:
             if RuleFormat.REGEX in self.allowed_formats:
                 template_vars.append("  - $1, $2, ...: Capture groups (regex only)")
             if RuleFormat.SPACY in self.allowed_formats:
-                template_vars.append(
-                    "  - $ent_type: Entity type from spaCy NER (spaCy only)"
-                )
+                template_vars.append("  - $ent_type: Entity type from spaCy NER (spaCy only)")
                 template_vars.append(
                     "  - $1.start/$1.end/$1.text: Token offsets/text within spaCy match"
                 )
@@ -804,10 +798,7 @@ Each rule needs:
             normalized = " ".join(str(text).split())
             if not normalized:
                 return
-            if (
-                any(c.isalpha() for c in normalized)
-                and normalized.lower() == normalized
-            ):
+            if any(c.isalpha() for c in normalized) and normalized.lower() == normalized:
                 saw_lowercase = True
             if " " in normalized.strip():
                 saw_multiword = True
@@ -852,9 +843,7 @@ Each rule needs:
             lines.append("Note: " + " ".join(notes[:2]))
 
         lines.append("")
-        lines.append(
-            "Computed patterns match training strings only; generalize carefully."
-        )
+        lines.append("Computed patterns match training strings only; generalize carefully.")
 
         out = "\n".join(lines)
         if len(out) > max_total_chars:
@@ -891,9 +880,7 @@ Each rule needs:
         lines.append(f"- Extracted spans ({len(texts)} unique): {preview}")
         lines.extend(self._grex_patterns(texts, context="EXTRACTION:spans"))
         lines.append("")
-        lines.append(
-            "Computed patterns match training strings only; generalize carefully."
-        )
+        lines.append("Computed patterns match training strings only; generalize carefully.")
 
         out = "\n".join(lines)
         if len(out) > max_total_chars:
@@ -941,15 +928,11 @@ Each rule needs:
             preview = ", ".join(json.dumps(t[:80]) for t in inputs)
             lines.append(f"- {label} ({len(inputs)} examples): {preview}")
             lines.extend(
-                self._grex_patterns(
-                    [t[:80] for t in inputs], context=f"CLASSIFICATION:{label}"
-                )
+                self._grex_patterns([t[:80] for t in inputs], context=f"CLASSIFICATION:{label}")
             )
 
         lines.append("")
-        lines.append(
-            "Computed patterns match training strings only; generalize carefully."
-        )
+        lines.append("Computed patterns match training strings only; generalize carefully.")
 
         out = "\n".join(lines)
         if len(out) > max_total_chars:
@@ -986,9 +969,7 @@ Each rule needs:
             lines.extend(self._grex_patterns(vals, context=f"TRANSFORMATION:{key}"))
 
         lines.append("")
-        lines.append(
-            "Computed patterns match training strings only; generalize carefully."
-        )
+        lines.append("Computed patterns match training strings only; generalize carefully.")
 
         out = "\n".join(lines)
         if len(out) > max_total_chars:

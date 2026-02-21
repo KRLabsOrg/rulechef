@@ -22,9 +22,7 @@ OutputMatcher = Callable[[dict[str, Any], dict[str, Any]], bool]
 OutputSchema = dict[str, Any] | type[BaseModel]
 
 
-def get_labels_from_model(
-    model: type[BaseModel], field_name: str = "type"
-) -> list[str]:
+def get_labels_from_model(model: type[BaseModel], field_name: str = "type") -> list[str]:
     """
     Extract Literal values from a Pydantic model.
 

@@ -233,9 +233,7 @@ class TestRawObservationMerge:
         )
 
         client = MagicMock()
-        client.chat.completions.create = MagicMock(
-            return_value=_make_response(discovery_json)
-        )
+        client.chat.completions.create = MagicMock(return_value=_make_response(discovery_json))
 
         chef = RuleChef(client=client, model="test-model")
         for i in range(5):
@@ -253,9 +251,7 @@ class TestRawObservationMerge:
     def test_mixed_raw_and_monkey_patch(self):
         """Raw observations from both add_raw_observation and start_observing coexist."""
         client = MagicMock()
-        client.chat.completions.create = MagicMock(
-            return_value=_make_response("some response")
-        )
+        client.chat.completions.create = MagicMock(return_value=_make_response("some response"))
 
         chef = RuleChef(client=client, model="test-model")
 

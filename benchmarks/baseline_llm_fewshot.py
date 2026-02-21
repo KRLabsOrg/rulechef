@@ -134,9 +134,7 @@ def compute_metrics(results, classes):
     total_fn = sum(fn_per_class.values())
     micro_p = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
     micro_r = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
-    micro_f1 = (
-        2 * micro_p * micro_r / (micro_p + micro_r) if (micro_p + micro_r) > 0 else 0
-    )
+    micro_f1 = 2 * micro_p * micro_r / (micro_p + micro_r) if (micro_p + micro_r) > 0 else 0
 
     # Per-class
     per_class = []
@@ -182,9 +180,7 @@ def main():
     parser.add_argument("--classes", type=str, default=None)
     parser.add_argument("--test-limit", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--output", type=str, default="benchmarks/results_llm_fewshot.json"
-    )
+    parser.add_argument("--output", type=str, default="benchmarks/results_llm_fewshot.json")
     args = parser.parse_args()
 
     from openai import OpenAI
@@ -193,9 +189,7 @@ def main():
     print("Loading BANKING77 dataset...")
     train_all, test_all, label_names = load_banking77()
 
-    classes_list = (
-        [c.strip() for c in args.classes.split(",")] if args.classes else None
-    )
+    classes_list = [c.strip() for c in args.classes.split(",")] if args.classes else None
     train_sample, _, selected_classes = sample_few_shot(
         train_all,
         args.shots,
@@ -213,9 +207,7 @@ def main():
         rng.shuffle(test_data)
         test_data = test_data[: args.test_limit]
 
-    print(
-        f"  {args.shots}-shot x {len(selected_classes)} classes = {len(train_sample)} examples"
-    )
+    print(f"  {args.shots}-shot x {len(selected_classes)} classes = {len(train_sample)} examples")
     print(f"  Test: {len(test_data)} examples")
     print(f"  Model: {args.model}")
 
@@ -256,9 +248,7 @@ def main():
     print()
 
     for cm in metrics["per_class"]:
-        print(
-            f"  {cm['label']:40s} F1={cm['f1']:.0%} P={cm['precision']:.0%} R={cm['recall']:.0%}"
-        )
+        print(f"  {cm['label']:40s} F1={cm['f1']:.0%} P={cm['precision']:.0%} R={cm['recall']:.0%}")
     print(f"{'=' * 70}")
 
     # Save

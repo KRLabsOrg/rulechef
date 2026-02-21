@@ -55,9 +55,7 @@ class ExampleBuffer:
                 )
             )
 
-    def add_human_example(
-        self, input_data: dict[str, Any], output_data: dict[str, Any]
-    ):
+    def add_human_example(self, input_data: dict[str, Any], output_data: dict[str, Any]):
         """Add human-labeled example.
 
         Args:
@@ -142,11 +140,7 @@ class ExampleBuffer:
                 "new_corrections": len([e for e in new_examples if e.is_correction]),
                 "llm_observations": len([e for e in new_examples if e.source == "llm"]),
                 "human_examples": len(
-                    [
-                        e
-                        for e in new_examples
-                        if e.source == "human" and not e.is_correction
-                    ]
+                    [e for e in new_examples if e.source == "human" and not e.is_correction]
                 ),
             }
 

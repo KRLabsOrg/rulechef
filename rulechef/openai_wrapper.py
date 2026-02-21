@@ -136,9 +136,7 @@ class _StreamWrapper:
                         if tc.function.name:
                             self._tool_call_parts[idx]["name"] = tc.function.name
                         if tc.function.arguments:
-                            self._tool_call_parts[idx]["arguments"] += (
-                                tc.function.arguments
-                            )
+                            self._tool_call_parts[idx]["arguments"] += tc.function.arguments
         except (AttributeError, IndexError):
             pass
 
@@ -211,9 +209,7 @@ class OpenAIObserver:
         self._client = None
 
         # Mode detection
-        self._custom_extractors = (
-            extract_input is not None and extract_output is not None
-        )
+        self._custom_extractors = extract_input is not None and extract_output is not None
         self._extract_input_fn = extract_input
         self._extract_output_fn = extract_output
 
@@ -416,9 +412,7 @@ Return ONLY valid JSON:
                         inp = result.get("input")
                         out = result.get("output")
                         if inp is not None and out is not None:
-                            self.buffer.add_llm_observation(
-                                inp, out, metadata=obs.metadata
-                            )
+                            self.buffer.add_llm_observation(inp, out, metadata=obs.metadata)
                             added += 1
                         else:
                             self._skipped_count += 1

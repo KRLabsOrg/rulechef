@@ -197,9 +197,7 @@ class RuleLearner:
                 )
                 response_text = response.choices[0].message.content
                 result = self._parse_json(response_text)
-                rules = self._parse_rules_from_response(
-                    result, max_rules_per_class, dataset
-                )
+                rules = self._parse_rules_from_response(result, max_rules_per_class, dataset)
                 all_rules.extend(rules)
 
                 if self.training_logger:
@@ -209,9 +207,7 @@ class RuleLearner:
                         response_text,
                         {
                             "task_name": dataset.task.name if dataset.task else None,
-                            "task_type": dataset.task.type.value
-                            if dataset.task
-                            else None,
+                            "task_type": dataset.task.type.value if dataset.task else None,
                             "dataset_size": len(dataset.examples),
                             "target_class": target_class,
                             "num_counter_examples": len(counter_examples),
@@ -226,9 +222,7 @@ class RuleLearner:
                 )
             except Exception as e:
                 elapsed = time.time() - start
-                print(
-                    f"  [{i + 1}/{len(classes)}] {target_class}: ERROR ({elapsed:.1f}s) - {e}"
-                )
+                print(f"  [{i + 1}/{len(classes)}] {target_class}: ERROR ({elapsed:.1f}s) - {e}")
 
         total_elapsed = time.time() - total_start
         print(
@@ -336,9 +330,7 @@ class RuleLearner:
 
             if self._validate_rule(rule):
                 # Ensure spaCy content is stored as JSON string for consistency
-                if rule.format == RuleFormat.SPACY and not isinstance(
-                    rule.content, str
-                ):
+                if rule.format == RuleFormat.SPACY and not isinstance(rule.content, str):
                     rule.content = json.dumps(rule.content)
                 rules.append(rule)
             else:
@@ -552,12 +544,8 @@ class RuleLearner:
                     [{"role": "user", "content": prompt}],
                     response_text,
                     {
-                        "task_name": dataset.task.name
-                        if dataset and dataset.task
-                        else None,
-                        "task_type": dataset.task.type.value
-                        if dataset and dataset.task
-                        else None,
+                        "task_name": dataset.task.name if dataset and dataset.task else None,
+                        "task_type": dataset.task.type.value if dataset and dataset.task else None,
                         "num_failures": len(sampled_failures),
                         "num_existing_rules": len(current_rules),
                         "num_rules_in_response": len(rules),
@@ -661,9 +649,7 @@ class RuleLearner:
             prompt += f"\n\nFOCUS: Generate rules for class '{target_class}' ONLY.\n"
 
         # Show positive examples
-        prompt += (
-            f"\nPOSITIVE EXAMPLES for '{target_class}' ({len(positives)} total):\n"
-        )
+        prompt += f"\nPOSITIVE EXAMPLES for '{target_class}' ({len(positives)} total):\n"
         for ex in positives:
             prompt += f"\nInput: {json.dumps(ex.input)}"
             prompt += f"\nOutput: {json.dumps(ex.expected_output)}"
@@ -763,15 +749,11 @@ INSTRUCTIONS:
             task_fb = dataset.get_feedback_for("task")
             if task_fb:
                 lines = "\n".join(f"- {f.text}" for f in task_fb)
-                task_feedback_section = (
-                    f"\nUSER GUIDANCE (task-level feedback):\n{lines}\n"
-                )
+                task_feedback_section = f"\nUSER GUIDANCE (task-level feedback):\n{lines}\n"
 
         guidance_section = ""
         if guidance:
-            guidance_section = (
-                f"\nCOORDINATOR GUIDANCE (prioritize this):\n{guidance}\n"
-            )
+            guidance_section = f"\nCOORDINATOR GUIDANCE (prioritize this):\n{guidance}\n"
 
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
@@ -830,9 +812,7 @@ Instructions:
             samples.extend(examples[:remaining_budget])
         elif strategy == "corrections_first" or strategy == "recent":
             samples.extend(
-                sorted(examples, key=lambda e: e.timestamp, reverse=True)[
-                    :remaining_budget
-                ]
+                sorted(examples, key=lambda e: e.timestamp, reverse=True)[:remaining_budget]
             )
         elif strategy == "diversity":
             if len(examples) <= remaining_budget:
@@ -841,9 +821,7 @@ Instructions:
                 step = len(examples) // remaining_budget
                 samples.extend([examples[i * step] for i in range(remaining_budget)])
         elif strategy == "uncertain":
-            sorted_by_confidence = sorted(
-                examples, key=lambda e: e.confidence, reverse=False
-            )
+            sorted_by_confidence = sorted(examples, key=lambda e: e.confidence, reverse=False)
             samples.extend(sorted_by_confidence[:remaining_budget])
         elif strategy == "varied":
             thirds = remaining_budget // 3
@@ -879,11 +857,7 @@ Instructions:
             by_class = defaultdict(list)
             for f in other_failures:
                 expected = f.get("expected", {})
-                label = (
-                    expected.get("label", "")
-                    if isinstance(expected, dict)
-                    else str(expected)
-                )
+                label = expected.get("label", "") if isinstance(expected, dict) else str(expected)
                 by_class[label].append(f)
 
             # Weight by inverse recall if metrics available (weak classes get more samples)
@@ -996,9 +970,7 @@ Instructions:
                 if not isinstance(pattern_data, list) or not pattern_data:
                     return False
                 if not self.use_spacy_ner and self._pattern_uses_ent_type(pattern_data):
-                    print(
-                        "      spaCy NER is disabled; ENT_TYPE/ENT_ID patterns are not allowed"
-                    )
+                    print("      spaCy NER is disabled; ENT_TYPE/ENT_ID patterns are not allowed")
                     return False
                 rule.content = json.dumps(pattern_data)
             return True

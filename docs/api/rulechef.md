@@ -21,3 +21,6 @@ The main orchestrator class.
         - discover_task
         - start_observing
         - stop_observing
+        - trigger_manual_learning
+        - get_buffer_stats
+        - generate_llm_examples

@@ -159,9 +159,7 @@ def sample_dataset(extraction_task):
         Example(
             id="ex-1",
             input={"text": "Contact us at hello@example.com for details."},
-            expected_output={
-                "spans": [{"text": "hello@example.com", "start": 14, "end": 31}]
-            },
+            expected_output={"spans": [{"text": "hello@example.com", "start": 14, "end": 31}]},
             source="human_labeled",
         ),
         Example(
@@ -176,9 +174,7 @@ def sample_dataset(extraction_task):
             id="cor-1",
             input={"text": "Send to admin@test.org please."},
             model_output={"spans": []},
-            expected_output={
-                "spans": [{"text": "admin@test.org", "start": 8, "end": 22}]
-            },
+            expected_output={"spans": [{"text": "admin@test.org", "start": 8, "end": 22}]},
             feedback="Missed email address",
         ),
     ]

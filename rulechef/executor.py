@@ -163,9 +163,7 @@ class RuleExecutor:
         sorted_rules = sorted(rules, key=self._rule_sort_key)
 
         # Get default output key for this task type
-        default_key = (
-            DEFAULT_OUTPUT_KEYS.get(task_type, "spans") if task_type else "spans"
-        )
+        default_key = DEFAULT_OUTPUT_KEYS.get(task_type, "spans") if task_type else "spans"
 
         output = {}
 
@@ -218,9 +216,7 @@ class RuleExecutor:
                                 continue
                             output[output_key].append(res)
                     else:
-                        normalized = (
-                            results.to_dict() if isinstance(results, Span) else results
-                        )
+                        normalized = results.to_dict() if isinstance(results, Span) else results
                         # Stamp rule attribution
                         if isinstance(normalized, dict):
                             normalized["rule_id"] = rule.id
@@ -259,9 +255,7 @@ class RuleExecutor:
 
         return output
 
-    def execute_rule(
-        self, rule: Rule, input_data: dict, text_field: str | None = None
-    ) -> Any:
+    def execute_rule(self, rule: Rule, input_data: dict, text_field: str | None = None) -> Any:
         """Execute a single rule against input data.
 
         Args:
@@ -317,14 +311,37 @@ class RuleExecutor:
         return results
 
     _SAFE_BUILTINS: dict[str, Any] = {
-        "abs": abs, "all": all, "any": any, "bool": bool, "dict": dict,
-        "enumerate": enumerate, "filter": filter, "float": float,
-        "frozenset": frozenset, "int": int, "isinstance": isinstance,
-        "len": len, "list": list, "map": map, "max": max, "min": min,
-        "print": print, "range": range, "reversed": reversed, "round": round,
-        "set": set, "slice": slice, "sorted": sorted, "str": str, "sum": sum,
-        "tuple": tuple, "type": type, "zip": zip,
-        "True": True, "False": False, "None": None,
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bool": bool,
+        "dict": dict,
+        "enumerate": enumerate,
+        "filter": filter,
+        "float": float,
+        "frozenset": frozenset,
+        "int": int,
+        "isinstance": isinstance,
+        "len": len,
+        "list": list,
+        "map": map,
+        "max": max,
+        "min": min,
+        "print": print,
+        "range": range,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "slice": slice,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+        "True": True,
+        "False": False,
+        "None": None,
     }
 
     def _execute_code_rule(self, rule: Rule, input_data: dict) -> Any:
@@ -502,16 +519,13 @@ class RuleExecutor:
                 return True
         return False
 
-    def _deduplicate_dicts(
-        self, items: list[dict], overlap_threshold: float = 0.7
-    ) -> list[dict]:
+    def _deduplicate_dicts(self, items: list[dict], overlap_threshold: float = 0.7) -> list[dict]:
         """Deduplicate a list of dicts based on text span overlap."""
         if not items:
             return []
 
         has_spans = all(
-            isinstance(item, dict) and "start" in item and "end" in item
-            for item in items
+            isinstance(item, dict) and "start" in item and "end" in item for item in items
         )
 
         if not has_spans:
@@ -546,11 +560,7 @@ class RuleExecutor:
                 inter_start = max(item_start, existing_start)
                 inter_end = min(item_end, existing_end)
                 intersection = max(0, inter_end - inter_start)
-                union = (
-                    (item_end - item_start)
-                    + (existing_end - existing_start)
-                    - intersection
-                )
+                union = (item_end - item_start) + (existing_end - existing_start) - intersection
                 iou = intersection / union if union > 0 else 0
 
                 if iou > overlap_threshold and item_type == existing_type:

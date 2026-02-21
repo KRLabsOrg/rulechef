@@ -11,9 +11,7 @@ from rulechef.core import Rule, RuleFormat
 
 class TestCoordinationDecision:
     def test_metadata_defaults_to_empty_dict(self):
-        d = CoordinationDecision(
-            should_learn=True, strategy="balanced", reasoning="test"
-        )
+        d = CoordinationDecision(should_learn=True, strategy="balanced", reasoning="test")
         assert d.metadata == {}
 
     def test_metadata_provided(self):
@@ -26,9 +24,7 @@ class TestCoordinationDecision:
         assert d.metadata == {"key": "value"}
 
     def test_max_iterations_default(self):
-        d = CoordinationDecision(
-            should_learn=True, strategy="balanced", reasoning="test"
-        )
+        d = CoordinationDecision(should_learn=True, strategy="balanced", reasoning="test")
         assert d.max_iterations == 3
 
 
@@ -56,9 +52,7 @@ def _fill_buffer(buffer, n_examples=0, n_corrections=0):
     for i in range(n_examples):
         buffer.add_human_example({"text": f"example-{i}"}, {"spans": []})
     for i in range(n_corrections):
-        buffer.add_human_correction(
-            {"text": f"correction-{i}"}, {"spans": []}, {"spans": []}
-        )
+        buffer.add_human_correction({"text": f"correction-{i}"}, {"spans": []}, {"spans": []})
 
 
 class TestSimpleCoordinatorFirstLearn:
@@ -95,15 +89,11 @@ class TestSimpleCoordinatorFirstLearn:
 class TestSimpleCoordinatorSubsequentLearn:
     def test_enough_examples_triggers_diversity(self):
         """Subsequent learn with enough examples uses diversity strategy."""
-        coordinator = SimpleCoordinator(
-            trigger_threshold=10, correction_threshold=5, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=10, correction_threshold=5, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=15)
 
-        decision = coordinator.should_trigger_learning(
-            buffer, current_rules=_make_dummy_rules(3)
-        )
+        decision = coordinator.should_trigger_learning(buffer, current_rules=_make_dummy_rules(3))
         assert decision.should_learn is True
         assert decision.strategy == "diversity"
         assert decision.max_iterations == 3
@@ -116,9 +106,7 @@ class TestSimpleCoordinatorSubsequentLearn:
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=2, n_corrections=3)
 
-        decision = coordinator.should_trigger_learning(
-            buffer, current_rules=_make_dummy_rules(2)
-        )
+        decision = coordinator.should_trigger_learning(buffer, current_rules=_make_dummy_rules(2))
         assert decision.should_learn is True
         assert decision.strategy == "corrections_first"
         assert decision.max_iterations == 2
@@ -131,23 +119,17 @@ class TestSimpleCoordinatorSubsequentLearn:
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=5, n_corrections=2)
 
-        decision = coordinator.should_trigger_learning(
-            buffer, current_rules=_make_dummy_rules(1)
-        )
+        decision = coordinator.should_trigger_learning(buffer, current_rules=_make_dummy_rules(1))
         assert decision.should_learn is False
         assert "Not ready" in decision.reasoning
 
     def test_corrections_priority_over_examples(self):
         """When both thresholds are met, corrections take priority."""
-        coordinator = SimpleCoordinator(
-            trigger_threshold=5, correction_threshold=3, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=5, correction_threshold=3, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=10, n_corrections=5)
 
-        decision = coordinator.should_trigger_learning(
-            buffer, current_rules=_make_dummy_rules(1)
-        )
+        decision = coordinator.should_trigger_learning(buffer, current_rules=_make_dummy_rules(1))
         assert decision.should_learn is True
         # corrections_first takes priority because corrections >= correction_threshold
         assert decision.strategy == "corrections_first"
@@ -155,9 +137,7 @@ class TestSimpleCoordinatorSubsequentLearn:
 
 class TestSimpleCoordinatorCustomThresholds:
     def test_custom_thresholds(self):
-        coordinator = SimpleCoordinator(
-            trigger_threshold=2, correction_threshold=1, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=2, correction_threshold=1, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=2)
 
@@ -172,17 +152,13 @@ class TestSimpleCoordinatorCustomThresholds:
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=100, n_corrections=50)
 
-        decision = coordinator.should_trigger_learning(
-            buffer, current_rules=_make_dummy_rules()
-        )
+        decision = coordinator.should_trigger_learning(buffer, current_rules=_make_dummy_rules())
         assert decision.should_learn is False
 
 
 class TestSimpleCoordinatorAnalyzeBuffer:
     def test_analyze_buffer_stats(self):
-        coordinator = SimpleCoordinator(
-            trigger_threshold=5, correction_threshold=2, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=5, correction_threshold=2, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=3, n_corrections=1)
 
@@ -194,9 +170,7 @@ class TestSimpleCoordinatorAnalyzeBuffer:
         assert analysis["ready_for_refinement"] is False  # 4 < 5 and 1 < 2
 
     def test_analyze_buffer_ready(self):
-        coordinator = SimpleCoordinator(
-            trigger_threshold=3, correction_threshold=2, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=3, correction_threshold=2, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=5, n_corrections=3)
 
@@ -218,9 +192,7 @@ class TestSimpleCoordinatorGuideRefinement:
 
 class TestSimpleCoordinatorMetadata:
     def test_decision_includes_metadata(self):
-        coordinator = SimpleCoordinator(
-            trigger_threshold=5, correction_threshold=2, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=5, correction_threshold=2, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=10)
 
@@ -231,9 +203,7 @@ class TestSimpleCoordinatorMetadata:
 
     def test_mark_learned_affects_subsequent_decisions(self):
         """After mark_learned, only new examples count toward threshold."""
-        coordinator = SimpleCoordinator(
-            trigger_threshold=5, correction_threshold=2, verbose=False
-        )
+        coordinator = SimpleCoordinator(trigger_threshold=5, correction_threshold=2, verbose=False)
         buffer = ExampleBuffer()
         _fill_buffer(buffer, n_examples=10)
         buffer.mark_learned()
