@@ -6,6 +6,7 @@ from rulechef.executor import RuleExecutor
 from utils import get_openai_client, add_data, stream_to_streamlit
 import pandas as pd
 from rulechef.matching import evaluate_rules_individually
+from datetime import datetime
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 
@@ -86,10 +87,12 @@ if has_data:
             unsafe_allow_html=True,
         )
         if st.session_state.chef is None:
+            classes_str = "_".join(st.session_state.entity_types )
+            date_str = datetime.now().strftime("%Y-%m-%d")
             st.session_state.chef = RuleChef(
                 st.session_state.task,
                 get_openai_client(),
-                dataset_name="myrules",
+                dataset_name=f"{date_str}__{classes_str}",
                 allowed_formats=[RuleFormat.REGEX],
                 model="openai/gpt-oss-120b",  # "gpt-5-mini-2025-08-07", #
                 use_spacy_ner=False,
@@ -111,9 +114,10 @@ if has_data:
                 with stream_to_streamlit(output_box, "Learning Rules"):
                     st.session_state.chef.learn_rules(incremental_only=True)
                 st.session_state.rules_learned = True
-                st.session_state.active_rules = (
-                    st.session_state.chef.dataset.rules.copy()
-                )
+                learned = st.session_state.chef.dataset.rules.copy()
+                st.session_state.rules = learned
+                st.session_state.active_rules = learned.copy()
+
                 st.success("Rules learned!")
 
 
@@ -168,8 +172,13 @@ with st.container(border=True):
             rules_to_show,
             st.session_state.chef,
             rules_learned=False,
-            threshold=0.7,
+            threshold=1,
         )
+        rules_to_show = sorted(
+                rules_to_show,
+                key=lambda r: metrics[r.name]["overall"]["TP"],
+                reverse=True,
+)
 
         st.subheader("Learned Rules")
         for i, rule in enumerate(rules_to_show, 1):
@@ -193,13 +202,13 @@ with st.container(border=True):
                 f"background:#f8f9fa; border-radius:6px;"
                 f"border:1px solid #dee2e6; cursor:pointer;"
                 f"'>"
-                f"<span style='font-weight:600; margin-right:4px;'>Rule #{i}</span>"
-                f"<span style='color:#666; font-size:1.5em; flex:1'>{rule.name}</span>"
+                f"<span style='font-weight:600; margin-right:4px;'> <h5>Rule #{i}</h5></span>"
+                f"<span style='font-weight:600; margin-right:4px; flex:1'> <h5>{rule.name}</h5></span>"
                 f"{metric_badge('TP/FP', f'{tp}/{fp}', False)}"
                 f"{metric_badge('F1-Score', f1)}"
                 f"{metric_badge('Precision', p)}"
                 f"{metric_badge('Recall', r)}"
-                f"<span style='color:white; background:{'#2ecc71' if is_active else '#e74c3c'}; border-radius:4px; padding:2px 6px; font-weight:600; margin-left:6px;'>{'Active' if is_active else 'Inactive'}</span>"
+                f"<span style='color:white; background:{'#1abc9c' if is_active else '#7f8c8d'}; border-radius:4px;font-size:1.2em; padding:2px 6px; font-weight:600; margin-left:6px;'>{'Active' if is_active else 'Inactive'}</span>"
                 f"</div>"
             )
             st.markdown(header_html, unsafe_allow_html=True)
@@ -209,7 +218,7 @@ with st.container(border=True):
                 st.session_state[state_key] = not st.session_state[state_key]
                 st.rerun()
 
-            if st.button("Set to Active/Inactive", key=f"active_{i}"):
+            if st.button("Set to Active/Inactive", key=f"active_{i}", ):
                 if is_active:
                     st.session_state.active_rules.remove(rule)
                 else:
@@ -218,9 +227,8 @@ with st.container(border=True):
 
             if st.session_state[state_key]:
                 with st.container(border=True):
-                    st.code(f"Description:     {rule.description}")
-                    st.code(f"Format:     {rule.format}")
-                    st.code(f"Confidence: {rule.confidence}")
+                    st.markdown(f"**Description:**     {rule.description}")
+                    st.markdown(f"**Format:**     {rule.format}")
                     st.code(f"Pattern:    {rule.content}")
 
             st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)

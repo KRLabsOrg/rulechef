@@ -49,7 +49,7 @@ with st.container(border=True):
     with st.form("task_form"):
         entity_types = st.multiselect(
             "Entity Labels",
-            ["person", "location", "organisation"],
+            ["person", "location", "organisation","account","address"],
             default=st.session_state.entity_types or ["organisation"],
         )
 
@@ -78,7 +78,6 @@ with st.container(border=True):
             st.session_state.data.samples,
             st.session_state.entity_types,
         )
-        print(st.session_state.examples[:10])
 
         st.success("Training data loaded.")
 
@@ -87,7 +86,7 @@ with st.container(border=True):
     st.subheader("Training Data")
 
     if st.session_state.data:
-        for sample in st.session_state.examples[:3]:
+        for sample in st.session_state.examples[:10]:
             highlight_entities(sample["text"], sample["entities"])
             # for label in sample.labels:
             # st.write(label)
