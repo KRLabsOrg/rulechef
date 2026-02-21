@@ -1,39 +1,39 @@
 """Main RuleChef orchestrator"""
 
 import json
-import time
 import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Dict, List, Optional, Callable
 
 from openai import OpenAI
 
+from rulechef.buffer import ExampleBuffer
+from rulechef.coordinator import (
+    AgenticCoordinator,
+    CoordinatorProtocol,
+    SimpleCoordinator,
+)
 from rulechef.core import (
-    Task,
+    DEFAULT_OUTPUT_KEYS,
+    Correction,
     Dataset,
     Example,
-    Correction,
     Feedback,
     Rule,
     RuleFormat,
+    Task,
     TaskType,
-    DEFAULT_OUTPUT_KEYS,
 )
 from rulechef.evaluation import (
+    EvalResult,
+    RuleMetrics,
     evaluate_dataset,
     evaluate_rules_individually,
     print_eval_result,
     print_rule_metrics,
-    EvalResult,
-    RuleMetrics,
 )
 from rulechef.learner import RuleLearner
-from rulechef.buffer import ExampleBuffer
-from rulechef.coordinator import (
-    CoordinatorProtocol,
-    SimpleCoordinator,
-    AgenticCoordinator,
-)
 from rulechef.openai_wrapper import OpenAIObserver
 
 
@@ -42,13 +42,13 @@ class RuleChef:
 
     def __init__(
         self,
-        task: Optional[Task] = None,
-        client: Optional[OpenAI] = None,
+        task: Task | None = None,
+        client: OpenAI | None = None,
         dataset_name: str = "default",
         storage_path: str = "./rulechef_data",
-        allowed_formats: Optional[List[RuleFormat]] = None,
+        allowed_formats: list[RuleFormat] | None = None,
         sampling_strategy: str = "balanced",
-        coordinator: Optional[CoordinatorProtocol] = None,
+        coordinator: CoordinatorProtocol | None = None,
         auto_trigger: bool = False,
         model: str = "gpt-4o-mini",
         llm_fallback: bool = False,
@@ -121,9 +121,9 @@ class RuleChef:
         self.auto_trigger = auto_trigger
 
         # Observation mode components
-        self._observer: Optional[OpenAIObserver] = None
-        self._pending_raw_observations: List = []
-        self._learning_thread: Optional[threading.Thread] = None
+        self._observer: OpenAIObserver | None = None
+        self._pending_raw_observations: list = []
+        self._learning_thread: threading.Thread | None = None
         self._stop_learning = threading.Event()
 
         # Create storage directory
@@ -184,7 +184,7 @@ class RuleChef:
     # ========================================
 
     def add_example(
-        self, input_data: Dict, output_data: Dict, source: str = "human_labeled"
+        self, input_data: dict, output_data: dict, source: str = "human_labeled"
     ):
         """Add a labeled training example.
 
@@ -211,10 +211,10 @@ class RuleChef:
 
     def add_correction(
         self,
-        input_data: Dict,
-        model_output: Dict,
-        expected_output: Dict,
-        feedback: Optional[str] = None,
+        input_data: dict,
+        model_output: dict,
+        expected_output: dict,
+        feedback: str | None = None,
     ):
         """Add a user correction (high value signal).
 
@@ -308,9 +308,9 @@ class RuleChef:
 
     def add_observation(
         self,
-        input_data: Dict,
-        output_data: Dict,
-        metadata: Optional[Dict] = None,
+        input_data: dict,
+        output_data: dict,
+        metadata: dict | None = None,
     ):
         """Add a structured LLM observation. Works with any LLM provider.
 
@@ -340,9 +340,9 @@ class RuleChef:
 
     def add_raw_observation(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         response: str,
-        metadata: Optional[Dict] = None,
+        metadata: dict | None = None,
     ):
         """Add a raw LLM interaction for auto-discovery. Works with any LLM.
 
@@ -377,10 +377,10 @@ class RuleChef:
 
     def learn_rules(
         self,
-        run_evaluation: Optional[bool] = None,
+        run_evaluation: bool | None = None,
         min_examples: int = 1,
         max_refinement_iterations: int = 3,
-        sampling_strategy: Optional[str] = None,
+        sampling_strategy: str | None = None,
         incremental_only: bool = False,
     ):
         """Learn rules from all collected data.
@@ -655,7 +655,7 @@ class RuleChef:
     # Execution
     # ========================================
 
-    def extract(self, input_data: Dict, validate: bool = True) -> Dict:
+    def extract(self, input_data: dict, validate: bool = True) -> dict:
         """Extract from input using learned rules.
 
         Works for all task types: EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION.
@@ -709,7 +709,7 @@ class RuleChef:
 
         return result
 
-    def _execute_with_llm(self, input_data: Dict) -> Dict:
+    def _execute_with_llm(self, input_data: dict) -> dict:
         """Execute extraction using LLM directly (fallback when rules don't work)"""
         prompt = f"""Task: {self.task.name}
 Description: {self.task.description}
@@ -751,8 +751,8 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         openai_client,
         auto_learn: bool = True,
         check_interval: int = 60,
-        extract_input: Optional[Callable] = None,
-        extract_output: Optional[Callable] = None,
+        extract_input: Callable | None = None,
+        extract_output: Callable | None = None,
         min_observations_for_discovery: int = 5,
     ):
         """
@@ -973,7 +973,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             print(f"✗ Not ready to learn: {decision.reasoning}")
             return False
 
-    def get_buffer_stats(self) -> Dict:
+    def get_buffer_stats(self) -> dict:
         """Get statistics about buffered examples and observations."""
         stats = {
             **self.buffer.get_stats(),
@@ -989,7 +989,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
     # Utils
     # ========================================
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get dataset statistics.
 
         Returns:
@@ -1032,7 +1032,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             print_eval_result(result, self.dataset.name)
         return result
 
-    def get_rule_metrics(self, verbose: bool = True) -> List[RuleMetrics]:
+    def get_rule_metrics(self, verbose: bool = True) -> list[RuleMetrics]:
         """Evaluate each rule individually against the dataset.
 
         Useful for identifying dead or harmful rules.
@@ -1077,7 +1077,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         print(f"Rule {rule_id} not found")
         return False
 
-    def get_rules_summary(self) -> List[Dict]:
+    def get_rules_summary(self) -> list[dict]:
         """Get formatted summary of learned rules.
 
         Returns:
@@ -1115,7 +1115,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
 
         return str(uuid.uuid4())[:8]
 
-    def _merge_rules(self, existing: List[Rule], patches: List[Rule]) -> List[Rule]:
+    def _merge_rules(self, existing: list[Rule], patches: list[Rule]) -> list[Rule]:
         """Merge patch rules into existing set and prune weak rules."""
         by_name = {r.name: r for r in existing}
 
@@ -1141,7 +1141,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             print(f"🧹 Pruned {len(merged) - len(pruned)} weak rules")
         return pruned
 
-    def _apply_audit(self, audit, eval_result) -> List[Rule]:
+    def _apply_audit(self, audit, eval_result) -> list[Rule]:
         """Apply audit actions (merge/remove) with F1 safety net."""
         import re as re_mod
 
@@ -1236,7 +1236,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             return
 
         try:
-            with open(filepath, "r") as f:
+            with open(filepath) as f:
                 data = json.load(f)
 
             # Restore examples

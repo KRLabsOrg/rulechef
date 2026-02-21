@@ -3,7 +3,6 @@
 from rulechef.core import TaskType
 from rulechef.matching import outputs_match
 
-
 # =========================================================================
 # EXTRACTION matching
 # =========================================================================

@@ -1,35 +1,30 @@
 """Core data structures for RuleChef"""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from typing import (
-    List,
-    Dict,
     Any,
-    Optional,
-    Callable,
-    Union,
-    Type,
-    Tuple,
     Literal,
+    Union,
     get_args,
     get_origin,
 )
-from datetime import datetime
-from enum import Enum
 
 from pydantic import BaseModel, ValidationError
 
 # Type alias for output matcher functions
 # Takes (expected_output, actual_output) -> bool
-OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+OutputMatcher = Callable[[dict[str, Any], dict[str, Any]], bool]
 
 # Type for output schema - can be dict or Pydantic model
-OutputSchema = Union[Dict[str, Any], Type[BaseModel]]
+OutputSchema = dict[str, Any] | type[BaseModel]
 
 
 def get_labels_from_model(
-    model: Type[BaseModel], field_name: str = "type"
-) -> List[str]:
+    model: type[BaseModel], field_name: str = "type"
+) -> list[str]:
     """
     Extract Literal values from a Pydantic model.
 
@@ -169,14 +164,14 @@ class Task:
 
     name: str
     description: str
-    input_schema: Dict[str, str]
+    input_schema: dict[str, str]
     output_schema: OutputSchema
     type: TaskType = TaskType.EXTRACTION
-    output_matcher: Optional[OutputMatcher] = None
+    output_matcher: OutputMatcher | None = None
     matching_mode: Literal["text", "exact"] = "text"
-    text_field: Optional[str] = None
+    text_field: str | None = None
 
-    def get_labels(self, field_name: str = "type") -> List[str]:
+    def get_labels(self, field_name: str = "type") -> list[str]:
         """
         Get label values from output schema.
 
@@ -187,7 +182,7 @@ class Task:
             return get_labels_from_model(self.output_schema, field_name)
         return []
 
-    def validate_output(self, output: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def validate_output(self, output: dict[str, Any]) -> tuple[bool, list[str]]:
         """
         Validate output against schema.
 
@@ -258,7 +253,7 @@ class Task:
         )
 
 
-def _format_json_schema_for_prompt(schema: Dict[str, Any], indent: int = 0) -> str:
+def _format_json_schema_for_prompt(schema: dict[str, Any], indent: int = 0) -> str:
     """Format a JSON schema into a readable string for LLM prompts"""
     lines = []
     prefix = "  " * indent
@@ -316,8 +311,8 @@ class Example:
     """
 
     id: str
-    input: Dict[str, Any]
-    expected_output: Dict[str, Any]
+    input: dict[str, Any]
+    expected_output: dict[str, Any]
     source: str  # "human_labeled" | "llm_generated"
     confidence: float = 0.8
     timestamp: datetime = field(default_factory=datetime.now)
@@ -349,10 +344,10 @@ class Correction:
     """
 
     id: str
-    input: Dict[str, Any]
-    model_output: Dict[str, Any]  # What was WRONG
-    expected_output: Dict[str, Any]  # What it SHOULD be
-    feedback: Optional[str] = None
+    input: dict[str, Any]
+    model_output: dict[str, Any]  # What was WRONG
+    expected_output: dict[str, Any]  # What it SHOULD be
+    feedback: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
@@ -435,8 +430,8 @@ class Rule:
     failures: int = 0
     created_at: datetime = field(default_factory=datetime.now)
     # Schema-aware rule fields (optional, for NER/TRANSFORMATION)
-    output_template: Optional[Dict[str, Any]] = None  # Template for output JSON
-    output_key: Optional[str] = None  # Which output key to populate (e.g., "entities")
+    output_template: dict[str, Any] | None = None  # Template for output JSON
+    output_key: str | None = None  # Which output key to populate (e.g., "entities")
 
     @property
     def pattern(self) -> str:
@@ -501,18 +496,18 @@ class Dataset:
     name: str
     task: Task
     description: str = ""
-    examples: List[Example] = field(default_factory=list)
-    corrections: List[Correction] = field(default_factory=list)
-    feedback: List[str] = field(default_factory=list)
-    structured_feedback: List[Feedback] = field(default_factory=list)
-    rules: List[Rule] = field(default_factory=list)
+    examples: list[Example] = field(default_factory=list)
+    corrections: list[Correction] = field(default_factory=list)
+    feedback: list[str] = field(default_factory=list)
+    structured_feedback: list[Feedback] = field(default_factory=list)
+    rules: list[Rule] = field(default_factory=list)
     version: int = 1
 
-    def get_all_training_data(self) -> List:
+    def get_all_training_data(self) -> list:
         """Get all examples and corrections combined"""
         return self.corrections + self.examples
 
-    def get_feedback_for(self, level: str, target_id: str = "") -> List[Feedback]:
+    def get_feedback_for(self, level: str, target_id: str = "") -> list[Feedback]:
         """Get feedback filtered by level and optional target."""
         return [
             f

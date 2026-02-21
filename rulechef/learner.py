@@ -6,14 +6,13 @@ import re
 import time
 import uuid
 from collections import defaultdict
-from typing import Dict, List, Optional
 
 from openai import OpenAI
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 from rulechef.evaluation import (
-    evaluate_dataset,
     EvalResult,
+    evaluate_dataset,
 )
 from rulechef.executor import RuleExecutor
 from rulechef.prompts import PromptBuilder
@@ -25,7 +24,7 @@ class RuleLearner:
     def __init__(
         self,
         llm: OpenAI,
-        allowed_formats: Optional[List[RuleFormat]] = None,
+        allowed_formats: list[RuleFormat] | None = None,
         sampling_strategy: str = "balanced",
         model: str = "gpt-4o-mini",
         use_spacy_ner: bool = False,
@@ -71,11 +70,11 @@ class RuleLearner:
 
     def _apply_rules(
         self,
-        rules: List[Rule],
-        input_data: Dict,
-        task_type: Optional[TaskType] = None,
-        text_field: Optional[str] = None,
-    ) -> Dict:
+        rules: list[Rule],
+        input_data: dict,
+        task_type: TaskType | None = None,
+        text_field: str | None = None,
+    ) -> dict:
         """Apply rules to input data. Delegates to executor."""
         return self.executor.apply_rules(rules, input_data, task_type, text_field)
 
@@ -86,8 +85,8 @@ class RuleLearner:
     def synthesize_ruleset(
         self,
         dataset: Dataset,
-        max_rules: Optional[int] = None,
-    ) -> List[Rule]:
+        max_rules: int | None = None,
+    ) -> list[Rule]:
         """Generate initial ruleset from dataset.
 
         Returns:
@@ -139,7 +138,7 @@ class RuleLearner:
         dataset: Dataset,
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
-    ) -> List[Rule]:
+    ) -> list[Rule]:
         """Synthesize rules one class at a time for better focus and coverage.
 
         Args:
@@ -238,8 +237,8 @@ class RuleLearner:
         return all_rules
 
     def _parse_rules_from_response(
-        self, result: Dict, max_rules: int, dataset: Optional[Dataset] = None
-    ) -> List[Rule]:
+        self, result: dict, max_rules: int, dataset: Dataset | None = None
+    ) -> list[Rule]:
         """Parse rules from LLM response"""
         from rulechef.core import is_pydantic_schema
 
@@ -353,7 +352,7 @@ class RuleLearner:
 
     def evaluate_and_refine(
         self,
-        rules: List[Rule],
+        rules: list[Rule],
         dataset: Dataset,
         max_iterations: int = 3,
         coordinator=None,
@@ -464,7 +463,7 @@ class RuleLearner:
         return best_rules, best_eval
 
     @staticmethod
-    def _merge_patch(existing: List[Rule], patches: List[Rule]) -> List[Rule]:
+    def _merge_patch(existing: list[Rule], patches: list[Rule]) -> list[Rule]:
         """Merge patch rules into existing set by name."""
         by_name = {r.name: r for r in existing}
         for pr in patches:
@@ -477,11 +476,11 @@ class RuleLearner:
             by_name[pr.name] = pr
         return list(by_name.values())
 
-    def _evaluate_rules(self, rules: List[Rule], dataset: Dataset) -> EvalResult:
+    def _evaluate_rules(self, rules: list[Rule], dataset: Dataset) -> EvalResult:
         """Evaluate rules on all training data. Returns EvalResult."""
         return evaluate_dataset(rules, dataset, self._apply_rules, mode="text")
 
-    def _coerce_spacy_content(self, content) -> Optional[List]:
+    def _coerce_spacy_content(self, content) -> list | None:
         """Coerce spaCy content into a list of patterns."""
         if isinstance(content, list):
             return content
@@ -503,13 +502,13 @@ class RuleLearner:
 
     def synthesize_patch_ruleset(
         self,
-        current_rules: List[Rule],
-        failures: List[Dict],
-        max_rules: Optional[int] = None,
-        dataset: Optional[Dataset] = None,
+        current_rules: list[Rule],
+        failures: list[dict],
+        max_rules: int | None = None,
+        dataset: Dataset | None = None,
         guidance: str = "",
-        class_metrics: Optional[List] = None,
-    ) -> List[Rule]:
+        class_metrics: list | None = None,
+    ) -> list[Rule]:
         """Generate incremental rules targeted at specific failures.
 
         Returns only new/updated rules; the caller is responsible for
@@ -582,8 +581,8 @@ class RuleLearner:
         self,
         dataset: Dataset,
         max_rules: int,
-        target_class: Optional[str] = None,
-        counter_examples: Optional[List] = None,
+        target_class: str | None = None,
+        counter_examples: list | None = None,
     ) -> str:
         """Build prompt for rule synthesis using PromptBuilder.
 
@@ -633,7 +632,7 @@ class RuleLearner:
         dataset: Dataset,
         max_rules: int,
         target_class: str,
-        counter_examples: List,
+        counter_examples: list,
     ) -> str:
         """Build focused synthesis prompt for a single class."""
         task_type = dataset.task.type
@@ -699,10 +698,10 @@ INSTRUCTIONS:
 
     def _build_patch_prompt(
         self,
-        current_rules: List[Rule],
-        failures: List[Dict],
+        current_rules: list[Rule],
+        failures: list[dict],
         max_rules: int,
-        dataset: Optional[Dataset] = None,
+        dataset: Dataset | None = None,
         guidance: str = "",
     ) -> str:
         """Build prompt for targeted patch rules."""
@@ -863,9 +862,9 @@ Instructions:
 
     def _sample_failures(
         self,
-        failures: List[Dict],
+        failures: list[dict],
         max_samples: int = 20,
-        class_metrics: Optional[List] = None,
+        class_metrics: list | None = None,
     ):
         """Sample failures for refinement/patch, prioritizing corrections and weak classes."""
         correction_failures = [f for f in failures if f.get("is_correction", False)]
@@ -915,7 +914,7 @@ Instructions:
 
         return sampled[:max_samples]
 
-    def _get_classes(self, dataset: Dataset) -> List[str]:
+    def _get_classes(self, dataset: Dataset) -> list[str]:
         """Discover classes from dataset based on task type.
 
         CLASSIFICATION: unique labels from expected_output
@@ -955,7 +954,7 @@ Instructions:
     # Utilities
     # ========================================
 
-    def _parse_json(self, text: str) -> Dict:
+    def _parse_json(self, text: str) -> dict:
         """Parse JSON from LLM response"""
         if isinstance(text, dict):
             return text
@@ -1011,7 +1010,7 @@ Instructions:
         """Generate unique ID"""
         return str(uuid.uuid4())[:8]
 
-    def _pattern_uses_ent_type(self, pattern_data: List) -> bool:
+    def _pattern_uses_ent_type(self, pattern_data: list) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
 
         def _walk(value):
@@ -1027,7 +1026,7 @@ Instructions:
 
         return _walk(pattern_data)
 
-    def generate_synthetic_input(self, task, seed: int = 0) -> Dict:
+    def generate_synthetic_input(self, task, seed: int = 0) -> dict:
         """Generate a synthetic input example"""
         prompt = self.prompt_builder.build_generation_prompt(task, seed)
 

@@ -1,21 +1,20 @@
 """Tests for rulechef.core data structures."""
 
-import pytest
-from typing import List, Literal
+from typing import Literal
 
+import pytest
 from pydantic import BaseModel
 
 from rulechef.core import (
+    Correction,
+    Dataset,
+    Example,
+    Feedback,
     Span,
     Task,
     TaskType,
-    Dataset,
-    Example,
-    Correction,
-    Feedback,
     get_labels_from_model,
 )
-
 
 # =========================================================================
 # Span
@@ -319,7 +318,7 @@ class TestGetLabelsFromModel:
             type: Literal["PERSON", "ORG", "LOC"]
 
         class Output(BaseModel):
-            entities: List[Entity]
+            entities: list[Entity]
 
         labels = get_labels_from_model(Output)
         assert sorted(labels) == ["LOC", "ORG", "PERSON"]

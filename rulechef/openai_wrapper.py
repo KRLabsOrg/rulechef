@@ -9,8 +9,9 @@ Supports three modes:
 import json
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from rulechef.buffer import ExampleBuffer
 from rulechef.core import Task
@@ -24,13 +25,13 @@ class RawObservation:
     because the OpenAI response object is ephemeral.
     """
 
-    messages: List[Dict[str, Any]]
+    messages: list[dict[str, Any]]
     response_content: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
-def _extract_response_content(response) -> Optional[str]:
+def _extract_response_content(response) -> str | None:
     """Normalize an OpenAI response to a plain string.
 
     Handles plain text, tool_calls, and Pydantic structured output.
@@ -187,10 +188,10 @@ class OpenAIObserver:
     def __init__(
         self,
         buffer: ExampleBuffer,
-        task: Optional[Task],
+        task: Task | None,
         original_create: Callable,
-        extract_input: Optional[Callable] = None,
-        extract_output: Optional[Callable] = None,
+        extract_input: Callable | None = None,
+        extract_output: Callable | None = None,
         min_observations_for_discovery: int = 5,
     ):
         """
@@ -217,7 +218,7 @@ class OpenAIObserver:
         self._extract_output_fn = extract_output
 
         # Raw observation store (auto/mapped modes)
-        self._raw_observations: List[RawObservation] = []
+        self._raw_observations: list[RawObservation] = []
         self._mapped_index: int = 0
         self._lock = threading.Lock()
 
@@ -273,7 +274,7 @@ class OpenAIObserver:
             self._client.chat.completions.create = self._original_create
         self._client = None
 
-    def _capture(self, api_kwargs: Dict, response) -> None:
+    def _capture(self, api_kwargs: dict, response) -> None:
         """Process an observed call.
 
         Custom extractor mode: parse immediately, add to buffer.
@@ -436,10 +437,10 @@ Return ONLY valid JSON:
     def _map_batch(
         self,
         task: Task,
-        batch: List[RawObservation],
+        batch: list[RawObservation],
         llm_client,
         model: str,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Map a batch of observations via one LLM call.
 
         Returns a list of dicts: [{relevant, input, output}, ...].
@@ -497,7 +498,7 @@ Return ONLY a JSON array with exactly {len(batch)} objects:
     # Stats
     # ------------------------------------------------------------------
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get observation statistics."""
         with self._lock:
             total_raw = len(self._raw_observations)
@@ -518,7 +519,7 @@ Return ONLY a JSON array with exactly {len(batch)} objects:
 
     def _format_observations_for_prompt(
         self,
-        observations: List[RawObservation],
+        observations: list[RawObservation],
         max_content_chars: int = 500,
     ) -> str:
         """Format observations into readable prompt text."""
@@ -550,4 +551,4 @@ Return ONLY a JSON array with exactly {len(batch)} objects:
         except (json.JSONDecodeError, IndexError) as e:
             raise ValueError(
                 f"{context} LLM returned invalid JSON: {e}\nResponse: {raw[:500]}"
-            )
+            ) from e

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from rulechef.buffer import ExampleBuffer
@@ -14,17 +14,17 @@ class AuditAction:
     """A single audit action: remove or merge."""
 
     action: str  # "remove" or "merge"
-    rule_ids: List[str]  # IDs involved (1 for remove, 2+ for merge)
+    rule_ids: list[str]  # IDs involved (1 for remove, 2+ for merge)
     reason: str
-    merged_pattern: Optional[str] = None  # New pattern for merges
-    merged_name: Optional[str] = None
+    merged_pattern: str | None = None  # New pattern for merges
+    merged_name: str | None = None
 
 
 @dataclass
 class AuditResult:
     """Result of a rule audit."""
 
-    actions: List[AuditAction] = field(default_factory=list)
+    actions: list[AuditAction] = field(default_factory=list)
     analysis: str = ""
 
 
@@ -36,7 +36,7 @@ class CoordinationDecision:
     strategy: str  # Sampling strategy to use
     reasoning: str  # Human-readable explanation
     max_iterations: int = 3
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -53,7 +53,7 @@ class CoordinatorProtocol(ABC):
 
     @abstractmethod
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """
         Decide if learning should be triggered now.
@@ -68,7 +68,7 @@ class CoordinatorProtocol(ABC):
         pass
 
     @abstractmethod
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """
         Analyze current buffer state.
 
@@ -80,9 +80,9 @@ class CoordinatorProtocol(ABC):
     @abstractmethod
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
-        metrics: Dict[str, Any],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
+        metrics: dict[str, Any],
     ):
         """
         Callback after learning completes.
@@ -106,7 +106,7 @@ class CoordinatorProtocol(ABC):
         """
         return "", True
 
-    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+    def audit_rules(self, rules: list["Rule"], rule_metrics: list[Any]) -> AuditResult:
         """Audit rules for redundancy, dead rules, and conflicts.
 
         Called after learning completes when pruning is enabled.
@@ -150,7 +150,7 @@ class SimpleCoordinator(CoordinatorProtocol):
         self.verbose = verbose
 
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Simple heuristic decision"""
         stats = buffer.get_stats()
@@ -203,7 +203,7 @@ class SimpleCoordinator(CoordinatorProtocol):
             },
         )
 
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """Basic buffer statistics"""
         stats = buffer.get_stats()
         return {
@@ -217,8 +217,8 @@ class SimpleCoordinator(CoordinatorProtocol):
 
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
         metrics,
     ):
         """Log learning results. metrics is an EvalResult or None."""
@@ -276,7 +276,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.training_logger = training_logger
 
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Agentic decision based on buffer content"""
         stats = buffer.get_stats()
@@ -327,14 +327,14 @@ class AgenticCoordinator(CoordinatorProtocol):
                 reasoning="Fallback due to agent error",
             )
 
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """Analyze buffer stats"""
         return buffer.get_stats()
 
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
         metrics,
     ):
         """Log learning results. metrics is an EvalResult or None."""
@@ -421,7 +421,7 @@ Return JSON:
                 print(f"⚠ Coordinator error: {e}")
             return "", True
 
-    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+    def audit_rules(self, rules: list["Rule"], rule_metrics: list[Any]) -> AuditResult:
         """LLM-powered rule audit: merge redundant rules, remove pure noise."""
         import json
 
@@ -552,7 +552,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
             return AuditResult()
 
     def _ask_llm(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Construct prompt and get decision from LLM"""
         import json

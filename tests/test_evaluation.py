@@ -3,12 +3,12 @@
 import pytest
 
 from rulechef.core import (
-    Task,
-    TaskType,
-    Rule,
-    RuleFormat,
     Dataset,
     Example,
+    Rule,
+    RuleFormat,
+    Task,
+    TaskType,
 )
 from rulechef.evaluation import (
     ClassMetrics,
@@ -16,7 +16,6 @@ from rulechef.evaluation import (
     evaluate_dataset,
     evaluate_rules_individually,
 )
-
 
 # =========================================================================
 # ClassMetrics

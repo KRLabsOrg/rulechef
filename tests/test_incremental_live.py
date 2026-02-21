@@ -8,7 +8,6 @@ from rulechef import RuleChef, Task
 from rulechef.core import RuleFormat
 from rulechef.matching import outputs_match
 
-
 pytestmark = pytest.mark.integration
 
 

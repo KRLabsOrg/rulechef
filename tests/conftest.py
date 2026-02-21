@@ -1,19 +1,19 @@
 """Shared fixtures for RuleChef tests."""
 
+from typing import Literal
+
 import pytest
 from pydantic import BaseModel
-from typing import List, Literal
 
 from rulechef.core import (
-    Task,
-    TaskType,
-    Rule,
-    RuleFormat,
-    Example,
     Correction,
     Dataset,
+    Example,
+    Rule,
+    RuleFormat,
+    Task,
+    TaskType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Pydantic models used in fixtures
@@ -28,7 +28,7 @@ class Entity(BaseModel):
 
 
 class NEROutput(BaseModel):
-    entities: List[Entity]
+    entities: list[Entity]
 
 
 # ---------------------------------------------------------------------------

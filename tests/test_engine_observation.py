@@ -3,8 +3,8 @@
 import json
 from unittest.mock import MagicMock
 
-from rulechef.engine import RuleChef
 from rulechef.core import Task, TaskType
+from rulechef.engine import RuleChef
 from rulechef.openai_wrapper import RawObservation
 
 

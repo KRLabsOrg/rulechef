@@ -345,6 +345,26 @@ RULECHEF_GREX_LOG=1 python your_script.py
 
 This prints lines like `[rulechef][grex] used CLASSIFICATION:exchange_rate` whenever a pattern is generated.
 
+## Code Rule Security
+
+Code rules (`RuleFormat.CODE`) are executed via Python's `exec()` in a **restricted namespace**. The default `__builtins__` are replaced with a curated safe subset, so code rules cannot import modules, access the filesystem, or execute arbitrary code.
+
+This means code rules can use:
+
+- `re` — the standard library regex module
+- `Span` — RuleChef's span dataclass for returning results
+- Safe builtins — `len`, `str`, `int`, `float`, `bool`, `list`, `dict`, `set`, `tuple`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `reversed`, `min`, `max`, `sum`, `any`, `all`, `abs`, `round`, `isinstance`, `type`, `print`
+- Basic Python syntax (loops, conditionals, string methods, list comprehensions)
+
+Code rules **cannot**:
+
+- Import modules (`import os`, `__import__('subprocess')`)
+- Access files or environment variables
+- Make network calls
+- Call `open()`, `eval()`, `exec()`, `getattr()`, or `compile()`
+
+If you need capabilities beyond this, use regex or spaCy rules instead.
+
 ## CLI
 
 Interactive CLI for quick experimentation:

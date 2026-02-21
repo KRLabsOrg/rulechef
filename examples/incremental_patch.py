@@ -57,8 +57,6 @@ def main():
         print(f"Rules after baseline: {[r.name for r in chef.dataset.rules]}")
 
         new_input = {"question": "When?", "context": "Construction finished in 2025"}
-        expected = {"spans": [{"text": "2025", "start": 26, "end": 30}]}
-
         print("\nExtracting before patch...")
         pre = chef.extract(new_input)
         print("Pre-patch output:", pre)

@@ -3,7 +3,6 @@
 from rulechef.core import Rule, RuleFormat, Span, TaskType
 from rulechef.executor import RuleExecutor, substitute_template
 
-
 # =========================================================================
 # substitute_template
 # =========================================================================

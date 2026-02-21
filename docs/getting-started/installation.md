@@ -50,7 +50,7 @@ pip install rulechef[benchmark]
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - An OpenAI-compatible API key (OpenAI, Groq, Together, etc.)
 
 ## Verify Installation

@@ -7,12 +7,12 @@ Usage:
 """
 
 from rulechef.core import (
-    Task,
+    Correction,
     Dataset,
     Example,
-    Correction,
     Rule,
     RuleFormat,
+    Task,
     TaskType,
 )
 from rulechef.evaluation import (

@@ -3,9 +3,9 @@
 import json
 import os
 from collections import defaultdict
-from typing import Dict, List, Any, Set
+from typing import Any
 
-from rulechef.core import Rule, RuleFormat, Dataset, Correction, TaskType
+from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
 
 try:
     from grex import RegExpBuilder
@@ -270,7 +270,7 @@ SPACY_TECHNIQUE_GUIDE = """SPACY TECHNIQUES:
 # ============================================================================
 
 
-def get_standard_response_schema(format_options: List[str]) -> str:
+def get_standard_response_schema(format_options: list[str]) -> str:
     """Get JSON schema for standard (non-schema-aware) tasks"""
     format_str = '" or "'.join(format_options)
     return f'''
@@ -292,7 +292,7 @@ Return JSON:
 
 
 def get_schema_aware_response_schema(
-    format_options: List[str], primary_key: str, is_classification: bool = False
+    format_options: list[str], primary_key: str, is_classification: bool = False
 ) -> str:
     """Get JSON schema for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
     format_str = '" or "'.join(format_options)
@@ -340,7 +340,7 @@ class PromptBuilder:
 
     def __init__(
         self,
-        allowed_formats: List[RuleFormat],
+        allowed_formats: list[RuleFormat],
         use_spacy_ner: bool = False,
         use_grex: bool = True,
     ):
@@ -370,8 +370,8 @@ class PromptBuilder:
 
     def build_refinement_prompt(
         self,
-        current_rules: List[Rule],
-        failures: List[Dict],
+        current_rules: list[Rule],
+        failures: list[dict],
         dataset: Dataset,
     ) -> str:
         """Build prompt for refining rules based on failures (schema-aware)"""
@@ -456,7 +456,7 @@ Output schema:
 
         return "\n".join(parts)
 
-    def _build_corrections_section(self, corrections: List[Correction]) -> str:
+    def _build_corrections_section(self, corrections: list[Correction]) -> str:
         """Build section showing corrections (failures to learn from)"""
         if not corrections:
             return ""
@@ -471,7 +471,7 @@ Output schema:
 
         return "\n".join(lines)
 
-    def _build_examples_section(self, examples: List[Any]) -> str:
+    def _build_examples_section(self, examples: list[Any]) -> str:
         """Build section showing training examples"""
         if not examples:
             return ""
@@ -602,7 +602,7 @@ RULES CAN BE:"""
             return get_standard_response_schema(format_options)
 
     def _build_schema_aware_section(
-        self, dataset: Dataset, format_options: List[str]
+        self, dataset: Dataset, format_options: list[str]
     ) -> str:
         """Build prompt section for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
         from rulechef.core import is_pydantic_schema
@@ -687,12 +687,12 @@ Each rule needs:
 
         return section
 
-    def _derive_labels_from_data(self, dataset: Dataset) -> List[str]:
+    def _derive_labels_from_data(self, dataset: Dataset) -> list[str]:
         """Derive label strings from expected_output in examples/corrections.
 
         This is a fallback when Task.get_labels() returns [] (common with dict schemas).
         """
-        labels: Set[str] = set()
+        labels: set[str] = set()
         for item in list(dataset.examples) + list(dataset.corrections):
             output = getattr(item, "expected_output", None) or {}
             for key in ("entities", "spans"):
@@ -714,7 +714,7 @@ Each rule needs:
     # grex helpers
     # ========================================
 
-    def _grex_patterns(self, strings: List[str], context: str = "") -> List[str]:
+    def _grex_patterns(self, strings: list[str], context: str = "") -> list[str]:
         """Generate regex pattern hints from example strings using grex.
 
         Returns lines to append to evidence sections. Always emits the exact
@@ -728,7 +728,7 @@ Each rule needs:
         if len(strings) < 2:
             return []
         # grex can produce huge patterns that overfit or bloat the prompt; keep it bounded.
-        unique: List[str] = []
+        unique: list[str] = []
         for s in strings:
             if not isinstance(s, str):
                 continue
@@ -793,7 +793,7 @@ Each rule needs:
         max_strings_per_label = 15
         max_total_chars = 3000
 
-        label_to_texts: Dict[str, List[str]] = defaultdict(list)
+        label_to_texts: dict[str, list[str]] = defaultdict(list)
         saw_lowercase = False
         saw_multiword = False
 
@@ -840,7 +840,7 @@ Each rule needs:
             lines.append(f"- {label} ({len(vals)} unique): {preview}")
             lines.extend(self._grex_patterns(vals, context=f"NER:{label}"))
 
-        notes: List[str] = []
+        notes: list[str] = []
         if saw_lowercase:
             notes.append("Some entities are lowercase; do NOT assume capitalization.")
         if saw_multiword:
@@ -866,7 +866,7 @@ Each rule needs:
         max_strings = 30
         max_total_chars = 2000
 
-        texts: List[str] = []
+        texts: list[str] = []
         for item in list(dataset.examples) + list(dataset.corrections):
             output = getattr(item, "expected_output", None) or {}
             spans = output.get("spans", [])
@@ -906,11 +906,11 @@ Each rule needs:
         max_inputs_per_label = 10
         max_total_chars = 3000
 
-        label_to_inputs: Dict[str, List[str]] = defaultdict(list)
+        label_to_inputs: dict[str, list[str]] = defaultdict(list)
 
         text_field = dataset.task.text_field
 
-        def _get_text(input_data: Dict) -> str:
+        def _get_text(input_data: dict) -> str:
             if text_field and text_field in input_data:
                 return str(input_data[text_field])
             for v in input_data.values():
@@ -962,7 +962,7 @@ Each rule needs:
         max_values_per_key = 15
         max_total_chars = 3000
 
-        key_to_values: Dict[str, List[str]] = defaultdict(list)
+        key_to_values: dict[str, list[str]] = defaultdict(list)
 
         for item in list(dataset.examples) + list(dataset.corrections):
             output = getattr(item, "expected_output", None) or {}
@@ -1026,7 +1026,7 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
     # Utilities
     # ========================================
 
-    def _get_format_options(self) -> List[str]:
+    def _get_format_options(self) -> list[str]:
         """Get list of format option strings"""
         options = ["regex"]
         if RuleFormat.CODE in self.allowed_formats:
@@ -1035,7 +1035,7 @@ IMPORTANT: Return ONLY valid JSON. Ensure:
             options.append("spacy")
         return options
 
-    def _format_rules_with_feedback(self, rules: List[Rule], dataset: "Dataset") -> str:
+    def _format_rules_with_feedback(self, rules: list[Rule], dataset: "Dataset") -> str:
         """Format rules with any attached user feedback."""
         lines = []
         for i, rule in enumerate(rules, 1):

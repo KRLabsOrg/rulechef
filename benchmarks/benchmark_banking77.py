@@ -93,13 +93,14 @@ def sample_few_shot(
 
 def run_benchmark(args):
     from openai import OpenAI
+
     from rulechef import RuleChef
     from rulechef.core import (
-        Task,
-        TaskType,
         Dataset,
         Example,
         RuleFormat,
+        Task,
+        TaskType,
     )
     from rulechef.evaluation import evaluate_dataset
 

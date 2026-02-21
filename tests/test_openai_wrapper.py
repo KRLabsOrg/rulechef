@@ -1,17 +1,17 @@
 """Tests for rulechef.openai_wrapper — OpenAI observation/discovery/mapping."""
 
 import json
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
+from rulechef.buffer import ExampleBuffer
+from rulechef.core import Task, TaskType
 from rulechef.openai_wrapper import (
     OpenAIObserver,
     RawObservation,
     _extract_response_content,
 )
-from rulechef.buffer import ExampleBuffer
-from rulechef.core import Task, TaskType
-
 
 # =========================================================================
 # Helpers

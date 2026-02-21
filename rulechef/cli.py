@@ -4,9 +4,8 @@ import os
 
 from openai import OpenAI
 
-from rulechef.core import Task, TaskType, RuleFormat
+from rulechef.core import RuleFormat, Task, TaskType
 from rulechef.engine import RuleChef
-
 
 TASK_TYPES = {
     "extraction": TaskType.EXTRACTION,
@@ -77,7 +76,7 @@ def _setup() -> RuleChef:
     labels = []
     if task_type in (TaskType.NER, TaskType.CLASSIFICATION):
         labels_str = _input("Labels (comma-separated)")
-        labels = [l.strip() for l in labels_str.split(",") if l.strip()]
+        labels = [label.strip() for label in labels_str.split(",") if label.strip()]
 
     # Output schema
     if task_type == TaskType.TRANSFORMATION:

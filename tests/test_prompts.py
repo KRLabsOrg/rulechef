@@ -1,4 +1,4 @@
-from rulechef.core import Dataset, Example, Task, TaskType, RuleFormat
+from rulechef.core import Dataset, Example, RuleFormat, Task, TaskType
 from rulechef.prompts import PromptBuilder
 
 
