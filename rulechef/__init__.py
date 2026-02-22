@@ -1,5 +1,9 @@
 """RuleChef - Learn rule-based models from examples and LLM interactions"""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from rulechef.coordinator import (
     AuditAction,
     AuditResult,
@@ -18,6 +22,11 @@ from rulechef.core import (
     TaskType,
 )
 from rulechef.evaluation import ClassMetrics, EvalResult, RuleMetrics
+
+if TYPE_CHECKING:
+    from rulechef.coordinator import AgenticCoordinator as AgenticCoordinator
+    from rulechef.engine import RuleChef as RuleChef
+    from rulechef.training_logger import TrainingDataLogger as TrainingDataLogger
 
 __version__ = "0.1.0"
 __all__ = [
