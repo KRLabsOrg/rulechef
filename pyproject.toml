@@ -55,6 +55,11 @@ docs = [
     "mkdocs-material>=9.0",
     "mkdocstrings[python]>=0.24",
 ]
+app = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",

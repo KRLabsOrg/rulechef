@@ -78,6 +78,7 @@ nav:
     - Evaluation & Feedback: guide/evaluation.md
     - Coordinators: guide/coordinators.md
     - Advanced Features: guide/advanced.md
+    - Web App: guide/app.md
   - API Reference:
     - RuleChef: api/rulechef.md
     - Core Types: api/core.md
