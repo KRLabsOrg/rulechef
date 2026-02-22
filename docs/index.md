@@ -66,5 +66,6 @@ Rules can be **regex**, **Python code**, or **spaCy** token/dependency patterns.
 ## Next Steps
 
 - [Installation](getting-started/installation.md) — install RuleChef and extras
+- [How It Works](getting-started/concepts.md) — architecture, buffer, rules, schemas, coordinators
 - [Quick Start](getting-started/quickstart.md) — full examples for all task types
 - [Benchmarks](benchmarks.md) — Banking77 classification results

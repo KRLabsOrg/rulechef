@@ -70,6 +70,7 @@ nav:
   - Home: index.md
   - Getting Started:
     - Installation: getting-started/installation.md
+    - How It Works: getting-started/concepts.md
     - Quick Start: getting-started/quickstart.md
   - Guide:
     - Task Types: guide/task-types.md

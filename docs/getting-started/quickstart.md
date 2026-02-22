@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide shows complete examples for all four task types.
+This guide shows complete examples for all four task types. If you want to understand the architecture first (buffer, synthesis, rules), see [How It Works](concepts.md).
 
 ## Setup
 
