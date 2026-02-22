@@ -120,6 +120,24 @@ def substitute_template(
         else:
             # Literal value (int, bool, etc.)
             result[key] = value
+
+    # Fix start/end when text comes from a capture group ($1, $2, ...):
+    # $start/$end refer to the full match, but the text is from the group.
+    # Recalculate so start/end match the actual text position.
+    if (
+        "text" in result
+        and "start" in result
+        and "end" in result
+        and isinstance(result["text"], str)
+        and isinstance(result["start"], int)
+        and result["text"]
+        and result["text"] != match_text
+    ):
+        offset = match_text.lower().find(result["text"].lower())
+        if offset >= 0:
+            result["start"] = start + offset
+            result["end"] = result["start"] + len(result["text"])
+
     return result
 
 
