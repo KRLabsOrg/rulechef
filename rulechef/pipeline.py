@@ -118,6 +118,20 @@ class LearningPipeline:
     def _integrate_observer(self):
         """Discover task and/or map raw observations from observer."""
         chef = self._chef
+
+        # GLiNER auto-task creation
+        gliner_obs = chef._observations._gliner_observer
+        if gliner_obs and chef.task is None and gliner_obs._observed_count > 0:
+            print("\n🔍 Auto-creating task from GLiNER observations...")
+            task = gliner_obs.build_task()
+            chef._initialize_with_task(task)
+            gliner_obs.task = task
+            labels = (
+                ", ".join(gliner_obs._observed_labels) if gliner_obs._observed_labels else "none"
+            )
+            print(f"✓ Created task: {task.name} (labels: {labels})")
+
+        # OpenAI observer integration
         observer = chef._observations._observer
 
         if observer is None:

@@ -36,6 +36,12 @@ agentic = [
 spacy = [
     "spacy>=3.0.0",
 ]
+gliner = [
+    "gliner>=1.0",
+]
+gliner2 = [
+    "gliner2>=0.1",
+]
 grex = [
     "grex>=1.0",
 ]

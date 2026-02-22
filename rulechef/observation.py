@@ -6,6 +6,7 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from rulechef.gliner_wrapper import GlinerObserver
 from rulechef.openai_wrapper import OpenAIObserver, RawObservation
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ class ObservationManager:
     def __init__(self, chef: RuleChef):
         self._chef = chef
         self._observer: OpenAIObserver | None = None
+        self._gliner_observer: GlinerObserver | None = None
         self._pending_raw_observations: list[RawObservation] = []
         self._learning_thread: threading.Thread | None = None
         self._stop_learning = threading.Event()
@@ -130,6 +132,45 @@ class ObservationManager:
 
         return task
 
+    def start_observing_gliner(
+        self,
+        gliner_model,
+        method: str | None = None,
+        auto_learn: bool = True,
+        check_interval: int = 60,
+    ):
+        """Monkey-patch a GLiNER/GLiNER2 model to observe predictions.
+
+        Args:
+            gliner_model: A GLiNER or GLiNER2 model instance.
+            method: Which method to observe (required for GLiNER2 non-NER tasks).
+            auto_learn: If True, trigger learning automatically.
+            check_interval: Seconds between coordinator checks.
+
+        Returns:
+            The same model (monkey-patched in place).
+        """
+        self._gliner_observer = GlinerObserver(
+            buffer=self._chef.buffer, task=self._chef.task, method=method
+        )
+        self._gliner_observer.attach(gliner_model)
+
+        kind = self._gliner_observer._task_kind
+        method_name = self._gliner_observer._method_name
+        if auto_learn:
+            self._start_learning_loop(check_interval)
+            print(f"✓ Observing GLiNER ({kind} via {method_name})")
+        else:
+            print(f"✓ Observing GLiNER ({kind} via {method_name}, manual learning)")
+
+        return gliner_model
+
+    def stop_observing_gliner(self):
+        """Detach GLiNER observer."""
+        if self._gliner_observer:
+            self._gliner_observer.detach()
+            self._gliner_observer = None
+
     def stop_observing(self):
         """Stop observing LLM calls and background learning."""
         # Stop background thread
@@ -139,10 +180,13 @@ class ObservationManager:
             self._learning_thread = None
             self._stop_learning.clear()
 
-        # Detach observer
+        # Detach observers
         if self._observer:
             self._observer.detach()
             self._observer = None
+        if self._gliner_observer:
+            self._gliner_observer.detach()
+            self._gliner_observer = None
 
         print("✓ Stopped observing")
 
@@ -185,6 +229,8 @@ class ObservationManager:
         }
         if self._observer:
             stats["observer"] = self._observer.get_stats()
+        if self._gliner_observer:
+            stats["gliner_observer"] = self._gliner_observer.get_stats()
         if self._pending_raw_observations:
             stats["pending_raw_observations"] = len(self._pending_raw_observations)
         return stats

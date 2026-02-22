@@ -66,6 +66,44 @@ chef.stop_observing()
 
 When `auto_learn=True`, learning triggers automatically based on the coordinator's decision. Streaming calls (`stream=True`) are also observed — RuleChef wraps the stream to capture content after it completes.
 
+### GLiNER / GLiNER2 observation (`start_observing_gliner`)
+
+Observe predictions from [GLiNER](https://github.com/urchade/GLiNER) (NER) or [GLiNER2](https://github.com/fastino-ai/GLiNER2) (NER, classification, structured extraction) models:
+
+```python
+from gliner import GLiNER
+
+model = GLiNER.from_pretrained("urchade/gliner_multi-v2.1")
+
+chef = RuleChef(client=client, model="gpt-4o-mini")
+chef.start_observing_gliner(model, auto_learn=False)
+
+# Use the model as normal — predictions are captured
+entities = model.predict_entities("Apple was founded by Steve Jobs.", ["company", "person"])
+
+chef.learn_rules()
+chef.stop_observing_gliner()
+```
+
+For GLiNER2, specify which method to observe:
+
+```python
+from gliner2 import GLiNER2
+
+model = GLiNER2.from_pretrained("fastino/gliner2")
+
+# NER
+chef.start_observing_gliner(model, method="extract_entities", auto_learn=False)
+
+# Classification
+chef.start_observing_gliner(model, method="classify_text", auto_learn=False)
+
+# Structured extraction
+chef.start_observing_gliner(model, method="extract_json", auto_learn=False)
+```
+
+No LLM calls are needed for task discovery — GLiNER output is already structured. The task type, schema, and labels are inferred automatically from the observed predictions.
+
 ## Training Data Logger (Distillation)
 
 RuleChef can capture every LLM call made during rule synthesis as structured training data, suitable for fine-tuning a smaller model to replace the LLM. The logger is fully optional — pass a `TrainingDataLogger` instance and all calls (synthesis, patching, coordination, auditing) are written to a JSONL file.

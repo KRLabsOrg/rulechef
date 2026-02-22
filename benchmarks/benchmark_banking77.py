@@ -160,7 +160,22 @@ def run_benchmark(args):
 
     import tempfile
 
+    from rulechef.training_logger import TrainingDataLogger
+
     storage_dir = tempfile.mkdtemp(prefix="rulechef_bench_")
+
+    # Training logger
+    log_path = Path(args.output).with_suffix(".training.jsonl")
+    logger = TrainingDataLogger(
+        str(log_path),
+        run_metadata={
+            "benchmark": "banking77",
+            "model": args.model,
+            "format": args.format,
+            "num_classes": num_classes,
+        },
+    )
+    print(f"  Training log: {log_path}")
 
     coordinator = None
     if args.agentic:
@@ -180,6 +195,7 @@ def run_benchmark(args):
         max_rules=args.max_rules,
         max_samples=args.max_samples,
         coordinator=coordinator,
+        training_logger=logger,
     )
 
     # 4. Add training examples (suppress per-example prints)

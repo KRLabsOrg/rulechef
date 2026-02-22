@@ -573,6 +573,41 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         """
         return self._observations.discover_task()
 
+    def start_observing_gliner(
+        self,
+        gliner_model,
+        method: str | None = None,
+        auto_learn: bool = True,
+        check_interval: int = 60,
+    ):
+        """Observe GLiNER/GLiNER2 predictions to learn rules from them.
+
+        GLiNER:  auto-patches predict_entities() → NER observations.
+        GLiNER2: patches the specified method:
+          - "extract_entities" → NER
+          - "classify_text"    → CLASSIFICATION
+          - "extract_json"     → TRANSFORMATION
+
+        Args:
+            gliner_model: A GLiNER or GLiNER2 model instance.
+            method: Which method to observe (required for GLiNER2 non-NER tasks).
+            auto_learn: If True, trigger learning automatically.
+            check_interval: Seconds between coordinator checks.
+
+        Returns:
+            The same model (monkey-patched in place).
+        """
+        return self._observations.start_observing_gliner(
+            gliner_model,
+            method=method,
+            auto_learn=auto_learn,
+            check_interval=check_interval,
+        )
+
+    def stop_observing_gliner(self):
+        """Stop observing GLiNER predictions."""
+        self._observations.stop_observing_gliner()
+
     def stop_observing(self):
         """Stop observing LLM calls and background learning."""
         self._observations.stop_observing()
