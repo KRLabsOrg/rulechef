@@ -31,6 +31,8 @@ class RuleLearner:
         use_grex: bool = True,
         max_rules: int = 10,
         max_samples: int = 50,
+        max_rules_per_class: int = 5,
+        max_counter_examples: int = 10,
         training_logger=None,
     ):
         """Initialize the rule learner.
@@ -46,6 +48,9 @@ class RuleLearner:
             use_grex: If True, use grex for regex pattern suggestion in prompts.
             max_rules: Maximum number of rules to generate per synthesis call.
             max_samples: Maximum training examples to include in prompts.
+                Applied to per-class positive examples and patch failure sampling.
+            max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
+            max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
         """
         self.llm = llm
@@ -56,6 +61,8 @@ class RuleLearner:
         self.use_grex = use_grex
         self.max_rules = max_rules
         self.max_samples = max_samples
+        self.max_rules_per_class = max_rules_per_class
+        self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
@@ -136,21 +143,25 @@ class RuleLearner:
     def synthesize_ruleset_per_class(
         self,
         dataset: Dataset,
-        max_rules_per_class: int = 5,
-        max_counter_examples: int = 10,
+        max_rules_per_class: int | None = None,
+        max_counter_examples: int | None = None,
     ) -> list[Rule]:
         """Synthesize rules one class at a time for better focus and coverage.
 
         Args:
             dataset: Dataset with training examples.
             max_rules_per_class: Maximum rules to generate for each class.
+                Defaults to self.max_rules_per_class.
             max_counter_examples: Maximum counter-examples (other classes) to
                 include per class prompt to prevent false positives.
+                Defaults to self.max_counter_examples.
 
         Returns:
             List[Rule] combining rules from all classes. Falls back to bulk
             synthesis if no classes are found.
         """
+        max_rules_per_class = max_rules_per_class or self.max_rules_per_class
+        max_counter_examples = max_counter_examples or self.max_counter_examples
         classes = self._get_classes(dataset)
         if not classes:
             print("⚠ No classes found, falling back to bulk synthesis")
@@ -163,27 +174,60 @@ class RuleLearner:
         total_start = time.time()
 
         for i, target_class in enumerate(classes):
-            # Collect counter-examples from other classes
-            counter_examples = []
             task_type = dataset.task.type
+
+            # Collect positives and counter-examples for this class
+            positives = []
+            counter_examples = []
             for ex in dataset.examples:
                 if task_type == TaskType.CLASSIFICATION:
-                    if ex.expected_output.get("label") != target_class:
+                    if ex.expected_output.get("label") == target_class:
+                        positives.append(ex)
+                    else:
                         counter_examples.append(ex)
                 elif task_type == TaskType.NER:
                     entities = ex.expected_output.get("entities", [])
-                    if not any(e.get("type") == target_class for e in entities):
+                    if any(e.get("type") == target_class for e in entities):
+                        positives.append(ex)
+                    else:
                         counter_examples.append(ex)
+                elif task_type == TaskType.TRANSFORMATION:
+                    positives.append(ex)
+
+            # Sample positives using the configured strategy
+            if len(positives) > self.max_samples:
+                class_dataset = Dataset(name=dataset.name, task=dataset.task)
+                class_dataset.examples = positives
+                class_dataset.corrections = [
+                    c
+                    for c in dataset.corrections
+                    if (
+                        task_type == TaskType.CLASSIFICATION
+                        and c.expected_output.get("label") == target_class
+                    )
+                    or (
+                        task_type == TaskType.NER
+                        and any(
+                            e.get("type") == target_class
+                            for e in c.expected_output.get("entities", [])
+                        )
+                    )
+                    or task_type == TaskType.TRANSFORMATION
+                ]
+                positives = self._sample_training_data(
+                    class_dataset, self.max_samples, self.sampling_strategy
+                )
 
             # Sample counter-examples to keep prompt manageable
             if len(counter_examples) > max_counter_examples:
                 rng = random.Random(42 + i)
                 counter_examples = rng.sample(counter_examples, max_counter_examples)
 
-            prompt = self._build_synthesis_prompt(
+            prompt = self._build_per_class_prompt(
                 dataset,
                 max_rules_per_class,
                 target_class=target_class,
+                positives=positives,
                 counter_examples=counter_examples,
             )
 
@@ -569,19 +613,9 @@ class RuleLearner:
         self,
         dataset: Dataset,
         max_rules: int,
-        target_class: str | None = None,
-        counter_examples: list | None = None,
     ) -> str:
-        """Build prompt for rule synthesis using PromptBuilder.
-
-        When target_class is set, builds a focused prompt for one class only.
-        """
-        if target_class:
-            return self._build_per_class_prompt(
-                dataset, max_rules, target_class, counter_examples or []
-            )
-
-        # Original bulk synthesis path
+        """Build prompt for bulk rule synthesis using PromptBuilder."""
+        # Bulk synthesis path
         sampled_data = self._sample_training_data(
             dataset,
             max_samples=self.max_samples,
@@ -620,25 +654,12 @@ class RuleLearner:
         dataset: Dataset,
         max_rules: int,
         target_class: str,
+        positives: list,
         counter_examples: list,
     ) -> str:
         """Build focused synthesis prompt for a single class."""
         task_type = dataset.task.type
         is_transformation = task_type == TaskType.TRANSFORMATION
-
-        # Collect positive examples for this class
-        positives = []
-        for ex in dataset.examples:
-            if is_transformation:
-                # All examples have the field — show them all
-                positives.append(ex)
-            elif task_type == TaskType.CLASSIFICATION:
-                if ex.expected_output.get("label") == target_class:
-                    positives.append(ex)
-            elif task_type == TaskType.NER:
-                entities = ex.expected_output.get("entities", [])
-                if any(e.get("type") == target_class for e in entities):
-                    positives.append(ex)
 
         # Build prompt
         prompt = self.prompt_builder._build_task_header(dataset)

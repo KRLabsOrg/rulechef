@@ -55,7 +55,7 @@ The LLM receives a prompt containing:
 
 The LLM returns a set of rules in JSON format. Each rule has a pattern (regex, code function, or spaCy matcher) and an output template.
 
-For multi-class tasks (NER, classification), synthesis can run **per-class** — generating rules for each label separately for better coverage.
+For multi-class tasks (NER, classification), synthesis can run **per-class** — one LLM call per class, each with positive examples (capped to `max_samples`) and counter-examples from other classes. See [Prompt Size Controls](../guide/learning.md#prompt-size-controls) for details.
 
 ### 4. Evaluation
 

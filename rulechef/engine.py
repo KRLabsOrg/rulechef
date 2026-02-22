@@ -53,6 +53,8 @@ class RuleChef:
         use_grex: bool = True,
         max_rules: int = 10,
         max_samples: int = 50,
+        max_rules_per_class: int = 5,
+        max_counter_examples: int = 10,
         synthesis_strategy: str = "auto",
         training_logger=None,
     ):
@@ -80,7 +82,10 @@ class RuleChef:
                 rule execution (requires spaCy and a model).
             use_grex: If True, use grex for regex pattern suggestion in prompts.
             max_rules: Maximum number of rules to generate per synthesis call.
-            max_samples: Maximum training examples to include in synthesis prompts.
+            max_samples: Maximum training examples to include in prompts
+                (per-class positives and patch failures are both capped to this).
+            max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
+            max_counter_examples: Maximum counter-examples from other classes per prompt.
             synthesis_strategy: Strategy for multi-class synthesis.
                 'auto' uses per-class when multiple classes detected, 'per_class'
                 always uses per-class, any other value uses bulk synthesis.
@@ -103,6 +108,8 @@ class RuleChef:
         self._allowed_formats_raw = allowed_formats
         self._max_rules = max_rules
         self._max_samples = max_samples
+        self._max_rules_per_class = max_rules_per_class
+        self._max_counter_examples = max_counter_examples
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -187,6 +194,8 @@ class RuleChef:
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
+            max_rules_per_class=self._max_rules_per_class,
+            max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
         )
 
