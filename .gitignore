@@ -209,3 +209,8 @@ __marimo__/
 # RuleChef data
 rulechef_data/
 docs/internal/
+
+# App (frontend + API)
+node_modules/
+frontend/dist/
+frontend/.vite/
