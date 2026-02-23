@@ -1,9 +1,9 @@
-import streamlit as st
 import json
-from clear_anonymization.ner_datasets.ner_dataset import NERData
-from utils import sample_data, build_task, highlight_entities
-from annotated_text import annotated_text
 
+import streamlit as st
+from annotated_text import annotated_text
+from clear_anonymization.ner_datasets.ner_dataset import NERData
+from utils import build_task, highlight_entities, sample_data
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 
@@ -49,7 +49,7 @@ with st.container(border=True):
     with st.form("task_form"):
         entity_types = st.multiselect(
             "Entity Labels",
-            ["person", "location", "organisation","account","address"],
+            ["person", "location", "organisation", "account", "address"],
             default=st.session_state.entity_types or ["organisation"],
         )
 

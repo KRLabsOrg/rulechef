@@ -1,23 +1,22 @@
-import os
+import io
 import json
+import os
 import random
 import subprocess
-from typing import List
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from annotated_text import annotated_text
+from typing import List
 
-import io
 import streamlit as st
-from pydantic import BaseModel, Field
-
+from annotated_text import annotated_text
 from clear_anonymization.ner_datasets.ner_dataset import NERData
 from openai import OpenAI
-from rulechef import RuleChef, Task, TaskType
-from rulechef.executor import RuleExecutor
-from rulechef.core import RuleFormat, Rule
-from contextlib import contextmanager
+from pydantic import BaseModel, Field
 
+from rulechef import RuleChef, Task, TaskType
+from rulechef.core import Rule, RuleFormat
+from rulechef.executor import RuleExecutor
 
 # -----------------------------
 # Helpers
@@ -42,7 +41,7 @@ def get_openai_client() -> OpenAI:
         base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
     else:
         api_key = os.getenv("OPENAI_API_KEY")
-        base_url = "https://api.openai.com/v1" #http://localhost:8000/v1
+        base_url = "https://api.openai.com/v1"  # http://localhost:8000/v1
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
 
@@ -128,9 +127,7 @@ def stream_to_streamlit(output_box, title="Execution Log"):
         def write(self, s):
             if s.strip():
                 st.session_state.terminal_output += s
-                output_box.text_area(
-                    title, value=st.session_state.terminal_output, height=300
-                )
+                output_box.text_area(title, value=st.session_state.terminal_output, height=300)
 
         def flush(self):
             pass

@@ -1,12 +1,14 @@
-import streamlit as st
 import json
-from rulechef import RuleChef, TaskType
-from rulechef.core import RuleFormat, Rule,Dataset
-from rulechef.executor import RuleExecutor
-from utils import get_openai_client, add_data, stream_to_streamlit
-import pandas as pd
-from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
 from datetime import datetime
+
+import pandas as pd
+import streamlit as st
+from utils import add_data, get_openai_client, stream_to_streamlit
+
+from rulechef import RuleChef, TaskType
+from rulechef.core import Dataset, Rule, RuleFormat
+from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
+from rulechef.executor import RuleExecutor
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 
@@ -51,9 +53,7 @@ st.session_state.terminal_output = ""
 
 # --- Active rules state ---
 if "active_rules" not in st.session_state:
-    st.session_state.active_rules = (
-        st.session_state.rules.copy() if st.session_state.rules else []
-    )
+    st.session_state.active_rules = st.session_state.rules.copy() if st.session_state.rules else []
 
 
 has_data = st.session_state.task and st.session_state.data
@@ -77,16 +77,14 @@ if has_data:
         )
         uploaded_rules = st.file_uploader("Upload rules file (JSON)", type=["json"])
         if uploaded_rules:
-           # rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
-            #rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
+            # rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
+            # rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
             data = json.loads(uploaded_rules.read().decode("utf-8"))
             st.session_state.dataset = Dataset.from_dict(data)
             st.session_state.rules = st.session_state.dataset.rules
             st.session_state.active_rules = st.session_state.dataset.rules.copy()
             st.success(f"{len(st.session_state.dataset.rules)} rules loaded")
-            st.session_state.apply_rules_fn =  RuleExecutor().apply_rules
-        
-            
+            st.session_state.apply_rules_fn = RuleExecutor().apply_rules
 
     with st.container(border=True):
         st.markdown(
@@ -94,7 +92,7 @@ if has_data:
             unsafe_allow_html=True,
         )
         if st.session_state.chef is None:
-            classes_str = "_".join(st.session_state.entity_types )
+            classes_str = "_".join(st.session_state.entity_types)
             date_str = datetime.now().strftime("%Y-%m-%d")
             st.session_state.chef = RuleChef(
                 st.session_state.task,
@@ -119,7 +117,7 @@ if has_data:
         if not st.session_state.rules_learned:
             if st.button("▶️ Start Learning"):
                 output_box = st.empty()
-                with stream_to_streamlit(output_box, "Learning Rules"):  
+                with stream_to_streamlit(output_box, "Learning Rules"):
                     st.session_state.chef.learn_rules(incremental_only=True)
                 st.session_state.rules_learned = True
 
@@ -178,16 +176,14 @@ with st.container(border=True):
         st.info("No rules available yet.")
     else:
         metrics = evaluate_rules_individually(
-            rules = st.session_state.rules,
-            dataset = st.session_state.dataset,
-            apply_rules_fn =  st.session_state.apply_rules_fn
-
+            rules=st.session_state.rules,
+            dataset=st.session_state.dataset,
+            apply_rules_fn=st.session_state.apply_rules_fn,
         )
         rules_to_show = sorted(metrics, key=lambda r: r.true_positives, reverse=True)
 
         st.subheader("Learned Rules")
         for i, rule in enumerate(rules_to_show, 1):
-            
             p = rule.precision
             r = rule.recall
             f1 = rule.f1
@@ -223,7 +219,10 @@ with st.container(border=True):
                 st.session_state[state_key] = not st.session_state[state_key]
                 st.rerun()
 
-            if st.button("Set to Active/Inactive", key=f"active_{i}", ):
+            if st.button(
+                "Set to Active/Inactive",
+                key=f"active_{i}",
+            ):
                 if is_active:
                     st.session_state.active_rules.remove(rule)
                 else:
@@ -232,7 +231,7 @@ with st.container(border=True):
 
             if st.session_state[state_key]:
                 with st.container(border=True):
-                    #st.write(rule)
+                    # st.write(rule)
                     st.markdown(f"**Description:**   {rule.rule_description}")
                     st.markdown(f"**Format:**     {rule.rule_format}")
                     st.code(f"Pattern:    {rule.rule_content}")
@@ -244,7 +243,5 @@ if rules_to_show:
     with st.container(border=True):
         with st.container(border=True):
             st.write("Now that you have rules, you can test them on new examples!")
-            with st.container(
-                border=True, width="content", height="content", gap="small"
-            ):
+            with st.container(border=True, width="content", height="content", gap="small"):
                 st.page_link("pages/3_Extract.py", label="Next: 🔍︎ Extract")
