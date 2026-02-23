@@ -1,19 +1,20 @@
 """Output matching - compares rule outputs to expected outputs"""
 
 import json
-from typing import Dict, Optional, Callable, Any
+from collections.abc import Callable
+from typing import Any
 
-from rulechef.core import TaskType, DEFAULT_OUTPUT_KEYS
+from rulechef.core import DEFAULT_OUTPUT_KEYS, TaskType
 
 # Type alias for matcher functions
-OutputMatcher = Callable[[Dict[str, Any], Dict[str, Any]], bool]
+OutputMatcher = Callable[[dict[str, Any], dict[str, Any]], bool]
 
 
 def outputs_match(
-    expected: Dict,
-    actual: Dict,
+    expected: dict,
+    actual: dict,
     task_type: TaskType = TaskType.EXTRACTION,
-    custom_matcher: Optional[OutputMatcher] = None,
+    custom_matcher: OutputMatcher | None = None,
     matching_mode: str = "text",
 ) -> bool:
     """
@@ -46,7 +47,7 @@ def outputs_match(
             if isinstance(span, dict):
                 return span.get("text", "")
             if hasattr(span, "text"):
-                return getattr(span, "text")
+                return span.text
             return str(span)
 
         if matching_mode == "exact":
@@ -60,7 +61,7 @@ def outputs_match(
                     )
                 if hasattr(span, "text"):
                     return (
-                        getattr(span, "text"),
+                        span.text,
                         getattr(span, "start", 0),
                         getattr(span, "end", 0),
                     )
@@ -102,7 +103,7 @@ def outputs_match(
                 return (e.get("text", ""), ent_type)
             if hasattr(e, "text"):
                 ent_type = getattr(e, "type", None) or getattr(e, "label", "")
-                return (getattr(e, "text"), ent_type)
+                return (e.text, ent_type)
             return (str(e), "")
 
         set1 = sorted([entity_key(e) for e in entities1])
@@ -130,7 +131,7 @@ def outputs_match(
                     set2 = sorted([json.dumps(v, sort_keys=True) for v in val2])
                     if set1 != set2:
                         return False
-                except:
+                except Exception:
                     if val1 != val2:
                         return False
             elif val1 != val2:

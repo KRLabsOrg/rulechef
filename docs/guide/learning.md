@@ -58,7 +58,54 @@ chef = RuleChef(task, client, synthesis_strategy="per_class")
 chef = RuleChef(task, client, synthesis_strategy="bulk")
 ```
 
-Per-class synthesis generates rules for each label separately, which helps when classes have distinct patterns.
+Per-class synthesis generates rules for each label separately — one LLM call per class. Each call receives:
+
+- **Positive examples** for that class (capped to `max_samples`, sampled using `sampling_strategy`)
+- **Counter-examples** from other classes (capped to `max_counter_examples`) to prevent false positives
+- Up to `max_rules_per_class` rules are generated per call
+
+For a 5-class classification task with default settings, this means 5 LLM calls, each producing up to 5 rules, with up to 50 positive examples and 10 counter-examples per prompt.
+
+## Prompt Size Controls
+
+These parameters control how much data goes into each LLM prompt:
+
+```python
+chef = RuleChef(task, client,
+    max_samples=50,             # Max examples per prompt (per-class positives + patch failures)
+    max_rules_per_class=5,      # Max rules generated per class in per-class synthesis
+    max_counter_examples=10,    # Max negative examples per class prompt
+    max_rules=10,               # Max rules per bulk synthesis call
+)
+```
+
+| Parameter | Default | Applies to |
+|-----------|---------|------------|
+| `max_samples` | 50 | Per-class positive examples and patch failure sampling |
+| `max_rules_per_class` | 5 | Per-class synthesis (rules generated per class) |
+| `max_counter_examples` | 10 | Per-class synthesis (negative examples per prompt) |
+| `max_rules` | 10 | Bulk synthesis (total rules per call) |
+
+When a class has more examples than `max_samples`, examples are sampled using the configured `sampling_strategy`.
+
+## Sampling Strategies
+
+Control how training data is selected when there are more examples than `max_samples`:
+
+```python
+chef = RuleChef(task, client, sampling_strategy="balanced")
+```
+
+| Strategy | Behavior |
+|----------|----------|
+| `balanced` | Takes examples in order (default) |
+| `recent` | Favor recently added examples |
+| `diversity` | Evenly space picks across the dataset |
+| `uncertain` | Low-confidence examples first |
+| `varied` | Mix of recent, diverse, and uncertain |
+| `corrections_first` | Corrections first, then recent examples |
+
+All strategies always include corrections first — they're the highest-value signal.
 
 ## Incremental Patching
 
@@ -86,21 +133,6 @@ Incremental patching:
 - Prunes weak rules that don't contribute
 - Preserves stable rules that are working
 
-## Sampling Strategies
-
-Control how training data is selected for synthesis prompts:
-
-```python
-chef = RuleChef(task, client, sampling_strategy="balanced")
-```
-
-| Strategy | Behavior |
-|----------|----------|
-| `balanced` | Equal representation across classes |
-| `recent` | Favor recently added examples |
-| `diversity` | Maximize input variety |
-| `varied` | Mix of strategies across iterations |
-
 ## Persistence
 
 Rules and datasets are automatically saved to disk:
@@ -117,12 +149,3 @@ Files saved:
 - `{storage_path}/{dataset_name}.json` — dataset with examples, corrections, rules
 
 Loading happens automatically when a matching file exists at the storage path.
-
-## Max Rules and Samples
-
-```python
-chef = RuleChef(task, client,
-    max_rules=10,    # Max rules per synthesis call
-    max_samples=50,  # Max training examples in prompts
-)
-```

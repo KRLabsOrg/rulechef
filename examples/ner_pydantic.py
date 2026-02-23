@@ -6,11 +6,12 @@ Usage:
 """
 
 import os
+from typing import Literal
 
-from pydantic import BaseModel, Field
-from typing import Literal, List
 from openai import OpenAI
-from rulechef import RuleChef, Task, TaskType, RuleFormat
+from pydantic import BaseModel, Field
+
+from rulechef import RuleChef, RuleFormat, Task, TaskType
 
 
 # Define Pydantic schema with typed labels
@@ -24,7 +25,7 @@ class Entity(BaseModel):
 
 
 class NEROutput(BaseModel):
-    entities: List[Entity]
+    entities: list[Entity]
 
 
 def main():

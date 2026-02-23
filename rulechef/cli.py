@@ -4,9 +4,8 @@ import os
 
 from openai import OpenAI
 
-from rulechef.core import Task, TaskType, RuleFormat
+from rulechef.core import RuleFormat, Task, TaskType
 from rulechef.engine import RuleChef
-
 
 TASK_TYPES = {
     "extraction": TaskType.EXTRACTION,
@@ -60,9 +59,7 @@ def _setup() -> RuleChef:
 
     # Task type
     while True:
-        type_str = _input(
-            "Task type (extraction/ner/classification/transformation)"
-        ).lower()
+        type_str = _input("Task type (extraction/ner/classification/transformation)").lower()
         if type_str in TASK_TYPES:
             task_type = TASK_TYPES[type_str]
             break
@@ -77,13 +74,11 @@ def _setup() -> RuleChef:
     labels = []
     if task_type in (TaskType.NER, TaskType.CLASSIFICATION):
         labels_str = _input("Labels (comma-separated)")
-        labels = [l.strip() for l in labels_str.split(",") if l.strip()]
+        labels = [label.strip() for label in labels_str.split(",") if label.strip()]
 
     # Output schema
     if task_type == TaskType.TRANSFORMATION:
-        output_fields_str = _input(
-            "Output fields (comma-separated, e.g. company,amount)"
-        )
+        output_fields_str = _input("Output fields (comma-separated, e.g. company,amount)")
         output_fields = [f.strip() for f in output_fields_str.split(",") if f.strip()]
         output_schema = {f: "str" for f in output_fields}
     else:
@@ -222,9 +217,7 @@ def _read_output(chef: RuleChef, input_data: dict) -> dict:
     if task_type in (TaskType.NER, TaskType.EXTRACTION):
         text_field = chef.task.text_field
         if not text_field:
-            fields = getattr(
-                chef, "_cli_input_fields", list(chef.task.input_schema.keys())
-            )
+            fields = getattr(chef, "_cli_input_fields", list(chef.task.input_schema.keys()))
             text_field = fields[0]
         text = input_data.get(text_field, "")
 
@@ -313,9 +306,7 @@ def _format_output(chef: RuleChef, output: dict) -> str:
             return "(no spans)"
         lines = []
         for s in spans:
-            lines.append(
-                f"  [{s.get('start', '?')}:{s.get('end', '?')}] {s.get('text', '?')}"
-            )
+            lines.append(f"  [{s.get('start', '?')}:{s.get('end', '?')}] {s.get('text', '?')}")
         return "\n".join(lines)
     else:
         return str(output)
@@ -458,9 +449,7 @@ def _print_rule_detail(rule):
     print(f"  Format:      {rule.format.value}")
     print(f"  Priority:    {rule.priority}")
     print(f"  Confidence:  {rule.confidence:.2f}")
-    print(
-        f"  Applied:     {rule.times_applied} ({rule.successes} ok, {rule.failures} fail)"
-    )
+    print(f"  Applied:     {rule.times_applied} ({rule.successes} ok, {rule.failures} fail)")
     print(f"  Description: {rule.description}")
     if rule.output_template:
         print(f"  Template:    {rule.output_template}")

@@ -44,7 +44,7 @@ high-quality examples (e.g. only keep runs where final F1 > 60%).
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class TrainingDataLogger:
@@ -62,7 +62,7 @@ class TrainingDataLogger:
     def __init__(
         self,
         path: str,
-        run_metadata: Optional[Dict[str, Any]] = None,
+        run_metadata: dict[str, Any] | None = None,
     ):
         """Initialize the logger.
 
@@ -75,15 +75,15 @@ class TrainingDataLogger:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.run_metadata = run_metadata or {}
-        self.stats: Dict[str, int] = {}
+        self.stats: dict[str, int] = {}
         self._count = 0
 
     def log(
         self,
         call_type: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         response: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Log a single LLM call.
 

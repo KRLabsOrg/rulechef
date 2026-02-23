@@ -47,16 +47,12 @@ def load_banking77():
     label_names = ds["train"].features["label"].names
 
     def to_records(split):
-        return [
-            {"text": row["text"], "label": label_names[row["label"]]} for row in split
-        ]
+        return [{"text": row["text"], "label": label_names[row["label"]]} for row in split]
 
     return to_records(ds["train"]), to_records(ds["test"]), label_names
 
 
-def sample_few_shot(
-    train_data, shots_per_class, seed=42, num_classes=None, classes=None
-):
+def sample_few_shot(train_data, shots_per_class, seed=42, num_classes=None, classes=None):
     """Sample K examples per intent class, stratified. Optionally limit to N classes.
 
     Returns (train_sample, remaining, selected_classes).
@@ -93,22 +89,21 @@ def sample_few_shot(
 
 def run_benchmark(args):
     from openai import OpenAI
+
     from rulechef import RuleChef
     from rulechef.core import (
-        Task,
-        TaskType,
         Dataset,
         Example,
         RuleFormat,
+        Task,
+        TaskType,
     )
     from rulechef.evaluation import evaluate_dataset
 
     # 1. Load data
     print("Loading BANKING77 dataset...")
     train_all, test_all, label_names = load_banking77()
-    print(
-        f"  Train: {len(train_all)}, Test: {len(test_all)}, Classes: {len(label_names)}"
-    )
+    print(f"  Train: {len(train_all)}, Test: {len(test_all)}, Classes: {len(label_names)}")
 
     # 2. Few-shot sample (optionally limited to N classes)
     classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
@@ -120,9 +115,7 @@ def run_benchmark(args):
         classes=classes,
     )
     num_classes = len(selected_classes)
-    print(
-        f"  Few-shot: {args.shots}-shot x {num_classes} classes = {len(train_sample)} examples"
-    )
+    print(f"  Few-shot: {args.shots}-shot x {num_classes} classes = {len(train_sample)} examples")
     print(f"  Eval pool (unused train): {len(train_remaining)} examples")
     if args.num_classes:
         print(f"  Selected classes: {', '.join(sorted(selected_classes))}")
@@ -167,7 +160,22 @@ def run_benchmark(args):
 
     import tempfile
 
+    from rulechef.training_logger import TrainingDataLogger
+
     storage_dir = tempfile.mkdtemp(prefix="rulechef_bench_")
+
+    # Training logger
+    log_path = Path(args.output).with_suffix(".training.jsonl")
+    logger = TrainingDataLogger(
+        str(log_path),
+        run_metadata={
+            "benchmark": "banking77",
+            "model": args.model,
+            "format": args.format,
+            "num_classes": num_classes,
+        },
+    )
+    print(f"  Training log: {log_path}")
 
     coordinator = None
     if args.agentic:
@@ -187,6 +195,7 @@ def run_benchmark(args):
         max_rules=args.max_rules,
         max_samples=args.max_samples,
         coordinator=coordinator,
+        training_logger=logger,
     )
 
     # 4. Add training examples (suppress per-example prints)
@@ -310,9 +319,7 @@ def run_benchmark(args):
     t_eval = time.time() - t0
 
     # Coverage = what % of test queries got ANY prediction (TP + FP) / total
-    coverage = (
-        (test_eval.total_tp + test_eval.total_fp) / len(test_data) if test_data else 0
-    )
+    coverage = (test_eval.total_tp + test_eval.total_fp) / len(test_data) if test_data else 0
 
     # 9. Print results
     print(f"\n{'=' * 70}")
@@ -501,9 +508,7 @@ def main():
         default=None,
         help="Limit test set size for quick runs (default: full 3080)",
     )
-    parser.add_argument(
-        "--seed", type=int, default=42, help="Random seed (default: 42)"
-    )
+    parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     parser.add_argument(
         "--output",
         type=str,

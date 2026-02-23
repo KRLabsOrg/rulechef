@@ -57,16 +57,12 @@ def main():
         print(f"Rules after baseline: {[r.name for r in chef.dataset.rules]}")
 
         new_input = {"question": "When?", "context": "Construction finished in 2025"}
-        expected = {"spans": [{"text": "2025", "start": 26, "end": 30}]}
-
         print("\nExtracting before patch...")
         pre = chef.extract(new_input)
         print("Pre-patch output:", pre)
 
         print("\n=== Incremental patch learn ===")
-        chef.learn_rules(
-            run_evaluation=False, incremental_only=True, max_refinement_iterations=1
-        )
+        chef.learn_rules(run_evaluation=False, incremental_only=True, max_refinement_iterations=1)
         print(f"Rules after patch: {[r.name for r in chef.dataset.rules]}")
 
         print("\nExtracting after patch...")
@@ -75,9 +71,7 @@ def main():
 
         # Simple check for visibility
         if post.get("spans"):
-            texts = [
-                s["text"] if isinstance(s, dict) else s.text for s in post["spans"]
-            ]
+            texts = [s["text"] if isinstance(s, dict) else s.text for s in post["spans"]]
             print("Extracted spans:", texts)
             if any(t == "2025" for t in texts):
                 print("✓ Patch appears to cover the new example.")

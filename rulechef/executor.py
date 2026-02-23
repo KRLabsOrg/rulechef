@@ -2,21 +2,21 @@
 
 import json
 import re
-from typing import Dict, List, Any, Optional
+from typing import Any
 
-from rulechef.core import Rule, RuleFormat, Span, TaskType, DEFAULT_OUTPUT_KEYS
+from rulechef.core import DEFAULT_OUTPUT_KEYS, Rule, RuleFormat, Span, TaskType
 
 
 def substitute_template(
-    template: Dict[str, Any],
+    template: dict[str, Any],
     match_text: str,
     start: int,
     end: int,
     groups: tuple = (),
-    ent_type: Optional[str] = None,
-    ent_label: Optional[str] = None,
-    token_spans: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    ent_type: str | None = None,
+    ent_label: str | None = None,
+    token_spans: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Substitute template variables with actual values from a match.
 
     Args:
@@ -120,6 +120,24 @@ def substitute_template(
         else:
             # Literal value (int, bool, etc.)
             result[key] = value
+
+    # Fix start/end when text comes from a capture group ($1, $2, ...):
+    # $start/$end refer to the full match, but the text is from the group.
+    # Recalculate so start/end match the actual text position.
+    if (
+        "text" in result
+        and "start" in result
+        and "end" in result
+        and isinstance(result["text"], str)
+        and isinstance(result["start"], int)
+        and result["text"]
+        and result["text"] != match_text
+    ):
+        offset = match_text.lower().find(result["text"].lower())
+        if offset >= 0:
+            result["start"] = start + offset
+            result["end"] = result["start"] + len(result["text"])
+
     return result
 
 
@@ -138,11 +156,11 @@ class RuleExecutor:
 
     def apply_rules(
         self,
-        rules: List[Rule],
-        input_data: Dict,
-        task_type: Optional[TaskType] = None,
-        text_field: Optional[str] = None,
-    ) -> Dict:
+        rules: list[Rule],
+        input_data: dict,
+        task_type: TaskType | None = None,
+        text_field: str | None = None,
+    ) -> dict:
         """Apply rules to input and return aggregated output.
 
         Rules are sorted by priority and applied sequentially. Results are
@@ -163,9 +181,7 @@ class RuleExecutor:
         sorted_rules = sorted(rules, key=self._rule_sort_key)
 
         # Get default output key for this task type
-        default_key = (
-            DEFAULT_OUTPUT_KEYS.get(task_type, "spans") if task_type else "spans"
-        )
+        default_key = DEFAULT_OUTPUT_KEYS.get(task_type, "spans") if task_type else "spans"
 
         output = {}
 
@@ -218,9 +234,7 @@ class RuleExecutor:
                                 continue
                             output[output_key].append(res)
                     else:
-                        normalized = (
-                            results.to_dict() if isinstance(results, Span) else results
-                        )
+                        normalized = results.to_dict() if isinstance(results, Span) else results
                         # Stamp rule attribution
                         if isinstance(normalized, dict):
                             normalized["rule_id"] = rule.id
@@ -259,9 +273,7 @@ class RuleExecutor:
 
         return output
 
-    def execute_rule(
-        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
-    ) -> Any:
+    def execute_rule(self, rule: Rule, input_data: dict, text_field: str | None = None) -> Any:
         """Execute a single rule against input data.
 
         Args:
@@ -282,7 +294,7 @@ class RuleExecutor:
         return []
 
     def _execute_regex_rule(
-        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
+        self, rule: Rule, input_data: dict, text_field: str | None = None
     ) -> Any:
         """Execute regex rule."""
         pattern = re.compile(rule.content)
@@ -316,10 +328,44 @@ class RuleExecutor:
 
         return results
 
-    def _execute_code_rule(self, rule: Rule, input_data: Dict) -> Any:
+    _SAFE_BUILTINS: dict[str, Any] = {
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bool": bool,
+        "dict": dict,
+        "enumerate": enumerate,
+        "filter": filter,
+        "float": float,
+        "frozenset": frozenset,
+        "int": int,
+        "isinstance": isinstance,
+        "len": len,
+        "list": list,
+        "map": map,
+        "max": max,
+        "min": min,
+        "print": print,
+        "range": range,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "slice": slice,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+        "True": True,
+        "False": False,
+        "None": None,
+    }
+
+    def _execute_code_rule(self, rule: Rule, input_data: dict) -> Any:
         """Execute code rule"""
         try:
-            namespace = {"Span": Span, "re": re}
+            namespace = {"__builtins__": self._SAFE_BUILTINS, "Span": Span, "re": re}
             exec(rule.content, namespace)
             extract_func = namespace.get("extract")
 
@@ -330,12 +376,12 @@ class RuleExecutor:
         return None
 
     def _execute_spacy_rule(
-        self, rule: Rule, input_data: Dict, text_field: Optional[str] = None
+        self, rule: Rule, input_data: dict, text_field: str | None = None
     ) -> Any:
         """Execute spaCy token matcher rule."""
         try:
             import spacy
-            from spacy.matcher import Matcher, DependencyMatcher
+            from spacy.matcher import DependencyMatcher, Matcher
 
             # Lazy load spaCy model
             if self._nlp is None:
@@ -466,7 +512,7 @@ class RuleExecutor:
         except Exception:
             return []
 
-    def _select_text(self, input_data: Dict, text_field: Optional[str]) -> str:
+    def _select_text(self, input_data: dict, text_field: str | None) -> str:
         """Pick a string field for regex/spaCy matching."""
         if text_field:
             value = input_data.get(text_field)
@@ -482,7 +528,7 @@ class RuleExecutor:
         id_key = rule.id or ""
         return (-rule.priority, name_key, id_key)
 
-    def _is_dependency_pattern(self, pattern_data: List) -> bool:
+    def _is_dependency_pattern(self, pattern_data: list) -> bool:
         """Detect spaCy DependencyMatcher patterns."""
         for item in pattern_data:
             if isinstance(item, dict) and (
@@ -491,16 +537,13 @@ class RuleExecutor:
                 return True
         return False
 
-    def _deduplicate_dicts(
-        self, items: List[Dict], overlap_threshold: float = 0.7
-    ) -> List[Dict]:
+    def _deduplicate_dicts(self, items: list[dict], overlap_threshold: float = 0.7) -> list[dict]:
         """Deduplicate a list of dicts based on text span overlap."""
         if not items:
             return []
 
         has_spans = all(
-            isinstance(item, dict) and "start" in item and "end" in item
-            for item in items
+            isinstance(item, dict) and "start" in item and "end" in item for item in items
         )
 
         if not has_spans:
@@ -535,11 +578,7 @@ class RuleExecutor:
                 inter_start = max(item_start, existing_start)
                 inter_end = min(item_end, existing_end)
                 intersection = max(0, inter_end - inter_start)
-                union = (
-                    (item_end - item_start)
-                    + (existing_end - existing_start)
-                    - intersection
-                )
+                union = (item_end - item_start) + (existing_end - existing_start) - intersection
                 iou = intersection / union if union > 0 else 0
 
                 if iou > overlap_threshold and item_type == existing_type:
@@ -551,7 +590,7 @@ class RuleExecutor:
 
         return unique
 
-    def _normalize_label(self, results: Any) -> Optional[str]:
+    def _normalize_label(self, results: Any) -> str | None:
         """Normalize classification output to a single label string."""
         if isinstance(results, str):
             return results.strip() or None

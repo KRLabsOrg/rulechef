@@ -3,12 +3,12 @@
 import pytest
 
 from rulechef.core import (
-    Task,
-    TaskType,
-    Rule,
-    RuleFormat,
     Dataset,
     Example,
+    Rule,
+    RuleFormat,
+    Task,
+    TaskType,
 )
 from rulechef.evaluation import (
     ClassMetrics,
@@ -16,7 +16,6 @@ from rulechef.evaluation import (
     evaluate_dataset,
     evaluate_rules_individually,
 )
-
 
 # =========================================================================
 # ClassMetrics
@@ -85,9 +84,7 @@ class TestMatchEntities:
             {"text": "Alice", "start": 99, "end": 104, "type": "PERSON"},
             {"text": "Bob", "start": 200, "end": 203, "type": "PERSON"},
         ]
-        matched, fps, fns = _match_entities(
-            predicted, expected, TaskType.NER, mode="text"
-        )
+        matched, fps, fns = _match_entities(predicted, expected, TaskType.NER, mode="text")
         assert len(matched) == 2
         assert len(fps) == 0
         assert len(fns) == 0
@@ -99,9 +96,7 @@ class TestMatchEntities:
         expected = [
             {"text": "Alice", "start": 0, "end": 5, "type": "PERSON"},
         ]
-        matched, fps, fns = _match_entities(
-            predicted, expected, TaskType.NER, mode="exact"
-        )
+        matched, fps, fns = _match_entities(predicted, expected, TaskType.NER, mode="exact")
         assert len(matched) == 1
         assert len(fps) == 0
         assert len(fns) == 0
@@ -114,9 +109,7 @@ class TestMatchEntities:
         expected = [
             {"text": "Alice", "start": 99, "end": 104, "type": "PERSON"},
         ]
-        matched, fps, fns = _match_entities(
-            predicted, expected, TaskType.NER, mode="exact"
-        )
+        matched, fps, fns = _match_entities(predicted, expected, TaskType.NER, mode="exact")
         assert len(matched) == 0
         assert len(fps) == 1
         assert len(fns) == 1
@@ -130,9 +123,7 @@ class TestMatchEntities:
             {"text": "Alice", "start": 0, "end": 5, "type": "PERSON"},
             {"text": "Bob", "start": 10, "end": 13, "type": "PERSON"},
         ]
-        matched, fps, fns = _match_entities(
-            predicted, expected, TaskType.NER, mode="text"
-        )
+        matched, fps, fns = _match_entities(predicted, expected, TaskType.NER, mode="text")
         assert len(matched) == 1  # Alice
         assert len(fps) == 1  # Eve (FP)
         assert len(fns) == 1  # Bob (FN)

@@ -58,13 +58,9 @@ def test_multiple_call_types(tmp_path):
 def test_run_metadata(tmp_path):
     """Run metadata is merged into every entry."""
     path = tmp_path / "train.jsonl"
-    logger = TrainingDataLogger(
-        str(path), run_metadata={"model": "kimi-k2", "run_id": "run_001"}
-    )
+    logger = TrainingDataLogger(str(path), run_metadata={"model": "kimi-k2", "run_id": "run_001"})
 
-    logger.log(
-        "rule_synthesis", [{"role": "user", "content": "a"}], "b", {"task_name": "NER"}
-    )
+    logger.log("rule_synthesis", [{"role": "user", "content": "a"}], "b", {"task_name": "NER"})
 
     entry = json.loads(path.read_text().strip())
     assert entry["metadata"]["model"] == "kimi-k2"

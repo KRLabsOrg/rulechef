@@ -1,21 +1,20 @@
 """Tests for rulechef.core data structures."""
 
-import pytest
-from typing import List, Literal
+from typing import Literal
 
+import pytest
 from pydantic import BaseModel
 
 from rulechef.core import (
+    Correction,
+    Dataset,
+    Example,
+    Feedback,
     Span,
     Task,
     TaskType,
-    Dataset,
-    Example,
-    Correction,
-    Feedback,
     get_labels_from_model,
 )
-
 
 # =========================================================================
 # Span
@@ -85,9 +84,7 @@ class TestTask:
         assert errors == []
 
     def test_validate_output_pydantic_valid(self, ner_task):
-        valid_output = {
-            "entities": [{"text": "Aspirin", "start": 0, "end": 7, "type": "DRUG"}]
-        }
+        valid_output = {"entities": [{"text": "Aspirin", "start": 0, "end": 7, "type": "DRUG"}]}
         is_valid, errors = ner_task.validate_output(valid_output)
         assert is_valid is True
         assert errors == []
@@ -319,7 +316,7 @@ class TestGetLabelsFromModel:
             type: Literal["PERSON", "ORG", "LOC"]
 
         class Output(BaseModel):
-            entities: List[Entity]
+            entities: list[Entity]
 
         labels = get_labels_from_model(Output)
         assert sorted(labels) == ["LOC", "ORG", "PERSON"]

@@ -1,4 +1,4 @@
-from rulechef.core import Dataset, Example, Task, TaskType, RuleFormat
+from rulechef.core import Dataset, Example, RuleFormat, Task, TaskType
 from rulechef.prompts import PromptBuilder
 
 
@@ -18,9 +18,7 @@ def test_prompt_derives_labels_and_includes_evidence_for_dict_schema():
                 id="ex1",
                 input={"text": "KR Labs is a company"},
                 expected_output={
-                    "entities": [
-                        {"text": "KR Labs", "start": 0, "end": 7, "type": "ORG"}
-                    ]
+                    "entities": [{"text": "KR Labs", "start": 0, "end": 7, "type": "ORG"}]
                 },
                 source="human_labeled",
             )
@@ -72,9 +70,7 @@ def test_prompt_includes_grex_patterns_when_available():
                 id="ex1",
                 input={"text": "KR Labs is a company"},
                 expected_output={
-                    "entities": [
-                        {"text": "KR Labs", "start": 0, "end": 7, "type": "ORG"}
-                    ]
+                    "entities": [{"text": "KR Labs", "start": 0, "end": 7, "type": "ORG"}]
                 },
                 source="human_labeled",
             ),
@@ -82,18 +78,14 @@ def test_prompt_includes_grex_patterns_when_available():
                 id="ex2",
                 input={"text": "Acme Corp is hiring"},
                 expected_output={
-                    "entities": [
-                        {"text": "Acme Corp", "start": 0, "end": 9, "type": "ORG"}
-                    ]
+                    "entities": [{"text": "Acme Corp", "start": 0, "end": 9, "type": "ORG"}]
                 },
                 source="human_labeled",
             ),
         ],
     )
 
-    builder = PromptBuilder(
-        allowed_formats=[RuleFormat.REGEX], use_spacy_ner=False, use_grex=True
-    )
+    builder = PromptBuilder(allowed_formats=[RuleFormat.REGEX], use_spacy_ner=False, use_grex=True)
     prompt = builder.build_synthesis_prompt(dataset, max_rules=5)
 
     # grex output should only appear if the dependency is installed.

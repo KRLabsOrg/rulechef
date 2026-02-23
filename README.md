@@ -409,6 +409,19 @@ Commands:
 
 Works with any OpenAI-compatible API (Groq, Together, Ollama, etc.) via the base URL prompt.
 
+## Web App
+
+RuleChef includes a web UI (FastAPI + React) for interactive rule learning. Upload data, learn rules, see highlighted entities, and correct mistakes — all in the browser.
+
+```bash
+pip install -e ".[app]"
+uvicorn api.main:app --reload --port 8000
+
+cd frontend && npm install && npm run dev
+```
+
+See the [Web App guide](https://krlabsorg.github.io/rulechef/guide/app/) for full setup and usage.
+
 ## License
 
 Apache 2.0 -- see [LICENSE](LICENSE).

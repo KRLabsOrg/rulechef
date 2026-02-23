@@ -3,7 +3,6 @@
 from rulechef.core import TaskType
 from rulechef.matching import outputs_match
 
-
 # =========================================================================
 # EXTRACTION matching
 # =========================================================================
@@ -19,19 +18,13 @@ class TestExtractionMatching:
     def test_exact_match(self):
         expected = {"spans": [{"text": "hello", "start": 0, "end": 5}]}
         actual = {"spans": [{"text": "hello", "start": 0, "end": 5}]}
-        assert (
-            outputs_match(expected, actual, TaskType.EXTRACTION, matching_mode="exact")
-            is True
-        )
+        assert outputs_match(expected, actual, TaskType.EXTRACTION, matching_mode="exact") is True
 
     def test_exact_mismatch_different_position(self):
         """Same text but different position => fails in exact mode."""
         expected = {"spans": [{"text": "hello", "start": 0, "end": 5}]}
         actual = {"spans": [{"text": "hello", "start": 10, "end": 15}]}
-        assert (
-            outputs_match(expected, actual, TaskType.EXTRACTION, matching_mode="exact")
-            is False
-        )
+        assert outputs_match(expected, actual, TaskType.EXTRACTION, matching_mode="exact") is False
 
     def test_different_span_count(self):
         expected = {"spans": [{"text": "a"}, {"text": "b"}]}
@@ -201,10 +194,7 @@ class TestCustomMatcher:
         expected = {"spans": [{"text": "A"}]}
         actual = {"spans": [{"text": "B"}]}
         assert (
-            outputs_match(
-                expected, actual, TaskType.EXTRACTION, custom_matcher=always_true
-            )
-            is True
+            outputs_match(expected, actual, TaskType.EXTRACTION, custom_matcher=always_true) is True
         )
 
     def test_custom_matcher_returns_false(self):
@@ -214,9 +204,7 @@ class TestCustomMatcher:
         expected = {"spans": [{"text": "A"}]}
         actual = {"spans": [{"text": "A"}]}
         assert (
-            outputs_match(
-                expected, actual, TaskType.EXTRACTION, custom_matcher=always_false
-            )
+            outputs_match(expected, actual, TaskType.EXTRACTION, custom_matcher=always_false)
             is False
         )
 

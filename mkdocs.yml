@@ -70,6 +70,7 @@ nav:
   - Home: index.md
   - Getting Started:
     - Installation: getting-started/installation.md
+    - How It Works: getting-started/concepts.md
     - Quick Start: getting-started/quickstart.md
   - Guide:
     - Task Types: guide/task-types.md
@@ -77,6 +78,7 @@ nav:
     - Evaluation & Feedback: guide/evaluation.md
     - Coordinators: guide/coordinators.md
     - Advanced Features: guide/advanced.md
+    - Web App: guide/app.md
   - API Reference:
     - RuleChef: api/rulechef.md
     - Core Types: api/core.md

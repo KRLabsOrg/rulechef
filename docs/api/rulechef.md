@@ -20,4 +20,9 @@ The main orchestrator class.
         - get_rules_summary
         - discover_task
         - start_observing
+        - start_observing_gliner
         - stop_observing
+        - stop_observing_gliner
+        - trigger_manual_learning
+        - get_buffer_stats
+        - generate_llm_examples

@@ -3,7 +3,6 @@
 from rulechef.core import Rule, RuleFormat, Span, TaskType
 from rulechef.executor import RuleExecutor, substitute_template
 
-
 # =========================================================================
 # substitute_template
 # =========================================================================
@@ -106,9 +105,7 @@ class TestExecuteRegexRule:
             content=r"(\d+)\s*mg\s+(\w+)",
             output_template={"dose": "$1", "drug": "$2", "full": "$0"},
         )
-        results = self.executor._execute_regex_rule(
-            rule, {"text": "Take 100 mg Aspirin daily"}
-        )
+        results = self.executor._execute_regex_rule(rule, {"text": "Take 100 mg Aspirin daily"})
         assert len(results) == 1
         assert results[0]["dose"] == "100"
         assert results[0]["drug"] == "Aspirin"
@@ -149,9 +146,7 @@ def extract(input_data):
             format=RuleFormat.CODE,
             content=code,
         )
-        results = self.executor._execute_code_rule(
-            rule, {"text": "Hello #world and #python"}
-        )
+        results = self.executor._execute_code_rule(rule, {"text": "Hello #world and #python"})
         assert len(results) == 2
         assert results[0]["text"] == "#world"
         assert results[1]["text"] == "#python"
@@ -314,9 +309,7 @@ def extract(input_data):
         assert output["spans"][1]["text"] == "123"
 
     def test_empty_rules_returns_empty(self):
-        output = self.executor.apply_rules(
-            [], {"text": "anything"}, task_type=TaskType.EXTRACTION
-        )
+        output = self.executor.apply_rules([], {"text": "anything"}, task_type=TaskType.EXTRACTION)
         assert output == {}
 
     def test_classification_first_label_wins(self):
@@ -406,9 +399,7 @@ class TestNormalizeLabel:
         assert self.executor._normalize_label({"text": "hello"}) == "hello"
 
     def test_list_of_dicts(self):
-        result = self.executor._normalize_label(
-            [{"label": "first"}, {"label": "second"}]
-        )
+        result = self.executor._normalize_label([{"label": "first"}, {"label": "second"}])
         assert result == "first"
 
     def test_span_object(self):

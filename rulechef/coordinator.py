@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from rulechef.buffer import ExampleBuffer
@@ -14,17 +14,17 @@ class AuditAction:
     """A single audit action: remove or merge."""
 
     action: str  # "remove" or "merge"
-    rule_ids: List[str]  # IDs involved (1 for remove, 2+ for merge)
+    rule_ids: list[str]  # IDs involved (1 for remove, 2+ for merge)
     reason: str
-    merged_pattern: Optional[str] = None  # New pattern for merges
-    merged_name: Optional[str] = None
+    merged_pattern: str | None = None  # New pattern for merges
+    merged_name: str | None = None
 
 
 @dataclass
 class AuditResult:
     """Result of a rule audit."""
 
-    actions: List[AuditAction] = field(default_factory=list)
+    actions: list[AuditAction] = field(default_factory=list)
     analysis: str = ""
 
 
@@ -36,7 +36,7 @@ class CoordinationDecision:
     strategy: str  # Sampling strategy to use
     reasoning: str  # Human-readable explanation
     max_iterations: int = 3
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -53,7 +53,7 @@ class CoordinatorProtocol(ABC):
 
     @abstractmethod
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """
         Decide if learning should be triggered now.
@@ -68,7 +68,7 @@ class CoordinatorProtocol(ABC):
         pass
 
     @abstractmethod
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """
         Analyze current buffer state.
 
@@ -80,9 +80,9 @@ class CoordinatorProtocol(ABC):
     @abstractmethod
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
-        metrics: Dict[str, Any],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
+        metrics: dict[str, Any],
     ):
         """
         Callback after learning completes.
@@ -94,9 +94,7 @@ class CoordinatorProtocol(ABC):
         """
         pass
 
-    def guide_refinement(
-        self, eval_result: Any, iteration: int, max_iterations: int
-    ) -> tuple:
+    def guide_refinement(self, eval_result: Any, iteration: int, max_iterations: int) -> tuple:
         """Analyze per-class metrics and return (guidance_text, should_continue).
 
         Called after each refinement iteration. The guidance string is injected
@@ -106,7 +104,7 @@ class CoordinatorProtocol(ABC):
         """
         return "", True
 
-    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+    def audit_rules(self, rules: list["Rule"], rule_metrics: list[Any]) -> AuditResult:
         """Audit rules for redundancy, dead rules, and conflicts.
 
         Called after learning completes when pruning is enabled.
@@ -150,7 +148,7 @@ class SimpleCoordinator(CoordinatorProtocol):
         self.verbose = verbose
 
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Simple heuristic decision"""
         stats = buffer.get_stats()
@@ -160,9 +158,7 @@ class SimpleCoordinator(CoordinatorProtocol):
         # First learn: need enough examples
         if current_rules is None:
             should_learn = new_examples_count >= self.trigger_threshold
-            reasoning = (
-                f"First learn: {new_examples_count}/{self.trigger_threshold} examples"
-            )
+            reasoning = f"First learn: {new_examples_count}/{self.trigger_threshold} examples"
             strategy = "balanced"  # Start with balanced sampling
             max_iterations = 3
 
@@ -175,7 +171,9 @@ class SimpleCoordinator(CoordinatorProtocol):
             )
 
             if corrections_count >= self.correction_threshold:
-                reasoning = f"Corrections accumulated: {corrections_count}/{self.correction_threshold}"
+                reasoning = (
+                    f"Corrections accumulated: {corrections_count}/{self.correction_threshold}"
+                )
                 strategy = "corrections_first"  # Focus on fixing mistakes
                 max_iterations = 2  # Faster refinement for corrections
             elif new_examples_count >= self.trigger_threshold:
@@ -203,7 +201,7 @@ class SimpleCoordinator(CoordinatorProtocol):
             },
         )
 
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """Basic buffer statistics"""
         stats = buffer.get_stats()
         return {
@@ -217,8 +215,8 @@ class SimpleCoordinator(CoordinatorProtocol):
 
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
         metrics,
     ):
         """Log learning results. metrics is an EvalResult or None."""
@@ -230,9 +228,7 @@ class SimpleCoordinator(CoordinatorProtocol):
 
             print(f"  {len(new_rules)} rules")
             if metrics and hasattr(metrics, "exact_match"):
-                print(
-                    f"  Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}"
-                )
+                print(f"  Exact match: {metrics.exact_match:.1%}, F1: {metrics.micro_f1:.1%}")
 
 
 # Placeholder for future agentic implementation
@@ -276,7 +272,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.training_logger = training_logger
 
     def should_trigger_learning(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Agentic decision based on buffer content"""
         stats = buffer.get_stats()
@@ -327,14 +323,14 @@ class AgenticCoordinator(CoordinatorProtocol):
                 reasoning="Fallback due to agent error",
             )
 
-    def analyze_buffer(self, buffer: "ExampleBuffer") -> Dict[str, Any]:
+    def analyze_buffer(self, buffer: "ExampleBuffer") -> dict[str, Any]:
         """Analyze buffer stats"""
         return buffer.get_stats()
 
     def on_learning_complete(
         self,
-        old_rules: Optional[List["Rule"]],
-        new_rules: List["Rule"],
+        old_rules: list["Rule"] | None,
+        new_rules: list["Rule"],
         metrics,
     ):
         """Log learning results. metrics is an EvalResult or None."""
@@ -346,9 +342,7 @@ class AgenticCoordinator(CoordinatorProtocol):
             else:
                 print("✓ Learning complete.")
 
-    def guide_refinement(
-        self, eval_result: Any, iteration: int, max_iterations: int
-    ) -> tuple:
+    def guide_refinement(self, eval_result: Any, iteration: int, max_iterations: int) -> tuple:
         """LLM-powered refinement guidance based on per-class metrics."""
         import json
 
@@ -421,7 +415,7 @@ Return JSON:
                 print(f"⚠ Coordinator error: {e}")
             return "", True
 
-    def audit_rules(self, rules: List["Rule"], rule_metrics: List[Any]) -> AuditResult:
+    def audit_rules(self, rules: list["Rule"], rule_metrics: list[Any]) -> AuditResult:
         """LLM-powered rule audit: merge redundant rules, remove pure noise."""
         import json
 
@@ -538,9 +532,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                     print(f"\n🔍 Rule audit: {audit.analysis}")
                     for a in actions:
                         if a.action == "merge":
-                            print(
-                                f"   Merge {a.rule_ids} → {a.merged_name}: {a.reason}"
-                            )
+                            print(f"   Merge {a.rule_ids} → {a.merged_name}: {a.reason}")
                         elif a.action == "remove":
                             print(f"   Remove {a.rule_ids[0]}: {a.reason}")
 
@@ -552,7 +544,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
             return AuditResult()
 
     def _ask_llm(
-        self, buffer: "ExampleBuffer", current_rules: Optional[List["Rule"]]
+        self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
         """Construct prompt and get decision from LLM"""
         import json
@@ -574,7 +566,9 @@ NEW DATA SAMPLES (up to 10):
 """
         for ex in samples:
             type_str = "CORRECTION" if ex.is_correction else "EXAMPLE"
-            prompt += f"- [{type_str}] Input: {json.dumps(ex.input)} -> Output: {json.dumps(ex.output)}\n"
+            prompt += (
+                f"- [{type_str}] Input: {json.dumps(ex.input)} -> Output: {json.dumps(ex.output)}\n"
+            )
 
         prompt += """
 DECISION CRITERIA:

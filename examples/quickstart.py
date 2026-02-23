@@ -1,7 +1,9 @@
 """Quickstart example for RuleChef (basic extraction)."""
 
 import os
+
 from openai import OpenAI
+
 from rulechef import RuleChef, Task
 
 

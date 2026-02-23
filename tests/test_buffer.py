@@ -54,9 +54,7 @@ class TestExampleBuffer:
         ex = all_ex[0]
         assert ex.is_correction is True
         assert ex.source == "human"
-        assert ex.output["expected"] == {
-            "entities": [{"text": "Alice", "type": "PERSON"}]
-        }
+        assert ex.output["expected"] == {"entities": [{"text": "Alice", "type": "PERSON"}]}
         assert ex.output["actual"] == {"entities": []}
         assert ex.metadata["feedback"] == "Missed entity"
 
@@ -88,9 +86,7 @@ class TestExampleBuffer:
 
     def test_get_new_corrections_filters(self):
         self.buffer.add_human_example({"text": "a"}, {"spans": []})
-        self.buffer.add_human_correction(
-            {"text": "b"}, {"spans": [{"text": "b"}]}, {"spans": []}
-        )
+        self.buffer.add_human_correction({"text": "b"}, {"spans": [{"text": "b"}]}, {"spans": []})
         self.buffer.add_human_example({"text": "c"}, {"spans": []})
 
         new_corrections = self.buffer.get_new_corrections()
