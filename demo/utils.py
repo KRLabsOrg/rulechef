@@ -1,22 +1,23 @@
-import io
-import json
 import os
+import json
 import random
 import subprocess
-import sys
-from contextlib import contextmanager
-from pathlib import Path
 from typing import List
-
-import streamlit as st
+import sys
+from pathlib import Path
 from annotated_text import annotated_text
-from clear_anonymization.ner_datasets.ner_dataset import NERData
-from openai import OpenAI
+
+import io
+import streamlit as st
 from pydantic import BaseModel, Field
 
+from clear_anonymization.ner_datasets.ner_dataset import NERData
+from openai import OpenAI
 from rulechef import RuleChef, Task, TaskType
-from rulechef.core import Rule, RuleFormat
 from rulechef.executor import RuleExecutor
+from rulechef.core import RuleFormat, Rule
+from contextlib import contextmanager
+
 
 # -----------------------------
 # Helpers
@@ -40,8 +41,7 @@ def get_openai_client() -> OpenAI:
         api_key = "EMPTY"  # os.getenv("OPENAI_API_KEY") #"EMPTY"
         base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
     else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = "https://api.openai.com/v1"  # http://localhost:8000/v1
+        api_key = "EMPTY"  # http://localhost:8000/v1
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
 
@@ -99,7 +99,6 @@ def sample_data(samples, allowed_classes, k=50, seed=123, window_size=100):
                     }
                 )
             positive_samples.append({"text": snippet, "entities": adjusted_entities})
-
     return positive_samples
 
 
