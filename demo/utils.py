@@ -36,9 +36,13 @@ class NEROutput(BaseModel):
 
 
 def get_openai_client() -> OpenAI:
-    api_key = "EMPTY"  # os.getenv("OPENAI_API_KEY") #"EMPTY"
-    base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
-
+    local = False
+    if local:
+        api_key = "EMPTY"  # os.getenv("OPENAI_API_KEY") #"EMPTY"
+        base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
+    else:
+        api_key = os.getenv("OPENAI_API_KEY")
+        base_url = "https://api.openai.com/v1" #http://localhost:8000/v1
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
 

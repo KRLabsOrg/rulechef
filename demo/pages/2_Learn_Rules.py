@@ -1,11 +1,11 @@
 import streamlit as st
 import json
 from rulechef import RuleChef, TaskType
-from rulechef.core import RuleFormat, Rule
+from rulechef.core import RuleFormat, Rule,Dataset
 from rulechef.executor import RuleExecutor
 from utils import get_openai_client, add_data, stream_to_streamlit
 import pandas as pd
-from rulechef.matching import evaluate_rules_individually
+from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
 from datetime import datetime
 
 st.set_page_config(page_title="RuleChef", layout="wide")
@@ -40,8 +40,10 @@ for key in [
     "samples",
     "rules",
     "executor",
+    "dataset",
     "rules_learned",
     "active_rules",
+    "apply_rules_fn",
 ]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -75,11 +77,16 @@ if has_data:
         )
         uploaded_rules = st.file_uploader("Upload rules file (JSON)", type=["json"])
         if uploaded_rules:
-            rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
-            rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
-            st.session_state.rules = rules
-            st.session_state.active_rules = rules.copy()
-            st.success(f"{len(rules)} rules loaded")
+           # rules_data = json.loads(uploaded_rules.read().decode("utf-8"))
+            #rules = [Rule.from_dict(r) for r in rules_data.get("rules", [])]
+            data = json.loads(uploaded_rules.read().decode("utf-8"))
+            st.session_state.dataset = Dataset.from_dict(data)
+            st.session_state.rules = st.session_state.dataset.rules
+            st.session_state.active_rules = st.session_state.dataset.rules.copy()
+            st.success(f"{len(st.session_state.dataset.rules)} rules loaded")
+            st.session_state.apply_rules_fn =  RuleExecutor().apply_rules
+        
+            
 
     with st.container(border=True):
         st.markdown(
@@ -96,7 +103,6 @@ if has_data:
                 allowed_formats=[RuleFormat.REGEX],
                 model="openai/gpt-oss-120b",  # "gpt-5-mini-2025-08-07", #
                 use_spacy_ner=False,
-                lang=st.session_state.language,
                 use_grex=True,
             )
 
@@ -106,16 +112,20 @@ if has_data:
                 st.session_state.examples,
                 # st.session_state.negative,
             )
+            st.session_state.apply_rules_fn = st.session_state.chef.extract
+
             st.success("RuleChef initialized.")
 
         if not st.session_state.rules_learned:
             if st.button("▶️ Start Learning"):
                 output_box = st.empty()
-                with stream_to_streamlit(output_box, "Learning Rules"):
+                with stream_to_streamlit(output_box, "Learning Rules"):  
                     st.session_state.chef.learn_rules(incremental_only=True)
                 st.session_state.rules_learned = True
+
                 learned = st.session_state.chef.dataset.rules.copy()
                 st.session_state.rules = learned
+                st.session_state.dataset = st.session_state.chef.dataset
                 st.session_state.active_rules = learned.copy()
 
                 st.success("Rules learned!")
@@ -168,26 +178,21 @@ with st.container(border=True):
         st.info("No rules available yet.")
     else:
         metrics = evaluate_rules_individually(
-            st.session_state.examples,
-            rules_to_show,
-            st.session_state.chef,
-            rules_learned=False,
-            threshold=1,
+            rules = st.session_state.rules,
+            dataset = st.session_state.dataset,
+            apply_rules_fn =  st.session_state.apply_rules_fn
+
         )
-        rules_to_show = sorted(
-                rules_to_show,
-                key=lambda r: metrics[r.name]["overall"]["TP"],
-                reverse=True,
-)
+        rules_to_show = sorted(metrics, key=lambda r: r.true_positives, reverse=True)
 
         st.subheader("Learned Rules")
         for i, rule in enumerate(rules_to_show, 1):
-            overall = metrics[rule.name]["overall"]
-            p = overall["precision"]
-            r = overall["recall"]
-            f1 = overall["f1"]
-            tp = overall["TP"]
-            fp = overall["FP"]
+            
+            p = rule.precision
+            r = rule.recall
+            f1 = rule.f1
+            tp = rule.true_positives
+            fp = rule.false_positives
 
             state_key = f"rule_expanded_{i}"
             if state_key not in st.session_state:
@@ -203,7 +208,7 @@ with st.container(border=True):
                 f"border:1px solid #dee2e6; cursor:pointer;"
                 f"'>"
                 f"<span style='font-weight:600; margin-right:4px;'> <h5>Rule #{i}</h5></span>"
-                f"<span style='font-weight:600; margin-right:4px; flex:1'> <h5>{rule.name}</h5></span>"
+                f"<span style='font-weight:600; margin-right:4px; flex:1'> <h5>{rule.rule_name}</h5></span>"
                 f"{metric_badge('TP/FP', f'{tp}/{fp}', False)}"
                 f"{metric_badge('F1-Score', f1)}"
                 f"{metric_badge('Precision', p)}"
@@ -227,9 +232,10 @@ with st.container(border=True):
 
             if st.session_state[state_key]:
                 with st.container(border=True):
-                    st.markdown(f"**Description:**     {rule.description}")
-                    st.markdown(f"**Format:**     {rule.format}")
-                    st.code(f"Pattern:    {rule.content}")
+                    #st.write(rule)
+                    st.markdown(f"**Description:**   {rule.rule_description}")
+                    st.markdown(f"**Format:**     {rule.rule_format}")
+                    st.code(f"Pattern:    {rule.rule_content}")
 
             st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
