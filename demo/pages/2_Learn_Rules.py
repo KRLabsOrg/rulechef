@@ -1,14 +1,12 @@
-import json
-from datetime import datetime
-
-import pandas as pd
 import streamlit as st
-from utils import add_data, get_openai_client, stream_to_streamlit
-
+import json
 from rulechef import RuleChef, TaskType
-from rulechef.core import Dataset, Rule, RuleFormat
-from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
+from rulechef.core import RuleFormat, Rule, Dataset
 from rulechef.executor import RuleExecutor
+from utils import get_openai_client, add_data, stream_to_streamlit
+import pandas as pd
+from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
+from datetime import datetime
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 
@@ -194,7 +192,8 @@ with st.container(border=True):
             if state_key not in st.session_state:
                 st.session_state[state_key] = False
 
-            is_active = rule in st.session_state.active_rules
+            actual_rule = next((r for r in st.session_state.rules if r.id == rule.rule_id), None)
+            is_active = actual_rule in st.session_state.active_rules
 
             header_html = (
                 f"<div style='"
@@ -224,9 +223,9 @@ with st.container(border=True):
                 key=f"active_{i}",
             ):
                 if is_active:
-                    st.session_state.active_rules.remove(rule)
+                    st.session_state.active_rules.remove(actual_rule)
                 else:
-                    st.session_state.active_rules.append(rule)
+                    st.session_state.active_rules.append(actual_rule)
                 st.rerun()
 
             if st.session_state[state_key]:

@@ -1,14 +1,13 @@
-import json
-
 import streamlit as st
-from utils import add_data, get_openai_client, highlight_entities, stream_to_streamlit
-
+import json
 from rulechef import RuleChef, TaskType
-from rulechef.core import Rule, RuleFormat
+from rulechef.core import RuleFormat, Rule
 from rulechef.executor import RuleExecutor
+from utils import get_openai_client, add_data, stream_to_streamlit, highlight_entities
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 from annotated_text import annotated_text
+
 
 st.markdown(
     """
@@ -76,6 +75,7 @@ if st.session_state.rules or rules_learned:
             )
 
             if not rules_learned:
+                # st.write(rules_to_use)
                 st.session_state.executor = RuleExecutor()
                 st.session_state.result = st.session_state.executor.apply_rules(
                     rules=rules_to_use,
