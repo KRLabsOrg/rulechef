@@ -474,6 +474,24 @@ class Rule:
             result["output_key"] = self.output_key
         return result
 
+    @classmethod
+    def from_dict(cls, json_dict: dict):
+        return cls(
+            id=json_dict["id"],
+            name=json_dict["name"],
+            description=json_dict["description"],
+            format=RuleFormat(json_dict["format"]),
+            content=json_dict["content"],
+            priority=json_dict.get("priority", 5),
+            confidence=json_dict.get("confidence", 0.5),
+            times_applied=json_dict.get("times_applied", 0),
+            successes=json_dict.get("successes", 0),
+            failures=json_dict.get("failures", 0),
+            created_at=json_dict["created_at"],
+            output_template=json_dict.get("output_template"),
+            output_key=json_dict.get("output_key"),
+        )
+
 
 @dataclass
 class Dataset:
@@ -525,3 +543,46 @@ class Dataset:
             "rules": [r.to_dict() for r in self.rules],
             "version": self.version,
         }
+
+    @classmethod
+    def from_dict(cls, json_dict: dict):
+        task_dict = json_dict["task"]
+
+        task = Task.from_dict(task_dict)
+
+        return cls(
+            name=json_dict["name"],
+            task=task,
+            description=json_dict.get("description", ""),
+            examples=[
+                Example(
+                    id=e["id"],
+                    input=e["input"],
+                    expected_output=e["expected_output"],
+                    source=e.get("source", "unknown"),
+                )
+                for e in json_dict.get("examples", [])
+            ],
+            corrections=[
+                Correction(
+                    id=c["id"],
+                    input=c["input"],
+                    model_output=c["model_output"],
+                    expected_output=c["expected_output"],
+                    feedback=c.get("feedback"),
+                )
+                for c in json_dict.get("corrections", [])
+            ],
+            feedback=json_dict.get("feedback", []),
+            structured_feedback=[
+                Feedback(
+                    id=f["id"],
+                    text=f["text"],
+                    level=f["level"],
+                    target_id=f.get("target_id", ""),
+                )
+                for f in json_dict.get("structured_feedback", [])
+            ],
+            rules=[Rule.from_dict(r) for r in json_dict.get("rules", [])],
+            version=json_dict.get("version", 1),
+        )
