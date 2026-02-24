@@ -1,0 +1,3475 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Learn rule-based models from examples using LLM-powered synthesis">
+      
+      
+      
+        <link rel="canonical" href="https://krlabsorg.github.io/rulechef/api/rulechef/">
+      
+      
+        <link rel="prev" href="../../guide/app/">
+      
+      
+        <link rel="next" href="../core/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>RuleChef - RuleChef</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rulechef" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="RuleChef" class="md-header__button md-logo" aria-label="RuleChef" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RuleChef
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              RuleChef
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/KRLabsOrg/rulechef" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    KRLabsOrg/rulechef
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="RuleChef" class="md-nav__button md-logo" aria-label="RuleChef" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    RuleChef
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/KRLabsOrg/rulechef" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    KRLabsOrg/rulechef
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/task-types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/learning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Learning & Refinement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation & Feedback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/coordinators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordinators
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/app/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RuleChef
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RuleChef
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RuleChef
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RuleChef">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_feedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_observation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_observation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_raw_observation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_raw_observation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.learn_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.extract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        extract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.evaluate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_rule_metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_rule_metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.delete_rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete_rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_rules_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_rules_summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.discover_task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        discover_task
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start_observing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="start_observing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing--use-wrapped-as-normal-rulechef-captures-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use wrapped as normal — RuleChef captures calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing_gliner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start_observing_gliner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.stop_observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stop_observing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.stop_observing_gliner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stop_observing_gliner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.trigger_manual_learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trigger_manual_learning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_buffer_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_buffer_stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.generate_llm_examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        generate_llm_examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordinator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordinator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../executor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Executor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../training-logger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training Logger
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RuleChef
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RuleChef">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_correction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_feedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_feedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_observation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_observation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.add_raw_observation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_raw_observation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.learn_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        learn_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.extract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        extract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.evaluate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_rule_metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_rule_metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.delete_rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete_rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_rules_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_rules_summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.discover_task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        discover_task
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start_observing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="start_observing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing--use-wrapped-as-normal-rulechef-captures-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use wrapped as normal — RuleChef captures calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.start_observing_gliner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start_observing_gliner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.stop_observing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stop_observing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.stop_observing_gliner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stop_observing_gliner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.trigger_manual_learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trigger_manual_learning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.get_buffer_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_buffer_stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rulechef.engine.RuleChef.generate_llm_examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        generate_llm_examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="rulechef">RuleChef<a class="headerlink" href="#rulechef" title="Permanent link">&para;</a></h1>
+<p>The main orchestrator class.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="rulechef.engine.RuleChef" class="doc doc-heading">
+              <code class="highlight language-python"><span class="n">RuleChef</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dataset_name</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="n">storage_path</span><span class="o">=</span><span class="s1">&#39;./rulechef_data&#39;</span><span class="p">,</span> <span class="n">allowed_formats</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sampling_strategy</span><span class="o">=</span><span class="s1">&#39;balanced&#39;</span><span class="p">,</span> <span class="n">coordinator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auto_trigger</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s1">&#39;gpt-4o-mini&#39;</span><span class="p">,</span> <span class="n">llm_fallback</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_spacy_ner</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_grex</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_rules</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_samples</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">max_rules_per_class</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">max_counter_examples</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">synthesis_strategy</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">training_logger</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Main orchestrator for learning and applying rules</p>
+
+        <p>Initialize a RuleChef instance.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>task</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Task(name, description, input_schema, output_schema, type=TaskType.EXTRACTION, output_matcher=None, matching_mode='text', text_field=None)
+
+  
+      dataclass
+   (rulechef.core.Task)" href="../core/#rulechef.core.Task">Task</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Task definition describing what to extract/classify.
+Optional — if None, use start_observing() and the task will
+be auto-discovered from observed LLM calls.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>client</code>
+            </td>
+            <td>
+                  <code><span title="openai.OpenAI">OpenAI</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>OpenAI client instance. Creates a default client if not provided.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dataset_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name for the dataset, used as the filename for persistence.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;default&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>storage_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory path for saving/loading dataset JSON files.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;./rulechef_data&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allowed_formats</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="RuleFormat (rulechef.core.RuleFormat)" href="../core/#rulechef.core.RuleFormat">RuleFormat</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rule formats to allow (e.g. REGEX, CODE, SPACY).
+Defaults to [REGEX, CODE].</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sampling_strategy</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How to sample training data for prompts.
+Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;balanced&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coordinator</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CoordinatorProtocol (rulechef.coordinator.CoordinatorProtocol)" href="../coordinator/#rulechef.coordinator.CoordinatorProtocol">CoordinatorProtocol</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>CoordinatorProtocol implementation for learning decisions.
+Defaults to SimpleCoordinator.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>auto_trigger</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, check coordinator after each add_example/add_correction
+and trigger learning automatically when ready.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>OpenAI model name for LLM calls.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;gpt-4o-mini&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>llm_fallback</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, fall back to direct LLM extraction when rules
+produce no results.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>use_spacy_ner</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, enable spaCy NER entity recognition during
+rule execution (requires spaCy and a model).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>use_grex</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, use grex for regex pattern suggestion in prompts.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_rules</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum number of rules to generate per synthesis call.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_samples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum training examples to include in prompts
+(per-class positives and patch failures are both capped to this).</p>
+              </div>
+            </td>
+            <td>
+                  <code>50</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_rules_per_class</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum rules to generate per class in per-class synthesis.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_counter_examples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum counter-examples from other classes per prompt.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>synthesis_strategy</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Strategy for multi-class synthesis.
+'auto' uses per-class when multiple classes detected, 'per_class'
+always uses per-class, any other value uses bulk synthesis.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;auto&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>training_logger</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional TrainingDataLogger instance for capturing
+all LLM calls as training data for model distillation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.add_example" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_example</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">output_data</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;human_labeled&#39;</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.add_example" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a labeled training example.</p>
+<p>Uses buffer-first architecture: example goes to buffer, then coordinator
+decides when to trigger learning.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input dict matching the task's input_schema.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>output_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Expected output dict matching the task's output_schema.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>source</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Origin of the example, e.g. 'human_labeled' or 'llm_generated'.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;human_labeled&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.add_correction" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_correction</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">model_output</span><span class="p">,</span> <span class="n">expected_output</span><span class="p">,</span> <span class="n">feedback</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.add_correction" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a user correction (high value signal).</p>
+<p>Uses buffer-first architecture: correction goes to buffer, then coordinator
+decides when to trigger learning. Corrections are high-priority signals.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input dict that was processed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_output</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The incorrect output that was produced.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>expected_output</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The correct output the model should have produced.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>feedback</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional free-text explanation of what went wrong.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.add_feedback" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_feedback</span><span class="p">(</span><span class="n">feedback</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;task&#39;</span><span class="p">,</span> <span class="n">target_id</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.add_feedback" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add user feedback at any level.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>feedback</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The feedback text</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>"task" (general guidance), "example" (specific example),
+   or "rule" (specific rule)</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;task&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>target_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Required for "example" and "rule" levels — the id of
+       the example or rule this feedback applies to</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.add_observation" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_observation</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">output_data</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.add_observation" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a structured LLM observation. Works with any LLM provider.</p>
+<p>Use this to feed RuleChef data from any source — Anthropic, Groq,
+local models, LangChain, etc. You extract the input/output yourself.</p>
+<p>Unlike add_example(), no task definition is required — observations
+can be collected before the task is known.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input dict (e.g. {"text": "the query"}).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>output_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output dict (e.g. {"label": "the_class"}).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional metadata (e.g. {"model": "claude-3"}).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.add_raw_observation" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_raw_observation</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.add_raw_observation" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add a raw LLM interaction for auto-discovery. Works with any LLM.</p>
+<p>Use this when you don't know the task schema yet. Pass the raw
+messages and response text — RuleChef will analyze these at
+learn_rules() time to discover the task type, input/output schema,
+and extract structured training data.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>messages</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of message dicts
+(e.g. [{"role": "user", "content": "..."}]).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>response</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The LLM's response as a plain string.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional metadata (e.g. {"model": "gpt-4o"}).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.learn_rules" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">learn_rules</span><span class="p">(</span><span class="n">run_evaluation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_examples</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_refinement_iterations</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">sampling_strategy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">incremental_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.learn_rules" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Learn rules from all collected data.</p>
+<p>This is the core batch learning process. Buffered examples are first
+committed to the dataset, then rules are synthesized and optionally
+refined through an evaluate-and-patch loop.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>run_evaluation</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to run evaluation/refinement loop.
+None (default) auto-enables if total_data &gt;= 3. True always
+enables refinement. False disables it (faster, synthesis only).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>min_examples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minimum training items required to proceed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_refinement_iterations</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Max iterations in refinement loop (1-3).</p>
+              </div>
+            </td>
+            <td>
+                  <code>3</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sampling_strategy</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Override default sampling strategy for this run.
+Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>incremental_only</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True and rules already exist, only generate
+patch rules for current failures instead of full re-synthesis.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
+(learned_rules, eval_result) on success. eval_result is None
+when refinement is disabled. Returns None if not enough data.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.extract" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">extract</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.extract" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Extract from input using learned rules.</p>
+<p>Works for all task types: EXTRACTION, NER, CLASSIFICATION, TRANSFORMATION.
+Returns empty result if no rules learned, unless llm_fallback=True.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>input_data</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input data dict matching the task's input_schema.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>validate</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True and output_schema is Pydantic, validate output.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output dict whose shape depends on the task type:
+- EXTRACTION: {"spans": [{"text", "start", "end", ...}]}
+- NER: {"entities": [{"text", "start", "end", "type", ...}]}
+- CLASSIFICATION: {"label": "class_name"}
+- TRANSFORMATION: Dict with keys defined by output_schema.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Returns an empty structure if no rules matched or none are learned.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.evaluate" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">evaluate</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.evaluate" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run full entity-level evaluation of current rules against the dataset.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>verbose</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, print a formatted evaluation summary to stdout.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EvalResult(micro_precision=0.0, micro_recall=0.0, micro_f1=0.0, macro_f1=0.0, per_class=list(), exact_match=0.0, total_tp=0, total_fp=0, total_fn=0, total_docs=0, failures=list())
+
+  
+      dataclass
+   (rulechef.evaluation.EvalResult)" href="../evaluation/#rulechef.evaluation.EvalResult">EvalResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>EvalResult with micro/macro P/R/F1, per-class breakdown,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EvalResult(micro_precision=0.0, micro_recall=0.0, micro_f1=0.0, macro_f1=0.0, per_class=list(), exact_match=0.0, total_tp=0, total_fp=0, total_fn=0, total_docs=0, failures=list())
+
+  
+      dataclass
+   (rulechef.evaluation.EvalResult)" href="../evaluation/#rulechef.evaluation.EvalResult">EvalResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>exact match rate, and failure details.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.get_rule_metrics" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_rule_metrics</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.get_rule_metrics" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Evaluate each rule individually against the dataset.</p>
+<p>Useful for identifying dead or harmful rules.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>verbose</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, print a formatted per-rule metrics table to stdout.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="RuleMetrics(rule_id, rule_name, precision=0.0, recall=0.0, f1=0.0, matches=0, true_positives=0, false_positives=0, covered_expected=0, total_expected=0, per_class=list(), sample_matches=list())
+
+  
+      dataclass
+   (rulechef.evaluation.RuleMetrics)" href="../evaluation/#rulechef.evaluation.RuleMetrics">RuleMetrics</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List[RuleMetrics] with per-rule precision/recall/F1, sample matches,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="RuleMetrics(rule_id, rule_name, precision=0.0, recall=0.0, f1=0.0, matches=0, true_positives=0, false_positives=0, covered_expected=0, total_expected=0, per_class=list(), sample_matches=list())
+
+  
+      dataclass
+   (rulechef.evaluation.RuleMetrics)" href="../evaluation/#rulechef.evaluation.RuleMetrics">RuleMetrics</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>and per-class breakdown.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.delete_rule" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">delete_rule</span><span class="p">(</span><span class="n">rule_id</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.delete_rule" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Delete a rule by id.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>rule_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The unique identifier of the rule to delete.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True if the rule was found and deleted, False otherwise.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.get_stats" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_stats</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.get_stats" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get dataset statistics.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dict with keys: 'task' (str), 'dataset' (str), 'corrections' (int),</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>'examples' (int), 'feedback' (int), 'rules' (int),</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>'description' (str).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.get_rules_summary" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_rules_summary</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.get_rules_summary" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get formatted summary of learned rules.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of dicts sorted by priority (descending), each with keys:</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>'name' (str), 'description' (str), 'format' (str),</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>'priority' (int), 'confidence' (str), 'times_applied' (int),</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="dict">dict</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>'success_rate' (str).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.discover_task" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">discover_task</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.discover_task" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Discover the task schema from accumulated raw observations.</p>
+<p>Uses LLM to analyze captured LLM interactions and infer the task type,
+input/output schema, and text field. Requires at least
+min_observations_for_discovery raw observations (from start_observing()
+or add_raw_observation()).</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Task(name, description, input_schema, output_schema, type=TaskType.EXTRACTION, output_matcher=None, matching_mode='text', text_field=None)
+
+  
+      dataclass
+   (rulechef.core.Task)" href="../core/#rulechef.core.Task">Task</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The discovered Task instance (also stored as self.task).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If no raw observations available or using custom extractors.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If not enough observations or LLM returns invalid JSON.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.start_observing" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">start_observing</span><span class="p">(</span><span class="n">openai_client</span><span class="p">,</span> <span class="n">auto_learn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_interval</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">extract_input</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_output</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_observations_for_discovery</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.start_observing" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Start observing OpenAI-compatible client calls to collect training data.</p>
+<p>Works in three modes:
+- Auto mode (task=None): raw capture, schema discovered at learn_rules() time
+- Mapped mode (task provided): raw capture, LLM maps to schema at learn_rules()
+- Custom extractor mode (task + extractors): immediate parsing, zero overhead</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>openai_client</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>OpenAI client (or compatible API).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>auto_learn</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, automatically triggers learning when coordinator decides.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>check_interval</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds between coordinator checks (default 60).</p>
+              </div>
+            </td>
+            <td>
+                  <code>60</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extract_input</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Custom function (api_kwargs → input dict). Optional.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extract_output</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Custom function (response → output dict). Optional.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>min_observations_for_discovery</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Min raw observations before auto-discovery
+can run (default 5). Only relevant when task=None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The same client (monkey-patched in place).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <p>chef = RuleChef(client=client)  # No task needed
+wrapped = chef.start_observing(client, auto_learn=False)</p>
+<h4 id="rulechef.engine.RuleChef.start_observing--use-wrapped-as-normal-rulechef-captures-calls">Use wrapped as normal — RuleChef captures calls<a class="headerlink" href="#rulechef.engine.RuleChef.start_observing--use-wrapped-as-normal-rulechef-captures-calls" title="Permanent link">&para;</a></h4>
+<p>response = wrapped.chat.completions.create(...)
+chef.learn_rules()  # Discovers task + maps + learns</p>
+</details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.start_observing_gliner" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">start_observing_gliner</span><span class="p">(</span><span class="n">gliner_model</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auto_learn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_interval</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.start_observing_gliner" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Observe GLiNER/GLiNER2 predictions to learn rules from them.</p>
+<p>GLiNER:  auto-patches predict_entities() → NER observations.
+GLiNER2: patches the specified method:
+  - "extract_entities" → NER
+  - "classify_text"    → CLASSIFICATION
+  - "extract_json"     → TRANSFORMATION</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>gliner_model</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A GLiNER or GLiNER2 model instance.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Which method to observe (required for GLiNER2 non-NER tasks).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>auto_learn</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, trigger learning automatically.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>check_interval</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds between coordinator checks.</p>
+              </div>
+            </td>
+            <td>
+                  <code>60</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The same model (monkey-patched in place).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.stop_observing" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">stop_observing</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.stop_observing" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Stop observing LLM calls and background learning.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.stop_observing_gliner" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">stop_observing_gliner</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.stop_observing_gliner" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Stop observing GLiNER predictions.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.trigger_manual_learning" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">trigger_manual_learning</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.trigger_manual_learning" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Manually trigger learning from buffered examples.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.get_buffer_stats" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_buffer_stats</span><span class="p">()</span></code>
+
+<a href="#rulechef.engine.RuleChef.get_buffer_stats" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get statistics about buffered examples and observations.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="rulechef.engine.RuleChef.generate_llm_examples" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">generate_llm_examples</span><span class="p">(</span><span class="n">num_examples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span></code>
+
+<a href="#rulechef.engine.RuleChef.generate_llm_examples" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Generate synthetic training examples using LLM.</p>
+<p>Examples go to buffer and can trigger learning if auto_trigger=True.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
