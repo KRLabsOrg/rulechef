@@ -139,3 +139,107 @@ def test_import_from_package():
     from rulechef import TrainingDataLogger as TDL
 
     assert TDL is TrainingDataLogger
+
+
+def test_observer_logs_task_discovery(tmp_path):
+    """OpenAIObserver logs task_discovery calls when training_logger is set."""
+    from unittest.mock import MagicMock
+
+    from rulechef.openai_wrapper import OpenAIObserver
+
+    path = tmp_path / "train.jsonl"
+    logger = TrainingDataLogger(str(path))
+
+    # Mock LLM client
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = json.dumps(
+        {
+            "name": "Medical NER",
+            "description": "Extract entities",
+            "type": "ner",
+            "input_schema": {"text": "str"},
+            "output_schema": {"entities": "List"},
+            "text_field": "text",
+        }
+    )
+    mock_client.chat.completions.create.return_value = mock_response
+
+    observer = OpenAIObserver(
+        buffer=MagicMock(),
+        task=None,
+        original_create=mock_client.chat.completions.create,
+        min_observations_for_discovery=1,
+        training_logger=logger,
+    )
+
+    # Add a raw observation so discovery has data
+    from rulechef.openai_wrapper import RawObservation
+
+    observer._raw_observations.append(
+        RawObservation(
+            messages=[{"role": "user", "content": "Extract from: Aspirin 500mg"}],
+            response_content='{"entities": []}',
+        )
+    )
+
+    observer.discover_task(mock_client, "test-model")
+
+    assert logger.count == 1
+    assert logger.stats == {"task_discovery": 1}
+    entry = json.loads(path.read_text().strip())
+    assert entry["call_type"] == "task_discovery"
+    assert entry["metadata"]["discovered_task_name"] == "Medical NER"
+    assert entry["metadata"]["num_observations"] == 1
+
+
+def test_observer_logs_observation_mapping(tmp_path):
+    """OpenAIObserver logs observation_mapping calls when training_logger is set."""
+    from unittest.mock import MagicMock
+
+    from rulechef.core import Task, TaskType
+    from rulechef.openai_wrapper import OpenAIObserver, RawObservation
+
+    path = tmp_path / "train.jsonl"
+    logger = TrainingDataLogger(str(path))
+
+    task = Task(
+        name="Test NER",
+        description="Test",
+        input_schema={"text": "str"},
+        output_schema={"entities": "List"},
+        type=TaskType.NER,
+        text_field="text",
+    )
+
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = json.dumps(
+        [
+            {"relevant": True, "input": {"text": "Aspirin 500mg"}, "output": {"entities": []}},
+            {"relevant": False, "input": None, "output": None},
+        ]
+    )
+    mock_client.chat.completions.create.return_value = mock_response
+
+    observer = OpenAIObserver(
+        buffer=MagicMock(),
+        task=task,
+        original_create=mock_client.chat.completions.create,
+        training_logger=logger,
+    )
+
+    batch = [
+        RawObservation(messages=[{"role": "user", "content": "a"}], response_content="b"),
+        RawObservation(messages=[{"role": "user", "content": "c"}], response_content="d"),
+    ]
+
+    observer._map_batch(task, batch, mock_client, "test-model")
+
+    assert logger.count == 1
+    assert logger.stats == {"observation_mapping": 1}
+    entry = json.loads(path.read_text().strip())
+    assert entry["call_type"] == "observation_mapping"
+    assert entry["metadata"]["batch_size"] == 2
+    assert entry["metadata"]["relevant_count"] == 1
+    assert entry["metadata"]["task_name"] == "Test NER"
