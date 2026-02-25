@@ -135,6 +135,7 @@ class RuleMetrics:
         total_expected: Total expected entities across the full dataset.
         per_class: Per-class breakdown of TP/FP/FN for this rule.
         sample_matches: Up to 10 sample match dicts showing rule behavior.
+     
     """
 
     rule_id: str
@@ -329,6 +330,7 @@ def evaluate_dataset(
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].tp += 1
+            
 
         # Accumulate per-class FP
         for pred in fp_list:
@@ -413,6 +415,8 @@ def evaluate_rules_individually(
     results = []
 
     for rule in rules:
+        fp_examples = []
+        fn_examples = []
         class_counts: Dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
         sample_matches = []
         rule_total_matches = 0
@@ -439,10 +443,14 @@ def evaluate_rules_individually(
                 class_counts[cls].tp += 1
 
             for pred in fp_list:
+                print(fp_list)
                 cls = _entity_type(pred)
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fp += 1
+                #fp_examples.append(pred.get("text", "?"))
+
+
 
             # Note: we don't count FN per-rule since a single rule isn't
             # expected to find everything. But we track it for completeness.
@@ -451,6 +459,7 @@ def evaluate_rules_individually(
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fn += 1
+                #fn_examples.append(pred.get("text", "?"))
 
             # Collect sample matches
             if pred_entities and len(sample_matches) < max_samples:
@@ -489,6 +498,8 @@ def evaluate_rules_individually(
                 total_expected=total_expected,
                 per_class=per_class,
                 sample_matches=sample_matches,
+              #  fp_examples=fp_examples, 
+             #   fn_examples=fn_examples,  
             )
         )
 
