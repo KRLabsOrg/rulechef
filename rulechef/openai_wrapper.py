@@ -191,6 +191,7 @@ class OpenAIObserver:
         extract_input: Callable | None = None,
         extract_output: Callable | None = None,
         min_observations_for_discovery: int = 5,
+        training_logger=None,
     ):
         """
         Args:
@@ -202,11 +203,13 @@ class OpenAIObserver:
             extract_output: Custom function (response → output dict). Optional.
             min_observations_for_discovery: Minimum raw observations needed
                 before discover_task() can run.
+            training_logger: Optional TrainingDataLogger for capturing LLM calls.
         """
         self.buffer = buffer
         self.task = task
         self._original_create = original_create
         self._client = None
+        self.training_logger = training_logger
 
         # Mode detection
         self._custom_extractors = extract_input is not None and extract_output is not None
@@ -374,6 +377,19 @@ Return ONLY valid JSON:
             self._skip = False
 
         task_dict = self._parse_json(raw, "discovery")
+
+        if self.training_logger:
+            self.training_logger.log(
+                "task_discovery",
+                [{"role": "user", "content": prompt}],
+                raw,
+                {
+                    "num_observations": len(observations),
+                    "discovered_task_name": task_dict.get("name"),
+                    "discovered_task_type": task_dict.get("type"),
+                },
+            )
+
         return Task.from_dict(task_dict)
 
     # ------------------------------------------------------------------
@@ -486,7 +502,23 @@ Return ONLY a JSON array with exactly {len(batch)} objects:
         # Pad or truncate to match batch size
         while len(results) < len(batch):
             results.append({"relevant": False, "input": None, "output": None})
-        return results[: len(batch)]
+        results = results[: len(batch)]
+
+        if self.training_logger:
+            relevant_count = sum(1 for r in results if r.get("relevant", False))
+            self.training_logger.log(
+                "observation_mapping",
+                [{"role": "user", "content": prompt}],
+                raw,
+                {
+                    "task_name": task.name if task else None,
+                    "task_type": task.type.value if task else None,
+                    "batch_size": len(batch),
+                    "relevant_count": relevant_count,
+                },
+            )
+
+        return results
 
     # ------------------------------------------------------------------
     # Stats

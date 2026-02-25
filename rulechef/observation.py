@@ -72,6 +72,7 @@ class ObservationManager:
             extract_input=extract_input,
             extract_output=extract_output,
             min_observations_for_discovery=min_observations_for_discovery,
+            training_logger=self._chef.training_logger,
         )
 
         self._observer.attach(openai_client)
@@ -275,6 +276,7 @@ class ObservationManager:
                     buffer=self._chef.buffer,
                     task=self._chef.task,
                     original_create=self._chef.llm.chat.completions.create,
+                    training_logger=self._chef.training_logger,
                 )
             with self._observer._lock:
                 self._observer._raw_observations.extend(self._pending_raw_observations)
