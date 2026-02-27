@@ -135,7 +135,7 @@ class RuleMetrics:
         total_expected: Total expected entities across the full dataset.
         per_class: Per-class breakdown of TP/FP/FN for this rule.
         sample_matches: Up to 10 sample match dicts showing rule behavior.
-     
+
     """
 
     rule_id: str
@@ -157,10 +157,10 @@ class RuleMetrics:
     def to_dict(self) -> dict:
         return {
             "rule_id": self.rule_id,
-            "rule_name": self.name,
-            "rule_description": self.description,
-            "rule_format": self.format,
-            "rule_content": self.content,
+            "rule_name": self.rule_name,
+            "rule_description": self.rule_description,
+            "rule_format": self.rule_format,
+            "rule_content": self.rule_content,
             "precision": round(self.precision, 4),
             "recall": round(self.recall, 4),
             "f1": round(self.f1, 4),
@@ -330,7 +330,6 @@ def evaluate_dataset(
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].tp += 1
-            
 
         # Accumulate per-class FP
         for pred in fp_list:
@@ -443,14 +442,11 @@ def evaluate_rules_individually(
                 class_counts[cls].tp += 1
 
             for pred in fp_list:
-                print(fp_list)
                 cls = _entity_type(pred)
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fp += 1
-                #fp_examples.append(pred.get("text", "?"))
-
-
+                # fp_examples.append(pred.get("text", "?"))
 
             # Note: we don't count FN per-rule since a single rule isn't
             # expected to find everything. But we track it for completeness.
@@ -459,7 +455,7 @@ def evaluate_rules_individually(
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fn += 1
-                #fn_examples.append(pred.get("text", "?"))
+                # fn_examples.append(pred.get("text", "?"))
 
             # Collect sample matches
             if pred_entities and len(sample_matches) < max_samples:
@@ -498,8 +494,8 @@ def evaluate_rules_individually(
                 total_expected=total_expected,
                 per_class=per_class,
                 sample_matches=sample_matches,
-              #  fp_examples=fp_examples, 
-             #   fn_examples=fn_examples,  
+                #  fp_examples=fp_examples,
+                #   fn_examples=fn_examples,
             )
         )
 
