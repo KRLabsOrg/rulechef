@@ -108,7 +108,7 @@ if has_data:
                 st.session_state.examples,
                 # st.session_state.negative,
             )
-            st.session_state.apply_rules_fn = st.session_state.chef.extract
+            st.session_state.apply_rules_fn =  st.session_state.chef.learner._apply_rules   #st.session_state.chef.extract
 
             st.success("RuleChef initialized.")
 
@@ -231,16 +231,21 @@ with st.container(border=True):
             if st.session_state[state_key]:
                 with st.container(border=True):
                     # st.write(rule)
-                    st.markdown(f"**Description:**   {rule.rule_description}")
-                    st.markdown(f"**Format:**     {rule.rule_format}")
+                    st.markdown(f"<p style='font-size:20px;'><b>Description:</b> {rule.rule_description}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:20px;'><b>Format:</b> {rule.rule_format}</p>", unsafe_allow_html=True)
                     st.code(f"Pattern:    {rule.rule_content}")
+                
 
             st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
 
 if rules_to_show:
     with st.container(border=True):
-        with st.container(border=True):
-            st.write("Now that you have rules, you can test them on new examples!")
-            with st.container(border=True, width="content", height="content", gap="small"):
-                st.page_link("pages/3_Extract.py", label="Next: 🔍︎ Extract")
+        # Big styled text
+        st.markdown(
+            "<p style='font-size:20px; font-weight:bold;'>Now that you have rules, you can test them on new examples!</p>",
+            unsafe_allow_html=True
+        )
+        
+        with st.container(border=True, width="content", height="content", gap="small"):
+            st.page_link("pages/3_Extract.py", label="Next: 🔍︎ Extract")

@@ -36,7 +36,7 @@ class NEROutput(BaseModel):
 
 
 def get_openai_client() -> OpenAI:
-    local = False
+    local = True
     if local:
         api_key = "EMPTY"  # os.getenv("OPENAI_API_KEY") #"EMPTY"
         base_url = "http://a-a100-o-1:8000/v1"  # "http://localhost:8000/v1" # "https://api.openai.com/v1" #http://localhost:8000/v1
@@ -154,6 +154,26 @@ def highlight_entities(text, entities):
 
 
 def highlight_entities(text, entities):
+    entities = sorted(entities, key=lambda e: e["start"])
+    chunks = []
+    last_idx = 0
+
+    for e in entities:
+        if e["start"] > last_idx:
+            chunks.append(text[last_idx : e["start"]])
+
+        entity_text = text[e["start"] : e["end"]]
+        entity_label = e["type"]
+        chunks.append((entity_text, entity_label))
+        last_idx = e["end"]
+
+    if last_idx < len(text):
+        chunks.append(text[last_idx:])
+
+    annotated_text(*chunks)
+
+
+def highlight_entities_old(text, entities):
     entities = sorted(entities, key=lambda e: e["start"], reverse=True)
     chunks = []
     last_idx = 0

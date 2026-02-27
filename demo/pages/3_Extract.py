@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 import json
 from rulechef import RuleChef, TaskType
@@ -7,6 +9,11 @@ from utils import get_openai_client, add_data, stream_to_streamlit, highlight_en
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 from annotated_text import annotated_text
+import codecs
+
+
+def decode_unicode_escapes(text):
+    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), text)
 
 
 st.markdown(
@@ -66,7 +73,6 @@ if st.session_state.rules or rules_learned:
             placeholder="Paste or type text here…",
         )
         apply_clicked = st.button("🔍︎  Extract")
-
         if apply_clicked and test_text.strip():
             rules_to_use = (
                 st.session_state.active_rules
