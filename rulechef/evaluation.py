@@ -153,8 +153,6 @@ class RuleMetrics:
     total_expected: int = 0
     per_class: List[ClassMetrics] = field(default_factory=list)
     sample_matches: List[dict] = field(default_factory=list)
-    fp_examples: List[str] = field(default_factory=list)
-    fn_examples: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -173,8 +171,6 @@ class RuleMetrics:
             "total_expected": self.total_expected,
             "per_class": [c.to_dict() for c in self.per_class],
             "sample_matches": self.sample_matches[:10],
-            "fp_examples": self.fp_examples,
-            "fn_examples": self.fn_examples,
         }
 
 
