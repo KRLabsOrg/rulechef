@@ -153,6 +153,8 @@ class RuleMetrics:
     total_expected: int = 0
     per_class: List[ClassMetrics] = field(default_factory=list)
     sample_matches: List[dict] = field(default_factory=list)
+    fp_examples: List[str] = field(default_factory=list)
+    fn_examples: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -171,7 +173,22 @@ class RuleMetrics:
             "total_expected": self.total_expected,
             "per_class": [c.to_dict() for c in self.per_class],
             "sample_matches": self.sample_matches[:10],
+            "fp_examples": self.fp_examples,
+            "fn_examples": self.fn_examples,
         }
+
+
+@dataclass
+class SampleMatch:
+    input: str
+    rule_output: list
+    expected: list
+    tp: int
+    fp: int
+    fn: int
+    matched_pairs: list = field(default_factory=list)
+    false_positives: list = field(default_factory=list)
+    missed: list = field(default_factory=list)
 
 
 # ============================================================================
@@ -414,8 +431,6 @@ def evaluate_rules_individually(
     results = []
 
     for rule in rules:
-        fp_examples = []
-        fn_examples = []
         class_counts: Dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
         sample_matches = []
         rule_total_matches = 0
@@ -446,7 +461,6 @@ def evaluate_rules_individually(
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fp += 1
-                # fp_examples.append(pred.get("text", "?"))
 
             # Note: we don't count FN per-rule since a single rule isn't
             # expected to find everything. But we track it for completeness.
@@ -455,20 +469,22 @@ def evaluate_rules_individually(
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
                 class_counts[cls].fn += 1
-                # fn_examples.append(pred.get("text", "?"))
 
             # Collect sample matches
             if pred_entities and len(sample_matches) < max_samples:
                 sample_matches.append(
-                    {
-                        "input": item.input,
-                        "rule_output": pred_entities,
-                        "expected": gold_entities,
-                        "tp": len(matched),
-                        "fp": len(fp_list),
-                    }
+                    SampleMatch(
+                        input=item.input,
+                        rule_output=pred_entities,
+                        expected=gold_entities,
+                        tp=len(matched),
+                        fp=len(fp_list),
+                        fn=len(fn_list),
+                        matched_pairs=[(p, g) for p, g in matched],
+                        false_positives=[p for p in fp_list],
+                        missed=[g for g in fn_list],
+                    )
                 )
-
         per_class = sorted(class_counts.values(), key=lambda c: c.label)
         rule_tp = sum(c.tp for c in per_class)
         rule_fp = sum(c.fp for c in per_class)
@@ -494,8 +510,6 @@ def evaluate_rules_individually(
                 total_expected=total_expected,
                 per_class=per_class,
                 sample_matches=sample_matches,
-                #  fp_examples=fp_examples,
-                #   fn_examples=fn_examples,
             )
         )
 
