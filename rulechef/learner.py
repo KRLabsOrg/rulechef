@@ -17,6 +17,8 @@ from rulechef.evaluation import (
 from rulechef.executor import RuleExecutor
 from rulechef.prompts import PromptBuilder
 
+import hashlib
+
 
 class RuleLearner:
     """Learns extraction rules from examples using LLM"""
@@ -111,6 +113,8 @@ class RuleLearner:
                 max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0,
+                seed=42,
             )
 
             response_text = response.choices[0].message.content
@@ -238,6 +242,8 @@ class RuleLearner:
                     max_completion_tokens=16384,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
+                    temperature=0,
+                    seed=42,
                 )
                 response_text = response.choices[0].message.content
                 result = self._parse_json(response_text)
@@ -362,7 +368,7 @@ class RuleLearner:
                         continue
 
             rule = Rule(
-                id=self._generate_id(),
+                id=self._generate_id(name=rule_data.get("name", ""), content=pattern_content),
                 name=rule_data.get("name", f"Rule {i + 1}"),
                 description=rule_data.get("description", ""),
                 format=rule_format,
@@ -576,6 +582,8 @@ class RuleLearner:
                 max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0,
+                seed=42,
             )
 
             response_text = response.choices[0].message.content
@@ -646,7 +654,7 @@ class RuleLearner:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
-
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     def _build_per_class_prompt(
@@ -700,7 +708,7 @@ INSTRUCTIONS:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
-
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     def _build_patch_prompt(
@@ -802,6 +810,7 @@ Instructions:
 
 {response_schema}
 """
+        print("PATCH Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     # ========================================
@@ -893,7 +902,7 @@ Instructions:
                 # Sort by weight descending — weakest classes first
                 classes.sort(key=lambda c: class_weights.get(c, 0.5), reverse=True)
             else:
-                random.shuffle(classes)
+                random.shuffle(classes, seed=42)
 
             # Round-robin with weighted class order
             idx = 0
@@ -999,9 +1008,12 @@ Instructions:
             print(f"      Validation error: {e}")
             return False
 
-    def _generate_id(self) -> str:
+    def _generate_id(self, name: str = "", content: str = "") -> str:
         """Generate unique ID"""
-        return str(uuid.uuid4())[:8]
+        # return str(uuid.uuid4())[:8]
+        # trying to remove the randomness
+        raw = f"{name}:{content}"
+        return hashlib.md5(raw.encode()).hexdigest()[:8]
 
     def _pattern_uses_ent_type(self, pattern_data: list) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
@@ -1026,6 +1038,8 @@ Instructions:
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            seed=42,
         )
 
         response_text = response.choices[0].message.content

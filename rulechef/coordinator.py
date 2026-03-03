@@ -379,6 +379,8 @@ Return JSON:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0,
+                seed=42,
             )
             response_text = response.choices[0].message.content
             result = json.loads(response_text)
@@ -486,6 +488,8 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                temperature=0,
+                seed=42,
             )
             result = json.loads(response.choices[0].message.content)
 
@@ -595,6 +599,8 @@ Return JSON:
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
+            temperature=0,
+            seed=42,
         )
 
         response_text = response.choices[0].message.content
