@@ -691,7 +691,7 @@ class RuleLearner:
     @staticmethod
     def _dedup_rules(rules: list[Rule]) -> list[Rule]:
         """Remove duplicate regex rules with identical content and output type."""
-        seen: dict[str, Rule] = {}  # key: (content, output_type) → best rule
+        seen: dict[tuple, Rule] = {}  # key: (content, output_type, output_key)
         result = []
         for r in rules:
             if r.format != RuleFormat.REGEX:
