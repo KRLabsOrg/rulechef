@@ -159,6 +159,7 @@ For fine-tuning, use only the `messages` field. The `metadata` and `call_type` a
 | `synthetic_generation` | Learner | Synthetic example generation |
 | `guide_refinement` | Coordinator | Per-iteration refinement guidance |
 | `audit_rules` | Coordinator | Rule pruning/merging audit |
+| `critique_rules` | Coordinator | Critic agent feedback on ruleset |
 | `trigger_decision` | Coordinator | Should-learn decision |
 
 ### Generating training data at scale

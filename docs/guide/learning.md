@@ -130,8 +130,13 @@ Incremental patching:
 
 - Generates targeted rules for known failures
 - Merges new rules into the existing ruleset
+- **Deletes** underperforming rules when better replacements are provided
 - Prunes weak rules that don't contribute
 - Preserves stable rules that are working
+
+During patching, the LLM can list rules in a `"deleted_rules"` field to remove them from the ruleset. This is used when a rule is too broad (high false positives) and the LLM provides narrower replacement rules in the same response.
+
+A patch is accepted if micro F1 stays within 0.5%, or if precision improves (higher precision at the cost of some recall is considered a net quality win). Otherwise the patch is rejected and the previous rules are kept.
 
 ## Persistence
 

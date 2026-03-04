@@ -120,6 +120,24 @@ class CoordinatorProtocol(ABC):
         """
         return AuditResult()
 
+    def critique_rules(
+        self,
+        rules: list["Rule"],
+        rule_metrics: list[Any],
+        eval_result: Any,
+        dataset: Any,
+    ) -> dict | None:
+        """LLM critic reviews the full ruleset and provides actionable feedback.
+
+        Called before refinement iterations start. Returns a dict with
+        rule_feedback (per-rule advice) and task_guidance (strategic guidance).
+        The feedback is written to the dataset as structured feedback and
+        automatically picked up by patch prompts.
+
+        Default: no critique.
+        """
+        return None
+
 
 class SimpleCoordinator(CoordinatorProtocol):
     """
@@ -251,6 +269,9 @@ class AgenticCoordinator(CoordinatorProtocol):
         min_correction_batch: int = 1,
         verbose: bool = True,
         prune_after_learn: bool = False,
+        enable_critic: bool = False,
+        audit_interval: int = 3,
+        critic_interval: int = 4,
         training_logger=None,
     ):
         """
@@ -261,6 +282,10 @@ class AgenticCoordinator(CoordinatorProtocol):
             min_correction_batch: Minimum corrections before asking LLM
             verbose: Print coordination decisions
             prune_after_learn: If True, audit and prune/merge rules after learning
+            enable_critic: If True, run LLM critic before refinement to provide
+                strategic feedback on the ruleset.
+            audit_interval: Run mid-refinement audit every N iterations (0 to disable).
+            critic_interval: Run critic every N iterations (0 to disable).
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
         """
         self.llm = llm_client
@@ -269,7 +294,17 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.min_correction_batch = min_correction_batch
         self.verbose = verbose
         self.prune_after_learn = prune_after_learn
+        self.enable_critic = enable_critic
+        self.audit_interval = audit_interval
+        self.critic_interval = critic_interval
         self.training_logger = training_logger
+        self.temperature: float | None = None
+
+    def _temp_kwargs(self) -> dict:
+        """Return temperature kwarg dict if set, empty dict otherwise."""
+        if self.temperature is not None:
+            return {"temperature": self.temperature}
+        return {}
 
     def should_trigger_learning(
         self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
@@ -379,6 +414,7 @@ Return JSON:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                **self._temp_kwargs(),
             )
             response_text = response.choices[0].message.content
             result = json.loads(response_text)
@@ -456,18 +492,25 @@ Analyze these {len(rules)} rules and their per-rule metrics.
 RULES:
 {json.dumps(rule_entries, indent=2)}
 
-Your job is to CONSOLIDATE the ruleset. Prefer MERGING over removing.
+Your job is to CONSOLIDATE and CLEAN the ruleset.
 
-ACTIONS:
-1. MERGE: Two+ regex rules with similar patterns targeting the same output/label.
-   Combine their patterns into one rule (e.g. merge `(?:bad|awful)` and `(?:terrible|worst)` into `(?:bad|awful|terrible|worst)`).
-   Only merge rules of the same format and same output_template/output_key.
-2. REMOVE: Only for rules that are pure noise — precision=0 AND matches>0 (every match is wrong).
+ACTIONS (in priority order):
+1. MERGE: Two+ rules with similar/overlapping patterns targeting the same output/label.
+   Combine into one rule. Only merge rules of the same format and same output_template/output_key.
+2. REMOVE rules that hurt more than they help:
+   - precision=0 AND matches>0 (pure noise — every match is wrong)
+   - false_positives > 2x true_positives (rule causes more harm than good)
+   - Memorized exact strings from training data that won't generalize (e.g. matching one specific phrase)
+3. TIGHTEN: If a rule has high FP, return it as a merge-with-self — same rule_id but a narrower pattern.
 
 IMPORTANT — do NOT remove:
-- Rules with low F1/recall — they may catch rare but important cases
+- The only rule for a class/label — even if it looks weak, tighten it instead
 - Rules with 0 matches — the training set may be small, they could help on unseen data
-- The only rule for a class/label — even if it looks weak
+
+LOOK FOR:
+- Near-duplicate rules (same type, similar regex) — merge them
+- Overly broad patterns (like bare \\d+ or [A-Z][a-z]+) with high FP — tighten or remove
+- Rules that are subsets of other rules (one pattern already covered by another)
 
 Return JSON:
 {{
@@ -486,6 +529,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                **self._temp_kwargs(),
             )
             result = json.loads(response.choices[0].message.content)
 
@@ -543,6 +587,188 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                 print(f"⚠ Audit error: {e}")
             return AuditResult()
 
+    def critique_rules(
+        self,
+        rules: list["Rule"],
+        rule_metrics: list[Any],
+        eval_result: Any,
+        dataset: Any,
+    ) -> dict | None:
+        """LLM critic reviews the full ruleset like a human domain expert.
+
+        Sees: task definition, all rules with full patterns, per-rule metrics
+        with FP/FN examples, per-class performance, and system-level FP examples.
+        Returns actionable per-rule feedback and strategic task guidance.
+        """
+        import json
+
+        if not self.enable_critic or not rules or not rule_metrics:
+            return None
+
+        task = dataset.task
+        metrics_by_id = {m.rule_id: m for m in rule_metrics}
+
+        # Task context
+        task_section = f"TASK: {task.name}\n{task.description}\n"
+        task_section += f"Type: {task.type.value}\n"
+        task_section += f"Input schema: {json.dumps(task.input_schema)}\n"
+        if hasattr(task.output_schema, "model_fields"):
+            task_section += "Output schema: Pydantic model\n"
+        else:
+            task_section += f"Output schema: {json.dumps(task.output_schema)}\n"
+
+        # Overall performance
+        perf_section = (
+            f"\nOVERALL PERFORMANCE:\n"
+            f"  micro F1={eval_result.micro_f1:.1%}, "
+            f"P={eval_result.micro_precision:.1%}, "
+            f"R={eval_result.micro_recall:.1%}\n"
+            f"  exact_match={eval_result.exact_match:.1%} "
+            f"({eval_result.total_docs} documents)\n"
+        )
+
+        # Per-class performance (sorted worst-first)
+        class_lines = ["\nPER-CLASS PERFORMANCE (sorted worst-first):"]
+        sorted_classes = sorted(eval_result.per_class, key=lambda c: c.f1)
+        for cm in sorted_classes:
+            class_lines.append(
+                f"  {cm.label}: P={cm.precision:.0%} R={cm.recall:.0%} F1={cm.f1:.0%} "
+                f"(TP={cm.tp} FP={cm.fp} FN={cm.fn})"
+            )
+        class_section = "\n".join(class_lines) + "\n"
+
+        # Rules with per-rule metrics and FP examples
+        rules_lines = [f"\nRULES ({len(rules)} total):"]
+        for rule in rules:
+            m = metrics_by_id.get(rule.id)
+            rules_lines.append(f'\n  Rule: "{rule.name}" (id={rule.id})')
+            rules_lines.append(f"    Format: {rule.format.value}, Priority: {rule.priority}")
+            rules_lines.append(f"    Pattern: {rule.content}")
+            if rule.output_template:
+                rules_lines.append(f"    Output template: {json.dumps(rule.output_template)}")
+            if rule.output_key:
+                rules_lines.append(f"    Output key: {rule.output_key}")
+            if m:
+                rules_lines.append(
+                    f"    Metrics: P={m.precision:.0%} R={m.recall:.0%} F1={m.f1:.0%} "
+                    f"(TP={m.true_positives} FP={m.false_positives}, {m.matches} total matches)"
+                )
+                # Show FP examples from sample_matches for this rule
+                fp_samples = [s for s in m.sample_matches if s.get("fp", 0) > 0]
+                if fp_samples:
+                    rules_lines.append("    FP examples from this rule:")
+                    for sample in fp_samples[:3]:
+                        input_text = sample.get("input", {})
+                        # Get first string value as context
+                        if isinstance(input_text, dict):
+                            text_vals = [v for v in input_text.values() if isinstance(v, str)]
+                            ctx = text_vals[0][:150] if text_vals else str(input_text)[:150]
+                        else:
+                            ctx = str(input_text)[:150]
+                        rules_lines.append(f'      Input: "{ctx}"')
+                        rules_lines.append(
+                            f"      Rule produced: {json.dumps(sample.get('rule_output', [])[:3])}"
+                        )
+                        rules_lines.append(
+                            f"      Expected: {json.dumps(sample.get('expected', [])[:3])}"
+                        )
+            else:
+                rules_lines.append("    Metrics: (no metrics available)")
+        rules_section = "\n".join(rules_lines) + "\n"
+
+        # System-level FP examples
+        fp_section = ""
+        if eval_result.fp_examples:
+            fp_lines = [
+                f"\nFALSE POSITIVES (system-level, {len(eval_result.fp_examples)} examples):"
+            ]
+            for fp in eval_result.fp_examples[:20]:
+                line = f'  Predicted "{fp["predicted_text"]}" as {fp["predicted_type"]}'
+                if fp.get("correct_type"):
+                    line += f" — should be {fp['correct_type']}"
+                else:
+                    line += " — not an entity"
+                if fp.get("context"):
+                    line += f' (context: "{fp["context"][:80]}")'
+                fp_lines.append(line)
+            fp_section = "\n".join(fp_lines) + "\n"
+
+        # FN documents (missed entities)
+        fn_section = ""
+        if eval_result.failures:
+            fn_lines = ["\nMISSED ENTITIES (sample documents with errors):"]
+            for f in eval_result.failures[:10]:
+                input_data = f.get("input", {})
+                if isinstance(input_data, dict):
+                    text_vals = [v for v in input_data.values() if isinstance(v, str)]
+                    ctx = text_vals[0][:150] if text_vals else str(input_data)[:150]
+                else:
+                    ctx = str(input_data)[:150]
+                fn_lines.append(f'  Input: "{ctx}"')
+                fn_lines.append(f"  Expected: {json.dumps(f.get('expected', {}))}")
+                fn_lines.append(f"  Got: {json.dumps(f.get('got', {}))}")
+                fn_lines.append("")
+            fn_section = "\n".join(fn_lines)
+
+        prompt = f"""You are an expert Rule Critic acting as a human domain expert. You are reviewing a rule-based {task.type.value} system and providing actionable feedback.
+
+{task_section}
+{perf_section}
+{class_section}
+{rules_section}
+{fp_section}
+{fn_section}
+ANALYZE HOLISTICALLY:
+1. Which rules cause the most harm and WHY? Show your reasoning.
+2. Are there inter-class conflicts? (same text matched by rules for different types)
+3. Are priority assignments correct? (higher priority runs first, wins conflicts)
+4. What patterns are MISSING for classes with low recall?
+5. What would a human regex expert change about these patterns?
+
+PROVIDE FEEDBACK:
+- rule_feedback: For EACH problematic rule, provide SPECIFIC, ACTIONABLE advice.
+  Bad: "This rule is too broad" (vague)
+  Good: "Narrow \\d+ by adding word-boundary context: use (\\d+)\\s*(?:million|billion) for large numbers, and let MONEY/PERCENT rules handle $-prefixed and %-suffixed numbers by giving them higher priority"
+- task_guidance: Strategic advice about the ENTIRE ruleset — class disambiguation strategy, priority ordering, what kinds of rules are missing.
+
+Return JSON:
+{{
+  "analysis": "1-2 sentence summary of the main issues",
+  "rule_feedback": {{
+    "rule_id": "Specific actionable advice for this rule..."
+  }},
+  "task_guidance": "Strategic guidance about the full ruleset..."
+}}
+"""
+
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                **self._temp_kwargs(),
+            )
+            result = json.loads(response.choices[0].message.content)
+
+            if self.training_logger:
+                self.training_logger.log(
+                    "critique_rules",
+                    [{"role": "user", "content": prompt}],
+                    response.choices[0].message.content,
+                    {
+                        "num_rules": len(rules),
+                        "analysis": result.get("analysis", ""),
+                        "num_rule_feedback": len(result.get("rule_feedback", {})),
+                    },
+                )
+
+            return result
+
+        except Exception as e:
+            if self.verbose:
+                print(f"⚠ Critic error: {e}")
+            return None
+
     def _ask_llm(
         self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
     ) -> CoordinationDecision:
@@ -595,6 +821,7 @@ Return JSON:
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
+            **self._temp_kwargs(),
         )
 
         response_text = response.choices[0].message.content

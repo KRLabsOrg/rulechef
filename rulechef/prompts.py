@@ -235,23 +235,45 @@ SPACY_EXAMPLES = {
 # ============================================================================
 
 RULE_QUALITY_GUIDE = """WHAT MAKES A GOOD RULE:
-- Prefer precision over recall: a narrow rule that matches exactly what it should is better than a broad rule that matches wrong things.
-- Do not overfit to exact training strings: generalize just enough to cover unseen examples of the same pattern.
-- Use context clues when possible: words around an entity often disambiguate better than the entity text alone.
-- Write multiple focused rules instead of one giant pattern.
-- If two entity types look similar as strings, use surrounding context to disambiguate (not just capitalization).
-- It is OK to miss rare edge cases; avoid rules that match garbage.
+- PRECISION OVER RECALL: A rule that matches 10 things correctly beats one that matches 100 with 20 wrong. Never sacrifice precision for recall. Missing a match is fixable later; a wrong match poisons results.
+- GENERALIZE, DON'T MEMORIZE: Rules run on unseen text. Match the *structure* of values, not the exact strings you see in training data.
+- USE CONTEXT: The same string can mean different things. Match surrounding words/punctuation and use capture groups ($1) to extract just the value.
+- ONE RULE, ONE PATTERN: Multiple focused rules beat one giant regex. Each rule should have a clear, testable reason to exist.
+- THINK ADVERSARIALLY: Before writing a rule, ask "what else could this match?" If the answer isn't empty, narrow the pattern or add context.
 """
 
-REGEX_TECHNIQUE_GUIDE = """REGEX TECHNIQUES:
-- Use \\b word boundaries to avoid partial word matches.
-- Use (?:...) for non-capturing groups.
-- Use alternation: (word1|word2|word3).
-- Use character classes: [A-Z], [a-z], \\d, \\s.
-- Use quantifiers: +, *, ?, {n,m}.
-- Use lookahead (?=...) / lookbehind (?<=...) for context without consuming.
+REGEX_TECHNIQUE_GUIDE = """REGEX SYNTAX REFERENCE:
+- \\b word boundaries, (?:...) non-capturing groups, (a|b|c) alternation
+- [A-Z] [a-z] \\d \\s character classes, +*?{n,m} quantifiers
+- (?=...) lookahead, (?<=...) lookbehind — match context without consuming it
+- (?i) case-insensitive flag
+
+CAPTURE GROUPS ($1) vs FULL MATCH ($0):
+- Use $0 in output_template when the entire regex match IS the value you want.
+- Use $1 when you need surrounding context to disambiguate — put the value in a capture group.
+  With "text": "$1", $start/$end auto-adjust to the group position automatically.
+
+GOOD vs BAD PATTERNS (learn from these):
+
+  BAD:  "\\d+"                       — matches every number in the text, most will be wrong type
+  GOOD: "(\\d+)\\s*(?:kg|lbs|oz)"    — only numbers followed by weight units; $1 captures the number
+
+  BAD:  "Alice|Bob|Tokyo"            — memorizes training strings, misses all unseen values
+  GOOD: "(?:Mr|Mrs|Dr)\\.?\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*)" — captures names after titles
+
+  BAD:  "[A-Z][a-z]+"               — matches any capitalized word (way too broad)
+  GOOD: "(?:in|from|at|near)\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*)" — locations after prepositions
+
+  BAD:  "\\b\\w+@\\w+\\.\\w+\\b"         — matches email-like strings but also "user@v1.0"
+  GOOD: "(?:email|contact)[:\\s]+(\\S+@\\S+\\.\\w{2,})" — emails after a label; $1 captures address
+
+  BAD:  one giant regex that handles 5 different sub-patterns
+  GOOD: 5 separate rules, each handling one clear case with its own priority
+
+IMPORTANT:
 - Do NOT assume entities are capitalized; check the training data.
-- Prefer matching context (e.g. "at <ORG>") and capturing the entity span.
+- Prefer structural patterns (\\d+, [A-Z][a-z]+) over memorized alternations.
+- When multiple entity types share similar text, use surrounding context to disambiguate.
 """
 
 SPACY_TECHNIQUE_GUIDE = """SPACY TECHNIQUES:
@@ -286,7 +308,8 @@ Return JSON:
       "content": "regex pattern OR python code",
       "priority": 1-10
     }}
-  ]
+  ],
+  "deleted_rules": ["name_of_rule_to_remove (optional, only when replacing a bad rule)"]
 }}
 '''
 
@@ -327,7 +350,8 @@ Return JSON:
       "priority": 1-10 (higher = more important),
       "reasoning": "Why this rule is needed"
     }}
-  ]
+  ],
+  "deleted_rules": ["name_of_rule_to_remove (optional, only when replacing a bad rule)"]
 }}
 '''
 
@@ -660,6 +684,14 @@ IMPORTANT for classification:
                     "  - $1.start/$1.end/$1.text: Token offsets/text within spaCy match"
                 )
 
+            context_matching_block = ""
+            if RuleFormat.REGEX in self.allowed_formats:
+                context_matching_block = """
+$0 vs $1: Use $0 when the full match IS the value. Use a capture group ($1) when you
+need surrounding context for disambiguation — $start/$end auto-adjust to the group.
+  Example: "prefix(\\w+)" with "text": "$1" extracts only the captured part.
+"""
+
             section = f"""
 
 SCHEMA-AWARE RULES:
@@ -673,7 +705,7 @@ Each rule needs:
 - output_template: JSON template for each match, using variables:
 {os.linesep.join(template_vars)}
 - output_key: Which output array to populate (e.g., "{primary_key}")
-"""
+{context_matching_block}"""
 
         section += get_schema_aware_response_schema(
             format_options, primary_key, is_classification=is_classification
@@ -708,12 +740,15 @@ Each rule needs:
     # grex helpers
     # ========================================
 
-    def _grex_patterns(self, strings: list[str], context: str = "") -> list[str]:
+    def _grex_patterns(
+        self, strings: list[str], context: str = "", skip_exact: bool = False
+    ) -> list[str]:
         """Generate regex pattern hints from example strings using grex.
 
-        Returns lines to append to evidence sections. Always emits the exact
-        pattern (alternation) and additionally emits a generalized structural
-        pattern when the ratio heuristic detects real structure (< 0.7).
+        Returns lines to append to evidence sections. Emits the exact
+        pattern (alternation) unless skip_exact is True, and additionally
+        emits a generalized structural pattern when the ratio heuristic
+        detects real structure (< 0.7).
         """
         if not self.use_grex:
             return []
@@ -752,7 +787,9 @@ Each rule needs:
                 .with_conversion_of_repetitions()
                 .build()
             )
-            lines = [f"  Exact pattern: {exact}"]
+            lines = []
+            if not skip_exact:
+                lines.append(f"  Exact pattern: {exact}")
             if generalized != exact and len(exact) > 0:
                 ratio = len(generalized) / len(exact)
                 if ratio < 0.7:
@@ -763,6 +800,62 @@ Each rule needs:
             return lines
         except Exception:
             return []
+
+    # ========================================
+    # Context snippet helper
+    # ========================================
+
+    @staticmethod
+    def _extract_context_snippet(item: Any, entity: dict, window: int = 20) -> str | None:
+        """Extract a short context snippet around an entity from the source text.
+
+        Returns a string like '...raised [$150 million] in funding...' or None
+        if the source text or offsets are not available.
+        """
+        input_data = getattr(item, "input", None)
+        if not input_data or not isinstance(input_data, dict):
+            return None
+
+        # Find the longest string value in input as source text
+        source = ""
+        for v in input_data.values():
+            if isinstance(v, str) and len(v) > len(source):
+                source = v
+        if not source:
+            return None
+
+        start = entity.get("start")
+        end = entity.get("end")
+        text = entity.get("text", "")
+        if start is None or end is None:
+            return None
+        try:
+            start, end = int(start), int(end)
+        except (ValueError, TypeError):
+            return None
+        if start < 0 or end > len(source) or start >= end:
+            return None
+
+        entity_text = source[start:end]
+        # Use the actual span from source (more accurate than entity["text"])
+        if not entity_text.strip():
+            entity_text = text
+
+        pre = source[max(0, start - window) : start]
+        post = source[end : end + window]
+        # Trim to word boundaries for readability
+        if max(0, start - window) > 0:
+            space_idx = pre.find(" ")
+            if space_idx != -1:
+                pre = pre[space_idx + 1 :]
+            pre = "..." + pre
+        if end + window < len(source):
+            space_idx = post.rfind(" ")
+            if space_idx != -1:
+                post = post[:space_idx]
+            post = post + "..."
+
+        return f"{pre}[{entity_text}]{post}"
 
     # ========================================
     # Data evidence (task-type-aware)
@@ -785,9 +878,11 @@ Each rule needs:
         """Summarize entity strings seen in training data for NER tasks."""
         max_labels = 25
         max_strings_per_label = 15
+        max_contexts_per_label = 5
         max_total_chars = 3000
 
         label_to_texts: dict[str, list[str]] = defaultdict(list)
+        label_to_contexts: dict[str, list[str]] = defaultdict(list)
         saw_lowercase = False
         saw_multiword = False
 
@@ -819,6 +914,11 @@ Each rule needs:
                     text = ent.get("text")
                     if isinstance(label, str) and isinstance(text, str):
                         _add(label.strip(), text)
+                        # Collect context snippets
+                        if len(label_to_contexts[label.strip()]) < max_contexts_per_label:
+                            snippet = self._extract_context_snippet(item, ent)
+                            if snippet and snippet not in label_to_contexts[label.strip()]:
+                                label_to_contexts[label.strip()].append(snippet)
 
         if not label_to_texts:
             return ""
@@ -830,6 +930,10 @@ Each rule needs:
             preview = ", ".join(json.dumps(v) for v in vals)
             lines.append(f"- {label} ({len(vals)} unique): {preview}")
             lines.extend(self._grex_patterns(vals, context=f"NER:{label}"))
+            contexts = label_to_contexts.get(label, [])
+            if contexts:
+                ctx_str = ", ".join(json.dumps(c) for c in contexts)
+                lines.append(f"  In context: {ctx_str}")
 
         notes: list[str] = []
         if saw_lowercase:
@@ -853,9 +957,11 @@ Each rule needs:
     def _build_extraction_evidence(self, dataset: Dataset) -> str:
         """Summarize extracted span texts for EXTRACTION tasks."""
         max_strings = 30
+        max_contexts = 5
         max_total_chars = 2000
 
         texts: list[str] = []
+        contexts: list[str] = []
         for item in list(dataset.examples) + list(dataset.corrections):
             output = getattr(item, "expected_output", None) or {}
             spans = output.get("spans", [])
@@ -871,6 +977,11 @@ Each rule needs:
                         texts.append(normalized)
                         if len(texts) >= max_strings:
                             break
+                # Collect context snippets
+                if len(contexts) < max_contexts:
+                    snippet = self._extract_context_snippet(item, span)
+                    if snippet and snippet not in contexts:
+                        contexts.append(snippet)
 
         if not texts:
             return ""
@@ -879,6 +990,9 @@ Each rule needs:
         preview = ", ".join(json.dumps(t) for t in texts)
         lines.append(f"- Extracted spans ({len(texts)} unique): {preview}")
         lines.extend(self._grex_patterns(texts, context="EXTRACTION:spans"))
+        if contexts:
+            ctx_str = ", ".join(json.dumps(c) for c in contexts)
+            lines.append(f"  In context: {ctx_str}")
         lines.append("")
         lines.append("Computed patterns match training strings only; generalize carefully.")
 

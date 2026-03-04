@@ -100,6 +100,9 @@ class EvalResult:
     # Failures for refinement prompts
     failures: list[dict] = field(default_factory=list)
 
+    # False positive examples for refinement prompts
+    fp_examples: list[dict] = field(default_factory=list)
+
     def to_dict(self) -> dict:
         return {
             "micro_precision": round(self.micro_precision, 4),
@@ -228,13 +231,25 @@ def _match_entities(
     expected: list[dict],
     task_type: TaskType,
     mode: str = "text",
+    iou_threshold: float = 0.5,
 ) -> tuple[list[tuple[dict, dict]], list[dict], list[dict]]:
     """
     Match predicted entities to expected entities.
 
+    Args:
+        predicted: Predicted entity dicts.
+        expected: Gold entity dicts.
+        task_type: Task type for key selection.
+        mode: 'text' (text+type), 'exact' (text+type+start+end), or
+            'partial' (type match + span IoU >= iou_threshold).
+        iou_threshold: Minimum IoU for partial matching (default 0.5).
+
     Returns:
         (matched_pairs, false_positives, false_negatives)
     """
+    if mode == "partial" and task_type != TaskType.CLASSIFICATION:
+        return _match_entities_partial(predicted, expected, task_type, iou_threshold)
+
     key_fn = _entity_key_exact if mode == "exact" else _entity_key_text
 
     matched_pairs = []
@@ -261,6 +276,68 @@ def _match_entities(
     return matched_pairs, unmatched_pred, unmatched_gold
 
 
+def _match_entities_partial(
+    predicted: list[dict],
+    expected: list[dict],
+    task_type: TaskType,
+    iou_threshold: float = 0.5,
+) -> tuple[list[tuple[dict, dict]], list[dict], list[dict]]:
+    """Match predicted to expected using span overlap (IoU) with type matching.
+
+    For each predicted entity, finds the best-overlapping gold entity of the
+    same type. Matches are greedy: best IoU first, each gold used at most once.
+
+    Falls back to text-based matching for entities without start/end offsets.
+    """
+    matched_pairs = []
+    unmatched_pred = []
+    used_gold = set()
+
+    # Build scored candidates: (iou, pred_idx, gold_idx)
+    candidates = []
+    for pi, pred in enumerate(predicted):
+        p_type = _entity_type(pred)
+        p_start = pred.get("start")
+        p_end = pred.get("end")
+
+        for gi, gold in enumerate(expected):
+            g_type = _entity_type(gold)
+            if p_type != g_type:
+                continue
+
+            g_start = gold.get("start")
+            g_end = gold.get("end")
+
+            # If both have offsets, use IoU
+            if (
+                p_start is not None
+                and p_end is not None
+                and g_start is not None
+                and g_end is not None
+            ):
+                iou = span_iou(pred, gold)
+                if iou >= iou_threshold:
+                    candidates.append((iou, pi, gi))
+            else:
+                # Fallback: text match
+                if pred.get("text", "") == gold.get("text", ""):
+                    candidates.append((1.0, pi, gi))
+
+    # Greedy match: best IoU first
+    candidates.sort(key=lambda x: -x[0])
+    used_pred = set()
+    for iou, pi, gi in candidates:
+        if pi in used_pred or gi in used_gold:
+            continue
+        matched_pairs.append((predicted[pi], expected[gi]))
+        used_pred.add(pi)
+        used_gold.add(gi)
+
+    unmatched_pred = [p for i, p in enumerate(predicted) if i not in used_pred]
+    unmatched_gold = [g for i, g in enumerate(expected) if i not in used_gold]
+    return matched_pairs, unmatched_pred, unmatched_gold
+
+
 # ============================================================================
 # Dataset-level evaluation
 # ============================================================================
@@ -271,6 +348,7 @@ def evaluate_dataset(
     dataset: Dataset,
     apply_rules_fn,
     mode: str = "text",
+    iou_threshold: float = 0.5,
 ) -> EvalResult:
     """Evaluate rules against a full dataset, producing entity-level metrics.
 
@@ -278,7 +356,9 @@ def evaluate_dataset(
         rules: Rules to evaluate.
         dataset: Dataset with examples and corrections.
         apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
-        mode: 'text' (match by text+type) or 'exact' (match by text+type+start+end).
+        mode: 'text' (match by text+type), 'exact' (match by text+type+start+end),
+            or 'partial' (type match + span IoU >= iou_threshold).
+        iou_threshold: Minimum IoU for partial matching (default 0.5).
 
     Returns:
         EvalResult with micro/macro metrics, per-class breakdown, exact match
@@ -292,6 +372,9 @@ def evaluate_dataset(
     class_counts: dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
     exact_match_count = 0
     failures = []
+    fp_examples: list[dict] = []  # Concrete FP examples for refinement
+    fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
+    max_fp_per_class = 5  # Keep examples bounded
 
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
@@ -300,7 +383,9 @@ def evaluate_dataset(
         pred_entities = _get_entities(extracted, task_type)
         gold_entities = _get_entities(expected_output, task_type)
 
-        matched, fp_list, fn_list = _match_entities(pred_entities, gold_entities, task_type, mode)
+        matched, fp_list, fn_list = _match_entities(
+            pred_entities, gold_entities, task_type, mode, iou_threshold
+        )
 
         # Document-level exact match
         if not fp_list and not fn_list:
@@ -322,12 +407,41 @@ def evaluate_dataset(
                 class_counts[cls].label = cls
             class_counts[cls].tp += 1
 
-        # Accumulate per-class FP
+        # Accumulate per-class FP and collect concrete examples
         for pred in fp_list:
             cls = _entity_type(pred)
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].fp += 1
+
+            # Collect concrete FP examples (bounded per class)
+            if fp_per_class_count[cls] < max_fp_per_class:
+                pred_text = pred.get("text", "")
+                # Find if there's a gold entity with the same text but different type
+                correct_type = None
+                for gold in gold_entities:
+                    if gold.get("text", "") == pred_text and _entity_type(gold) != cls:
+                        correct_type = _entity_type(gold)
+                        break
+                # Get input text for context
+                input_text = ""
+                if isinstance(item.input, dict):
+                    for v in item.input.values():
+                        if isinstance(v, str) and len(v) > len(input_text):
+                            input_text = v
+                elif isinstance(item.input, str):
+                    input_text = item.input
+                # Extract short context around the entity
+                context = input_text[:120] + "..." if len(input_text) > 120 else input_text
+                fp_entry = {
+                    "predicted_text": pred_text,
+                    "predicted_type": cls,
+                    "context": context,
+                }
+                if correct_type:
+                    fp_entry["correct_type"] = correct_type
+                fp_examples.append(fp_entry)
+                fp_per_class_count[cls] += 1
 
         # Accumulate per-class FN
         for gold in fn_list:
@@ -361,6 +475,7 @@ def evaluate_dataset(
         total_fn=total_fn,
         total_docs=total_docs,
         failures=failures,
+        fp_examples=fp_examples,
     )
 
 
@@ -375,6 +490,7 @@ def evaluate_rules_individually(
     apply_rules_fn,
     mode: str = "text",
     max_samples: int = 10,
+    iou_threshold: float = 0.5,
 ) -> list[RuleMetrics]:
     """Evaluate each rule in isolation against the dataset.
 
@@ -386,8 +502,9 @@ def evaluate_rules_individually(
         rules: Rules to evaluate individually.
         dataset: Dataset with examples and corrections.
         apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
-        mode: 'text' or 'exact'.
+        mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
+        iou_threshold: Minimum IoU for partial matching (default 0.5).
 
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
@@ -418,7 +535,7 @@ def evaluate_rules_individually(
             gold_entities = _get_entities(expected_output, task_type)
 
             matched, fp_list, fn_list = _match_entities(
-                pred_entities, gold_entities, task_type, mode
+                pred_entities, gold_entities, task_type, mode, iou_threshold
             )
 
             rule_total_matches += len(pred_entities)
