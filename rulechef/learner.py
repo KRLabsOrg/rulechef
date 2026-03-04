@@ -628,13 +628,6 @@ class RuleLearner:
         dataset.structured_feedback = [
             f for f in dataset.structured_feedback if f.source != "critic"
         ]
-        # Also clean legacy feedback list
-        critic_task_texts = {
-            f.text
-            for f in dataset.structured_feedback
-            if f.source == "critic" and f.level == "task"
-        }
-
         added_rule = 0
         added_task = 0
 

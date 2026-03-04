@@ -326,7 +326,7 @@ def _match_entities_partial(
     # Greedy match: best IoU first
     candidates.sort(key=lambda x: -x[0])
     used_pred = set()
-    for iou, pi, gi in candidates:
+    for _iou, pi, gi in candidates:
         if pi in used_pred or gi in used_gold:
             continue
         matched_pairs.append((predicted[pi], expected[gi]))
