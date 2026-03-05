@@ -138,6 +138,10 @@ class RuleLearner:
 
             elapsed = time.time() - start
             print(f"✓ Synthesized {len(rules)} rules ({elapsed:.1f}s)")
+
+            rules_hash = hashlib.md5(json.dumps([{"name": r.name, "content": r.content} for r in rules], sort_keys=True).encode()).hexdigest()
+            print(f"  Rules hash: {rules_hash}")
+
             return rules
 
         except Exception as e:
@@ -467,6 +471,10 @@ class RuleLearner:
                 print(
                     f"[{iter_num}/{max_iterations}] Patching {len(eval_result.failures)} failures..."
                 )
+                rules_hash = hashlib.md5(json.dumps([{"name": r.name, "content": r.content} for r in rules], sort_keys=True).encode()).hexdigest()
+                failures_hash = hashlib.md5(json.dumps(eval_result.failures, sort_keys=True, default=str).encode()).hexdigest()
+                print(f"  Rules hash: {rules_hash}")
+                print(f"  Failures hash: {failures_hash}")
                 start = time.time()
                 patch = self.synthesize_patch_ruleset(
                     rules,
@@ -902,7 +910,7 @@ Instructions:
                 # Sort by weight descending — weakest classes first
                 classes.sort(key=lambda c: class_weights.get(c, 0.5), reverse=True)
             else:
-                random.shuffle(classes, seed=42)
+                random.Random(42).shuffle(classes)     
 
             # Round-robin with weighted class order
             idx = 0
