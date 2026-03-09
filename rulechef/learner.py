@@ -1,5 +1,6 @@
 """LLM-based rule learning"""
 
+import hashlib
 import json
 import random
 import re
@@ -16,8 +17,6 @@ from rulechef.evaluation import (
 )
 from rulechef.executor import RuleExecutor
 from rulechef.prompts import PromptBuilder
-
-import hashlib
 
 
 class RuleLearner:
@@ -110,7 +109,8 @@ class RuleLearner:
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
-                max_completion_tokens=16384,
+                # max_completion_tokens=16384,
+                max_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 temperature=0,
@@ -139,7 +139,11 @@ class RuleLearner:
             elapsed = time.time() - start
             print(f"✓ Synthesized {len(rules)} rules ({elapsed:.1f}s)")
 
-            rules_hash = hashlib.md5(json.dumps([{"name": r.name, "content": r.content} for r in rules], sort_keys=True).encode()).hexdigest()
+            rules_hash = hashlib.md5(
+                json.dumps(
+                    [{"name": r.name, "content": r.content} for r in rules], sort_keys=True
+                ).encode()
+            ).hexdigest()
             print(f"  Rules hash: {rules_hash}")
 
             return rules
@@ -243,7 +247,8 @@ class RuleLearner:
             try:
                 response = self.llm.chat.completions.create(
                     model=self.model,
-                    max_completion_tokens=16384,
+                    # max_completion_tokens=16384,
+                    max_tokens=16384,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     temperature=0,
@@ -471,8 +476,14 @@ class RuleLearner:
                 print(
                     f"[{iter_num}/{max_iterations}] Patching {len(eval_result.failures)} failures..."
                 )
-                rules_hash = hashlib.md5(json.dumps([{"name": r.name, "content": r.content} for r in rules], sort_keys=True).encode()).hexdigest()
-                failures_hash = hashlib.md5(json.dumps(eval_result.failures, sort_keys=True, default=str).encode()).hexdigest()
+                rules_hash = hashlib.md5(
+                    json.dumps(
+                        [{"name": r.name, "content": r.content} for r in rules], sort_keys=True
+                    ).encode()
+                ).hexdigest()
+                failures_hash = hashlib.md5(
+                    json.dumps(eval_result.failures, sort_keys=True, default=str).encode()
+                ).hexdigest()
                 print(f"  Rules hash: {rules_hash}")
                 print(f"  Failures hash: {failures_hash}")
                 start = time.time()
@@ -910,7 +921,7 @@ Instructions:
                 # Sort by weight descending — weakest classes first
                 classes.sort(key=lambda c: class_weights.get(c, 0.5), reverse=True)
             else:
-                random.Random(42).shuffle(classes)     
+                random.Random(42).shuffle(classes)
 
             # Round-robin with weighted class order
             idx = 0

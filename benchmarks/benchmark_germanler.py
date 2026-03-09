@@ -188,11 +188,10 @@ def run_benchmark(args):
         print(f"  Test: {len(test_data)} (filtered to selected classes, held out)")
 
     # 3. Configure rulechef
-
     active_labels = sorted(selected_classes)
     task = Task(
         name="German LER Named Entity Recognition",
-        description=f"Find named entities in German legal text. Entities to look for: {', '.join(active_labels)}.",
+        description=f"Recognize named entities in German legal text. Entities to look for: {', '.join(active_labels)}.",
         input_schema={"text": "str"},
         output_schema=NEROutput,
         type=TaskType.NER,
@@ -201,7 +200,7 @@ def run_benchmark(args):
 
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY") or "EMPTY",
-        base_url="http://localhost:8000/v1",
+        base_url=args.base_url,
     )
 
     import tempfile
@@ -349,8 +348,8 @@ def run_benchmark(args):
         test_dataset.examples.append(
             Example(
                 id=str(uuid.uuid4())[:8],
-                input={"text": ex["text"]},
-                expected_output={"label": ex["label"]},
+                input={"text": ex.text},
+                expected_output={"entities": ex.labels},
                 source="benchmark",
             )
         )
@@ -500,7 +499,7 @@ def main():
     parser.add_argument(
         "--shots",
         type=int,
-        default=5,
+        default=50,
         help="Examples per intent class for training (default: 5)",
     )
     parser.add_argument(
@@ -537,13 +536,13 @@ def main():
     parser.add_argument(
         "--max-rules",
         type=int,
-        default=100,
+        default=10,
         help="Max rules to generate per synthesis (default: 100)",
     )
     parser.add_argument(
         "--max-samples",
         type=int,
-        default=200,
+        default=50,
         help="Max training examples in LLM prompt (default: 200)",
     )
     parser.add_argument(
@@ -555,7 +554,7 @@ def main():
     parser.add_argument(
         "--test-limit",
         type=int,
-        default=None,
+        default=100,
         help="Limit test set size for quick runs (default: full 3080)",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
