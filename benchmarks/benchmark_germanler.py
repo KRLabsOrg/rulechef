@@ -368,7 +368,7 @@ def run_benchmark(args):
 
     # 9. Print results
     print(f"\n{'=' * 70}")
-    print("BANKING77 BENCHMARK RESULTS")
+    print("German LER BENCHMARK RESULTS")
     print(f"{'=' * 70}")
     print("  Configuration:")
     print(f"    Shots per class:          {args.shots}")
