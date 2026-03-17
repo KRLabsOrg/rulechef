@@ -122,7 +122,8 @@ class RuleLearner:
                 max_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                **self._temp_kwargs(),
+                temperature=0,
+                seed=42,
             )
 
             response_text = response.choices[0].message.content
@@ -259,10 +260,10 @@ class RuleLearner:
                     max_tokens=16384,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
-                    **self._temp_kwargs(),
                     temperature=0,
                     seed=42,
                 )
+                print("Rules hash:", hashlib.md5(response.encode()).hexdigest())
                 response_text = response.choices[0].message.content
                 result = self._parse_json(response_text)
                 rules = self._parse_rules_from_response(result, max_rules_per_class, dataset)
@@ -811,13 +812,19 @@ class RuleLearner:
                 max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                **self._temp_kwargs(),
                 temperature=0,
                 seed=42,
             )
 
             response_text = response.choices[0].message.content
             result = self._parse_json(response_text)
+
+            rules_hash = hashlib.md5(
+                json.dumps(
+                    [{"name": r.name, "content": r.content} for r in rules], sort_keys=True
+                ).encode()
+            ).hexdigest()
+
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
             deleted_names = set(result.get("deleted_rules", [])) if result else set()
 
@@ -1080,7 +1087,8 @@ Instructions:
 
 {response_schema}
 """
-        print("PATCH Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
+        # print("PATCH Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     # ========================================
@@ -1308,7 +1316,6 @@ Instructions:
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            **self._temp_kwargs(),
             temperature=0,
             seed=42,
         )
