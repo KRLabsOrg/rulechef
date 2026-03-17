@@ -371,6 +371,7 @@ class Feedback:
         text: The feedback text.
         level: Feedback scope -- 'task', 'example', or 'rule'.
         target_id: Empty for task-level; example_id or rule_id otherwise.
+        source: Origin -- '' for human, 'critic' for critic agent.
         timestamp: When the feedback was created.
     """
 
@@ -378,15 +379,19 @@ class Feedback:
     text: str
     level: str  # "task" | "example" | "rule"
     target_id: str = ""  # empty for task-level, example_id or rule_id otherwise
+    source: str = ""  # "" for human, "critic" for critic agent
     timestamp: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id": self.id,
             "text": self.text,
             "level": self.level,
             "target_id": self.target_id,
         }
+        if self.source:
+            d["source"] = self.source
+        return d
 
 
 @dataclass

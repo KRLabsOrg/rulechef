@@ -10,13 +10,14 @@ from collections import defaultdict
 
 from openai import OpenAI
 
-from rulechef.core import Correction, Dataset, Rule, RuleFormat, TaskType
+from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
 from rulechef.evaluation import (
     EvalResult,
     evaluate_dataset,
+    evaluate_rules_individually,
 )
 from rulechef.executor import RuleExecutor
-from rulechef.prompts import PromptBuilder
+from rulechef.prompts import RULE_QUALITY_GUIDE, PromptBuilder
 
 
 class RuleLearner:
@@ -35,6 +36,7 @@ class RuleLearner:
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
         training_logger=None,
+        temperature: float | None = None,
     ):
         """Initialize the rule learner.
 
@@ -65,12 +67,19 @@ class RuleLearner:
         self.max_rules_per_class = max_rules_per_class
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
+        self.temperature = temperature
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
         )
+
+    def _temp_kwargs(self) -> dict:
+        """Return temperature kwarg dict if set, empty dict otherwise."""
+        if self.temperature is not None:
+            return {"temperature": self.temperature}
+        return {}
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -113,8 +122,7 @@ class RuleLearner:
                 max_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+                **self._temp_kwargs(),
             )
 
             response_text = response.choices[0].message.content
@@ -251,6 +259,7 @@ class RuleLearner:
                     max_tokens=16384,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
+                    **self._temp_kwargs(),
                     temperature=0,
                     seed=42,
                 )
@@ -408,6 +417,7 @@ class RuleLearner:
         max_iterations: int = 3,
         coordinator=None,
         iteration_callback=None,
+        audit_interval: int = 3,
     ) -> tuple:
         """Evaluate rules and refine through patch-based loop.
 
@@ -425,11 +435,19 @@ class RuleLearner:
             iteration_callback: Optional callable(iteration: int, rules: List[Rule],
                 eval_result: EvalResult) called after each evaluation. Useful for
                 logging per-iteration metrics in benchmarks.
+            audit_interval: Run LLM audit every N iterations to prune duplicates
+                and weak rules. Only runs if coordinator supports audit. 0 to disable.
+                Overridden by coordinator.audit_interval if set.
 
         Returns:
             Tuple of (best_rules, best_eval_result) where best_rules is
             the rule set with the highest micro F1 seen across iterations.
         """
+        # Read intervals from coordinator if available
+        if coordinator and hasattr(coordinator, "audit_interval"):
+            audit_interval = coordinator.audit_interval
+        critic_interval = getattr(coordinator, "critic_interval", 0) if coordinator else 0
+
         print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
         best_rules = rules
@@ -455,12 +473,38 @@ class RuleLearner:
                 best_f1 = eval_result.micro_f1
                 best_eval = eval_result
 
+            # Run critic periodically for strategic feedback
+            if (
+                critic_interval > 0
+                and iteration % critic_interval == 0
+                and coordinator
+                and hasattr(coordinator, "critique_rules")
+            ):
+                self._run_critic(rules, dataset, coordinator, eval_result)
+
             if iteration_callback:
                 iteration_callback(iter_num, rules, eval_result)
 
             if exact >= 0.90:
                 print("✓ Achieved 90%+ exact match!")
                 break
+
+            # Periodic audit to consolidate rules mid-refinement
+            if (
+                audit_interval > 0
+                and coordinator
+                and iter_num > 1
+                and iter_num % audit_interval == 0
+                and hasattr(coordinator, "prune_after_learn")
+                and coordinator.prune_after_learn
+            ):
+                rules = self._run_mid_refinement_audit(
+                    rules, dataset, coordinator, eval_result, iter_num
+                )
+                if eval_result.micro_f1 > best_f1:
+                    best_rules = rules
+                    best_f1 = eval_result.micro_f1
+                    best_eval = eval_result
 
             # Ask coordinator for guidance (if provided)
             guidance = ""
@@ -487,26 +531,38 @@ class RuleLearner:
                 print(f"  Rules hash: {rules_hash}")
                 print(f"  Failures hash: {failures_hash}")
                 start = time.time()
-                patch = self.synthesize_patch_ruleset(
+                patch_max = min(self.max_rules, 8)
+                patch, deleted_names = self.synthesize_patch_ruleset(
                     rules,
                     eval_result.failures,
-                    max_rules=self.max_rules,
+                    max_rules=patch_max,
                     dataset=dataset,
                     guidance=guidance,
                     class_metrics=eval_result.per_class,
+                    fp_examples=eval_result.fp_examples,
                 )
                 elapsed = time.time() - start
-                if not patch:
+                if not patch and not deleted_names:
                     print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
-                    candidate = self._merge_patch(rules, patch)
+                    candidate = self._merge_patch(rules, patch, deleted_names)
                     candidate_eval = self._evaluate_rules(candidate, dataset)
-                    candidate_exact = candidate_eval.exact_match
-                    if candidate_exact >= exact:
+                    prev_f1 = eval_result.micro_f1
+                    prev_p = eval_result.micro_precision
+                    cand_f1 = candidate_eval.micro_f1
+                    cand_p = candidate_eval.micro_precision
+
+                    # Accept if:
+                    # - F1 doesn't drop more than 0.5%, OR
+                    # - Precision improved (higher precision at cost of some
+                    #   recall is a net win for rule quality)
+                    accepted = cand_f1 >= prev_f1 - 0.005 or cand_p > prev_p
+                    if accepted:
                         rules = candidate
                         print(
                             f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
-                            f"exact match {exact:.1%} → {candidate_exact:.1%} ({elapsed:.1f}s)"
+                            f"F1 {prev_f1:.1%} → {cand_f1:.1%}, "
+                            f"P {prev_p:.1%} → {cand_p:.1%} ({elapsed:.1f}s)"
                         )
                         if candidate_eval.micro_f1 > best_f1:
                             best_rules = rules
@@ -514,8 +570,9 @@ class RuleLearner:
                             best_eval = candidate_eval
                     else:
                         print(
-                            f"[{iter_num}/{max_iterations}] Patch made it worse "
-                            f"({exact:.1%} → {candidate_exact:.1%}), keeping previous"
+                            f"[{iter_num}/{max_iterations}] Patch rejected "
+                            f"(F1 {prev_f1:.1%} → {cand_f1:.1%}, "
+                            f"P {prev_p:.1%} → {cand_p:.1%}), keeping previous"
                         )
             else:
                 print("✓ No failures to fix!")
@@ -523,10 +580,126 @@ class RuleLearner:
 
         return best_rules, best_eval
 
+    def _run_mid_refinement_audit(
+        self,
+        rules: list[Rule],
+        dataset: Dataset,
+        coordinator,
+        eval_result: EvalResult,
+        iter_num: int,
+    ) -> list[Rule]:
+        """Run LLM audit mid-refinement to consolidate rules."""
+        print(f"[{iter_num}] Running mid-refinement audit ({len(rules)} rules)...")
+        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        audit = coordinator.audit_rules(rules, rule_metrics)
+        if not audit.actions:
+            return rules
+
+        # Apply audit actions inline
+        pre_f1 = eval_result.micro_f1
+        pre_rules = list(rules)
+        rules_by_id = {r.id: r for r in rules}
+
+        for action in audit.actions:
+            if action.action == "merge" and len(action.rule_ids) >= 2:
+                sources = [rules_by_id[rid] for rid in action.rule_ids if rid in rules_by_id]
+                if len(sources) < 2:
+                    continue
+                if action.merged_pattern:
+                    try:
+                        re.compile(action.merged_pattern)
+                    except re.error:
+                        continue
+                base = max(sources, key=lambda r: r.priority)
+                merged = Rule(
+                    id=self._generate_id(),
+                    name=action.merged_name or base.name,
+                    description=f"Merged: {action.reason}",
+                    format=base.format,
+                    content=action.merged_pattern or base.content,
+                    priority=base.priority,
+                    output_template=base.output_template,
+                    output_key=base.output_key,
+                )
+                rules = [r for r in rules if r.id not in action.rule_ids]
+                rules.append(merged)
+                rules_by_id = {r.id: r for r in rules}
+
+            elif action.action == "remove":
+                for rid in action.rule_ids:
+                    if rid in rules_by_id:
+                        rules = [r for r in rules if r.id != rid]
+                        del rules_by_id[rid]
+
+        # Safety net
+        post_eval = self._evaluate_rules(rules, dataset)
+        if post_eval.micro_f1 < pre_f1 - 0.01:
+            print(f"⚠ Mid-audit dropped F1 ({pre_f1:.2f} → {post_eval.micro_f1:.2f}), reverting")
+            return pre_rules
+
+        print(f"🧹 Mid-audit: {len(pre_rules)} → {len(rules)} rules")
+        return rules
+
+    def _run_critic(self, rules, dataset, coordinator, eval_result):
+        """Run critic agent — writes feedback to dataset like a human domain expert."""
+        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        critique = coordinator.critique_rules(rules, rule_metrics, eval_result, dataset)
+        if not critique:
+            return
+
+        # Clear previous critic feedback (refresh each learning cycle)
+        dataset.structured_feedback = [
+            f for f in dataset.structured_feedback if f.source != "critic"
+        ]
+        added_rule = 0
+        added_task = 0
+
+        # Write rule-level feedback (same as chef.add_feedback would)
+        for rule_id, text in critique.get("rule_feedback", {}).items():
+            fb = Feedback(
+                id=self._generate_id(),
+                text=text,
+                level="rule",
+                target_id=rule_id,
+                source="critic",
+            )
+            dataset.structured_feedback.append(fb)
+            added_rule += 1
+
+        # Write task-level feedback
+        if critique.get("task_guidance"):
+            fb = Feedback(
+                id=self._generate_id(),
+                text=critique["task_guidance"],
+                level="task",
+                source="critic",
+            )
+            dataset.structured_feedback.append(fb)
+            dataset.feedback.append(critique["task_guidance"])
+            added_task += 1
+
+        analysis = critique.get("analysis", "")
+        print(f"📝 Critic: {analysis}")
+        if added_rule or added_task:
+            print(f"   Added {added_rule} rule-level + {added_task} task-level feedback")
+
     @staticmethod
-    def _merge_patch(existing: list[Rule], patches: list[Rule]) -> list[Rule]:
-        """Merge patch rules into existing set by name."""
+    def _merge_patch(
+        existing: list[Rule], patches: list[Rule], deleted_names: set[str] | None = None
+    ) -> list[Rule]:
+        """Merge patch rules into existing set by name, with optional deletions."""
         by_name = {r.name: r for r in existing}
+
+        # Remove deleted rules first
+        if deleted_names:
+            actually_deleted = [n for n in deleted_names if n in by_name]
+            for name in actually_deleted:
+                del by_name[name]
+            if actually_deleted:
+                print(
+                    f"🗑️ Patch deleted {len(actually_deleted)} rules: {', '.join(actually_deleted)}"
+                )
+
         for pr in patches:
             if pr.name in by_name:
                 current = by_name[pr.name]
@@ -535,7 +708,40 @@ class RuleLearner:
                 pr.failures = current.failures
                 pr.confidence = current.confidence
             by_name[pr.name] = pr
-        return list(by_name.values())
+        merged = list(by_name.values())
+        return RuleLearner._dedup_rules(merged)
+
+    @staticmethod
+    def _dedup_rules(rules: list[Rule]) -> list[Rule]:
+        """Remove duplicate regex rules with identical content and output type."""
+        seen: dict[tuple, Rule] = {}  # key: (content, output_type, output_key)
+        result = []
+        for r in rules:
+            if r.format != RuleFormat.REGEX:
+                result.append(r)
+                continue
+            # Normalize: strip whitespace
+            content = r.content.strip()
+            output_type = (r.output_template or {}).get("type", "")
+            key = (content, output_type, r.output_key or "")
+            if key in seen:
+                # Keep higher priority, or the one with more successes
+                existing = seen[key]
+                if r.priority > existing.priority or (
+                    r.priority == existing.priority and r.successes > existing.successes
+                ):
+                    # Replace
+                    result = [x for x in result if x.id != existing.id]
+                    result.append(r)
+                    seen[key] = r
+                # else skip this duplicate
+            else:
+                seen[key] = r
+                result.append(r)
+        deduped = len(rules) - len(result)
+        if deduped:
+            print(f"🧹 Deduped {deduped} identical rules")
+        return result
 
     def _evaluate_rules(self, rules: list[Rule], dataset: Dataset) -> EvalResult:
         """Evaluate rules on all training data. Returns EvalResult."""
@@ -569,14 +775,16 @@ class RuleLearner:
         dataset: Dataset | None = None,
         guidance: str = "",
         class_metrics: list | None = None,
-    ) -> list[Rule]:
+        fp_examples: list[dict] | None = None,
+    ) -> tuple[list[Rule], set[str]]:
         """Generate incremental rules targeted at specific failures.
 
         Returns only new/updated rules; the caller is responsible for
         merging them into the existing rule set.
 
         Returns:
-            List[Rule] of patch rules, or empty list on failure.
+            Tuple of (patch_rules, deleted_names) where deleted_names is
+            a set of rule names the LLM wants removed.
         """
         max_rules = max_rules or self.max_rules
         sampled_failures = self._sample_failures(
@@ -590,6 +798,8 @@ class RuleLearner:
             max_rules,
             dataset=dataset,
             guidance=guidance,
+            class_metrics=class_metrics,
+            fp_examples=fp_examples,
         )
 
         print("🩹 Synthesizing patch rules...")
@@ -601,6 +811,7 @@ class RuleLearner:
                 max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                **self._temp_kwargs(),
                 temperature=0,
                 seed=42,
             )
@@ -608,6 +819,7 @@ class RuleLearner:
             response_text = response.choices[0].message.content
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
+            deleted_names = set(result.get("deleted_rules", [])) if result else set()
 
             if self.training_logger:
                 self.training_logger.log(
@@ -620,17 +832,21 @@ class RuleLearner:
                         "num_failures": len(sampled_failures),
                         "num_existing_rules": len(current_rules),
                         "num_rules_in_response": len(rules),
+                        "num_deleted": len(deleted_names),
                         "response_valid": bool(rules),
                         "guidance": guidance[:200] if guidance else None,
                     },
                 )
 
             elapsed = time.time() - start
-            print(f"✓ Patch synthesis returned {len(rules)} rules ({elapsed:.1f}s)")
-            return rules
+            msg = f"✓ Patch synthesis returned {len(rules)} rules"
+            if deleted_names:
+                msg += f", {len(deleted_names)} deletions"
+            print(f"{msg} ({elapsed:.1f}s)")
+            return rules, deleted_names
         except Exception as e:
             print(f"Error synthesizing patch rules: {e}")
-            return []
+            return [], set()
 
     # ========================================
     # Prompt Building
@@ -715,11 +931,12 @@ class RuleLearner:
         # Focused task instructions
         prompt += f"""
 
+{RULE_QUALITY_GUIDE}
+
 INSTRUCTIONS:
 - Generate up to {max_rules} rules that match examples of '{target_class}'.
 - Rules should generalize to unseen text, not just memorize the examples shown.
-- Use keyword-based patterns with word boundaries where possible.
-- Specific/literal patterns are acceptable as fallbacks for unusual inputs.
+- Use structural patterns with word boundaries that generalize to unseen text.
 """
         if not is_transformation:
             prompt += "- Rules must NOT match the counter-examples shown above.\n"
@@ -737,6 +954,8 @@ INSTRUCTIONS:
         max_rules: int,
         dataset: Dataset | None = None,
         guidance: str = "",
+        class_metrics: list | None = None,
+        fp_examples: list[dict] | None = None,
     ) -> str:
         """Build prompt for targeted patch rules."""
         rules_detail = []
@@ -787,7 +1006,8 @@ INSTRUCTIONS:
       "content": "pattern or code",
       "priority": 1-10
     }
-  ]
+  ],
+  "deleted_rules": ["name_of_rule_to_remove"]
 }"""
             data_evidence = ""
 
@@ -803,27 +1023,58 @@ INSTRUCTIONS:
         if guidance:
             guidance_section = f"\nCOORDINATOR GUIDANCE (prioritize this):\n{guidance}\n"
 
+        # Build per-class metrics summary so the LLM knows which classes have problems
+        class_metrics_section = ""
+        if class_metrics:
+            lines = ["\nPER-CLASS METRICS (current performance):"]
+            for cm in class_metrics:
+                lines.append(
+                    f"  {cm.label}: P={cm.precision:.0%} R={cm.recall:.0%} F1={cm.f1:.0%} "
+                    f"(TP={cm.tp} FP={cm.fp} FN={cm.fn})"
+                )
+            class_metrics_section = "\n".join(lines) + "\n"
+
+        # Build FP examples section
+        fp_section = ""
+        if fp_examples:
+            fp_lines = [
+                "\nFALSE POSITIVES (rules are incorrectly matching these — tighten the responsible rules):"
+            ]
+            for fp in fp_examples:
+                line = f'  Predicted "{fp["predicted_text"]}" as {fp["predicted_type"]}'
+                if fp.get("correct_type"):
+                    line += f" — should be {fp['correct_type']}"
+                else:
+                    line += " — not an entity"
+                fp_lines.append(line)
+            fp_section = "\n".join(fp_lines) + "\n"
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
 {data_evidence}
 {task_feedback_section}
 {guidance_section}
+{class_metrics_section}
 CURRENT RULES (full details, note any user_feedback on specific rules):
 {json.dumps(rules_detail, indent=2)}
 
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}
-
+{fp_section}
 Instructions:
-- Add or tweak rules to fix the shown failures.
+- Add, tweak, or DELETE rules to fix the shown failures and reduce false positives.
 - Pay close attention to user_feedback on rules AND task-level USER GUIDANCE — these are direct instructions from the user and MUST be addressed even if there are no failures.
 - If a rule has user_feedback, modify or replace that rule to address the feedback.
 - IMPORTANT: When updating an existing rule, you MUST reuse the EXACT same "name" as the original rule. Do NOT add suffixes like "_fixed", "_v2", "_updated", etc. The merge system uses name-matching to replace the old version — a different name creates a duplicate instead of replacing.
-- Prefer keyword-based patterns with word boundaries that generalize to unseen text. Specific/literal patterns are OK as fallbacks, but prioritize patterns that capture the concept, not just one example.
+- If a rule is fundamentally too broad (FP >> TP) and you're providing better, narrower replacements, list the old rule's exact name in "deleted_rules". Only delete if you're providing replacements in "rules".
+- If a rule has high false positives (FP >> TP), TIGHTEN its pattern or DELETE it and add narrower replacements. Adding context or narrowing the match is better than piling on new rules.
+- Use structural patterns with word boundaries that generalize to unseen text.
 - Keep total new/updated rules <= {max_rules}.
 - Use formats: {", ".join([f.value for f in self.allowed_formats])}
 - Avoid touching unrelated behaviors.
+
+{RULE_QUALITY_GUIDE}
 
 {self.prompt_builder._build_format_instructions(dataset.task.type) if dataset else ""}
 
@@ -1057,6 +1308,7 @@ Instructions:
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **self._temp_kwargs(),
             temperature=0,
             seed=42,
         )

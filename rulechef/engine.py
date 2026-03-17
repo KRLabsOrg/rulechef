@@ -57,6 +57,7 @@ class RuleChef:
         max_counter_examples: int = 10,
         synthesis_strategy: str = "auto",
         training_logger=None,
+        temperature: float | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -91,6 +92,8 @@ class RuleChef:
                 always uses per-class, any other value uses bulk synthesis.
             training_logger: Optional TrainingDataLogger instance for capturing
                 all LLM calls as training data for model distillation.
+            temperature: LLM temperature for rule synthesis calls. Set to 0 for
+                deterministic results. None uses the model's default.
         """
         self.task = task
         self.llm = client or OpenAI()
@@ -102,6 +105,7 @@ class RuleChef:
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
+        self.temperature = temperature
 
         # Save constructor args for lazy initialization (when task=None)
         self._dataset_name = dataset_name
@@ -114,9 +118,12 @@ class RuleChef:
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
 
-        # Propagate training logger to coordinator if it's agentic
-        if self.training_logger and isinstance(self.coordinator, AgenticCoordinator):
-            self.coordinator.training_logger = self.training_logger
+        # Propagate settings to coordinator if it's agentic
+        if isinstance(self.coordinator, AgenticCoordinator):
+            if self.training_logger:
+                self.coordinator.training_logger = self.training_logger
+            if self.temperature is not None:
+                self.coordinator.temperature = self.temperature
 
         # Buffer for observed examples (buffer-first architecture)
         self.buffer = ExampleBuffer()
@@ -197,6 +204,7 @@ class RuleChef:
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
+            temperature=self.temperature,
         )
 
         # Load existing dataset if on disk

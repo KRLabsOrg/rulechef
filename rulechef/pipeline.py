@@ -242,12 +242,12 @@ class LearningPipeline:
                     for item in sample
                 ]
 
-            patch_rules = chef.learner.synthesize_patch_ruleset(
+            patch_rules, deleted_names = chef.learner.synthesize_patch_ruleset(
                 chef.dataset.rules,
                 failures,
                 dataset=chef.dataset,
             )
-            return self._merge_rules(chef.dataset.rules, patch_rules)
+            return self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
         else:
             # Choose synthesis method based on strategy
             use_per_class = False
@@ -345,9 +345,19 @@ class LearningPipeline:
         chef._store.save(chef.dataset)
         return chef.dataset.rules
 
-    def _merge_rules(self, existing: list[Rule], patches: list[Rule]) -> list[Rule]:
+    def _merge_rules(
+        self, existing: list[Rule], patches: list[Rule], deleted_names: set[str] | None = None
+    ) -> list[Rule]:
         """Merge patch rules into existing set and prune weak rules."""
         by_name = {r.name: r for r in existing}
+
+        # Remove deleted rules first
+        if deleted_names:
+            actually_deleted = [n for n in deleted_names if n in by_name]
+            for name in actually_deleted:
+                del by_name[name]
+            if actually_deleted:
+                print(f"🗑️ Deleted {len(actually_deleted)} rules: {', '.join(actually_deleted)}")
 
         for pr in patches:
             if pr.name in by_name:

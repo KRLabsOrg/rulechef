@@ -32,6 +32,7 @@ Coordinator protocol and implementations for learning decision logic.
         - guide_refinement
         - on_learning_complete
         - audit_rules
+        - critique_rules
 
 ## AuditResult
 

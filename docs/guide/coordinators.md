@@ -17,8 +17,8 @@ The default coordinator uses threshold-based heuristics:
 from rulechef import SimpleCoordinator
 
 coordinator = SimpleCoordinator(
-    trigger_threshold=10,    # Min new examples before first learn
-    correction_threshold=5,  # Min corrections before refinement
+    trigger_threshold=50,    # Min new examples before first learn
+    correction_threshold=10, # Min corrections before refinement
 )
 
 chef = RuleChef(task, client, coordinator=coordinator)
@@ -84,6 +84,7 @@ coordinator = AgenticCoordinator(
     client,
     model="gpt-4o-mini",
     prune_after_learn=True,
+    audit_interval=3,    # Run mid-refinement audit every N iterations (default: 3, 0 to disable)
 )
 chef = RuleChef(task, client, coordinator=coordinator)
 chef.learn_rules()
@@ -97,6 +98,27 @@ The audit prefers **merging** over removing:
 A safety net re-evaluates after pruning and **reverts all changes** if F1 drops by more than 1%. Rules with low scores are kept -- they may cover rare edge cases not in the training set.
 
 In the CLI: `learn --agentic --prune`.
+
+### Critic Agent
+
+Enable `enable_critic` to run an LLM critic before refinement. The critic acts like a human domain expert — it reviews the entire ruleset with per-rule metrics, false positive/negative examples, and per-class performance, then provides actionable feedback:
+
+```python
+coordinator = AgenticCoordinator(
+    client,
+    model="gpt-4o-mini",
+    prune_after_learn=True,
+    enable_critic=True,
+    critic_interval=4,   # Run critic every N iterations (default: 4, 0 to disable)
+)
+```
+
+The critic runs periodically during refinement (controlled by `critic_interval`) and writes feedback using the same mechanism as `add_feedback()`:
+
+- **Rule-level feedback**: Specific advice per rule (e.g., "Narrow `\d+` by adding context for dollar amounts")
+- **Task-level feedback**: Strategic guidance about class disambiguation and priority ordering
+
+This feedback is automatically picked up by the patch prompt in subsequent refinement iterations. Critic feedback is tagged with `source="critic"` and refreshed each learning cycle.
 
 ## Custom Coordinators
 
@@ -133,6 +155,10 @@ class MyCoordinator(CoordinatorProtocol):
     def audit_rules(self, rules, rule_metrics):
         """Return AuditResult with merge/remove actions. Default: no-op."""
         return AuditResult()
+
+    def critique_rules(self, rules, rule_metrics, eval_result, dataset):
+        """Return feedback dict or None. Default: no critique."""
+        return None
 ```
 
 ### CoordinationDecision Fields

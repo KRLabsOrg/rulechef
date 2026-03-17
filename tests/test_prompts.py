@@ -46,7 +46,7 @@ def test_prompt_derives_labels_and_includes_evidence_for_dict_schema():
     assert "corporate_suffixes" not in prompt
 
     # Regex guidance should appear; spaCy guidance should not.
-    assert "REGEX TECHNIQUES:" in prompt
+    assert "REGEX SYNTAX REFERENCE:" in prompt
     assert "SPACY TECHNIQUES:" not in prompt
 
 

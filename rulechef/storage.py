@@ -70,6 +70,7 @@ class DatasetStore:
                     text=fb_data["text"],
                     level=fb_data["level"],
                     target_id=fb_data.get("target_id", ""),
+                    source=fb_data.get("source", ""),
                 )
                 dataset.structured_feedback.append(fb)
 
@@ -110,7 +111,7 @@ class DatasetStore:
             "dataset": dataset.name,
             "corrections": len(dataset.corrections),
             "examples": len(dataset.examples),
-            "feedback": len(dataset.feedback),
+            "feedback": len(dataset.structured_feedback),
             "rules": len(dataset.rules),
             "description": dataset.description,
         }
