@@ -125,7 +125,6 @@ class RuleLearner:
                 temperature=0,
                 seed=42,
             )
-
             response_text = response.choices[0].message.content
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset)
@@ -263,7 +262,7 @@ class RuleLearner:
                     temperature=0,
                     seed=42,
                 )
-                print("Rules hash:", hashlib.md5(response.encode()).hexdigest())
+
                 response_text = response.choices[0].message.content
                 result = self._parse_json(response_text)
                 rules = self._parse_rules_from_response(result, max_rules_per_class, dataset)
@@ -454,6 +453,7 @@ class RuleLearner:
         best_rules = rules
         best_f1 = 0.0
         best_eval = EvalResult()
+        no_improvement_count = 0
 
         for iteration in range(max_iterations):
             iter_num = iteration + 1
@@ -473,6 +473,14 @@ class RuleLearner:
                 best_rules = rules
                 best_f1 = eval_result.micro_f1
                 best_eval = eval_result
+                no_improvement_count = 0
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= 3:
+                    print(
+                        f"⚠ No improvement in F1 for {no_improvement_count} iterations, stopping early"
+                    )
+                    break
 
             # Run critic periodically for strategic feedback
             if (
@@ -819,12 +827,6 @@ class RuleLearner:
             response_text = response.choices[0].message.content
             result = self._parse_json(response_text)
 
-            rules_hash = hashlib.md5(
-                json.dumps(
-                    [{"name": r.name, "content": r.content} for r in rules], sort_keys=True
-                ).encode()
-            ).hexdigest()
-
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
             deleted_names = set(result.get("deleted_rules", [])) if result else set()
 
@@ -852,6 +854,7 @@ class RuleLearner:
             print(f"{msg} ({elapsed:.1f}s)")
             return rules, deleted_names
         except Exception as e:
+            print(e)
             print(f"Error synthesizing patch rules: {e}")
             return [], set()
 
