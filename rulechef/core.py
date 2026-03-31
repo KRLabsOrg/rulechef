@@ -484,7 +484,7 @@ class Rule:
         return cls(
             id=json_dict["id"],
             name=json_dict["name"],
-            description=json_dict["description"],
+            description=json_dict.get("description", ""),
             format=RuleFormat(json_dict["format"]),
             content=json_dict["content"],
             priority=json_dict.get("priority", 5),
@@ -492,7 +492,9 @@ class Rule:
             times_applied=json_dict.get("times_applied", 0),
             successes=json_dict.get("successes", 0),
             failures=json_dict.get("failures", 0),
-            created_at=json_dict["created_at"],
+            created_at=datetime.fromisoformat(
+                json_dict.get("created_at", datetime.now().isoformat())
+            ),
             output_template=json_dict.get("output_template"),
             output_key=json_dict.get("output_key"),
         )
