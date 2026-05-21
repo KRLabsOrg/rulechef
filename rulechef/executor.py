@@ -270,6 +270,7 @@ class RuleExecutor:
         for key, value in output.items():
             if isinstance(value, list) and value:
                 output[key] = self._deduplicate_dicts(value)
+                output[key] = self._keep_longest_spans(output[key])
 
         return output
 
@@ -305,6 +306,9 @@ class RuleExecutor:
             match_text = match.group()
             start = match.start()
             end = match.end()
+            # to skip rules that match nothing, failures too big, 400 error
+            if start == end:
+                continue
             groups = match.groups()
 
             if rule.output_template:
@@ -589,6 +593,52 @@ class RuleExecutor:
                 unique.append(item)
 
         return unique
+
+    def _keep_longest_spans(self, items: list[dict]) -> list[dict]:
+        if not items:
+            return items
+
+        has_spans = all(
+            isinstance(item, dict) and "start" in item and "end" in item for item in items
+        )
+        if not has_spans:
+            return items
+
+        def _to_int(value, default=0):
+            try:
+                if isinstance(value, (int, float)):
+                    return int(value)
+                if isinstance(value, str):
+                    return int(float(value))
+            except Exception:
+                return default
+            return default
+
+        sorted_items = sorted(
+            items,
+            key=lambda x: _to_int(x.get("end", 0)) - _to_int(x.get("start", 0)),
+            reverse=True,
+        )
+
+        accepted = []
+        for item in sorted_items:
+            item_type = item.get("type") or item.get("label")
+            item_start = _to_int(item.get("start", 0))
+            item_end = _to_int(item.get("end", 0))
+
+            overlaps = any(
+                (item_type == (ex.get("type") or ex.get("label")))
+                and item_start < _to_int(ex.get("end", 0))
+                and item_end > _to_int(ex.get("start", 0))
+                for ex in accepted
+            )
+
+            if not overlaps:
+                accepted.append(item)
+
+        # Restore document order
+        accepted.sort(key=lambda x: _to_int(x.get("start", 0)))
+        return accepted
 
     def _normalize_label(self, results: Any) -> str | None:
         """Normalize classification output to a single label string."""

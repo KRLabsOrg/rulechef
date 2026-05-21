@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
@@ -317,11 +318,13 @@ def _match_entities_partial(
     # Build scored candidates: (iou, pred_idx, gold_idx)
     candidates = []
     for pi, pred in enumerate(predicted):
+        # print("PREDICTED:", pred)
         p_type = _entity_type(pred)
         p_start = pred.get("start")
         p_end = pred.get("end")
 
         for gi, gold in enumerate(expected):
+            # print("GOLD:", gold)
             g_type = _entity_type(gold)
             if p_type != g_type:
                 continue
@@ -336,13 +339,20 @@ def _match_entities_partial(
                 and g_start is not None
                 and g_end is not None
             ):
+                print("IOU_THRESHOLD:", iou_threshold)
+                print("SPAN_IOU:", span_iou(pred, gold))
                 iou = span_iou(pred, gold)
                 if iou >= iou_threshold:
                     candidates.append((iou, pi, gi))
+                else:
+                    print(pred, gold, "-> CANDIDATE with IoU", iou)
+
             else:
                 # Fallback: text match
+
                 if pred.get("text", "") == gold.get("text", ""):
                     candidates.append((1.0, pi, gi))
+                    print(pi, gi)
 
     # Greedy match: best IoU first
     candidates.sort(key=lambda x: -x[0])
@@ -401,7 +411,6 @@ def evaluate_dataset(
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         pred_entities = _get_entities(extracted, task_type)
-
         for e in pred_entities:
             entities_found_by_rule.add(_entity_type(e))
     for item in all_data:
