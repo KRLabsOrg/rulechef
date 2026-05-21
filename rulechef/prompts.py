@@ -1105,6 +1105,12 @@ Each rule needs:
 
         return "\n".join(parts)
 
+    def _build_extra_instructions(self, task_type: TaskType) -> str:
+        if task_type == TaskType.NER:
+            return """
+        - DO NOT learn rules based SOLELY on grammatical patterns. 
+        """
+
     def _build_closing_instructions(self) -> str:
         """Build closing instructions for the prompt"""
         return """
