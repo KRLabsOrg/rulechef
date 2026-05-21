@@ -5,6 +5,7 @@ import json
 import random
 import re
 import time
+from urllib import response
 import uuid
 from collections import defaultdict
 
@@ -114,17 +115,20 @@ class RuleLearner:
 
         print("📚 Synthesizing rules from dataset...")
         start = time.time()
-
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
                 # max_completion_tokens=16384,
                 max_tokens=16384,
+                # max_completion_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 temperature=0,
                 seed=42,
+                frequency_penalty=0.1,
             )
+            response_text = response.choices[0].message.content
+            print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
             response_text = response.choices[0].message.content
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset)
@@ -190,6 +194,7 @@ class RuleLearner:
         print(
             f"📚 Per-class synthesis: {len(classes)} classes, up to {max_rules_per_class} rules each"
         )
+        print(f"  Classes: {classes}")
         all_rules = []
         total_start = time.time()
 
@@ -213,6 +218,10 @@ class RuleLearner:
                         counter_examples.append(ex)
                 elif task_type == TaskType.TRANSFORMATION:
                     positives.append(ex)
+
+            print("POSITIVES:", len(positives), positives[:2])
+
+            print("COUNTER-EXAMPLES:", len(counter_examples), counter_examples[:2])
 
             # Sample positives using the configured strategy
             if len(positives) > self.max_samples:
@@ -257,6 +266,7 @@ class RuleLearner:
                     model=self.model,
                     # max_completion_tokens=16384,
                     max_tokens=16384,
+                    # max_completion_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     temperature=0,
@@ -315,6 +325,8 @@ class RuleLearner:
 
         rules = []
         for i, rule_data in enumerate(result.get("rules", [])[:max_rules]):
+            if not isinstance(rule_data, dict):
+                continue
             raw_format = rule_data.get("format", "regex")
             # Accept common aliases
             if raw_format == "python":
@@ -391,7 +403,9 @@ class RuleLearner:
                 description=rule_data.get("description", ""),
                 format=rule_format,
                 content=pattern_content,
-                priority=rule_data.get("priority", 5),
+                priority=int(rule_data.get("priority", 5))
+                if str(rule_data.get("priority", 5)).isdigit()
+                else 5,
                 output_template=output_template,
                 output_key=output_key,
             )
@@ -818,6 +832,8 @@ class RuleLearner:
             response = self.llm.chat.completions.create(
                 model=self.model,
                 max_completion_tokens=16384,
+                max_tokens=16384,
+                # max_completion_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 temperature=0,
@@ -825,6 +841,8 @@ class RuleLearner:
             )
 
             response_text = response.choices[0].message.content
+            response_text = response.choices[0].message.content
+            print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
             result = self._parse_json(response_text)
 
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
@@ -898,6 +916,9 @@ class RuleLearner:
         prompt += self.prompt_builder._build_format_instructions(dataset.task.type)
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
+        prompt += self.prompt_builder._build_extra_instructions(
+            dataset.task.type
+        )  # extra instructions
         prompt += self.prompt_builder._build_closing_instructions()
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
@@ -957,6 +978,27 @@ INSTRUCTIONS:
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
+    def _categorize_rules_fp(
+        self, current_rules: list[Rule], failures: list[dict], threshold: float = 0.7
+    ):
+        from collections import defaultdict
+
+        rule_fp_counts: dict[str, int] = defaultdict(int)
+        for f in failures:
+            for ent in (f.get("got") or {}).get("entities", []):
+                if isinstance(ent, dict) and "rule_id" in ent:
+                    rule_fp_counts[ent["rule_id"]] += 1
+
+        cutoff = len(failures) * threshold
+        surviving, pruned_names = [], []
+        for r in current_rules:
+            if rule_fp_counts.get(r.id, 0) >= cutoff:
+                pruned_names.append(r.name)
+            else:
+                surviving.append(r)
+
+        return surviving, pruned_names
+
     def _build_patch_prompt(
         self,
         current_rules: list[Rule],
@@ -968,25 +1010,48 @@ INSTRUCTIONS:
         fp_examples: list[dict] | None = None,
     ) -> str:
         """Build prompt for targeted patch rules."""
-        rules_detail = []
+
+        active_ids: set[str] = set()
+        for f in failures:
+            for ent in (f.get("got") or {}).get("entities", []):
+                if isinstance(ent, dict) and "rule_id" in ent:
+                    active_ids.add(ent["rule_id"])
+        feedback_ids: set[str] = {
+            fb.target_id
+            for fb in (dataset.structured_feedback if dataset else [])
+            if fb.level == "rule" and fb.target_id
+        }
+        relevant_ids = active_ids | feedback_ids
+
+        rules_detail_1 = []
+        rules_detail_2 = []
+        current_rules, pruned_names = self._categorize_rules_fp(current_rules, failures)
         for r in current_rules:
-            entry = {
-                "name": r.name,
-                "description": r.description,
-                "format": r.format.value,
-                "content": r.content,
-                "priority": r.priority,
-            }
-            if r.output_template:
-                entry["output_template"] = r.output_template
-            if r.output_key:
-                entry["output_key"] = r.output_key
-            # Attach rule-level feedback if available
-            if dataset:
-                rule_fb = dataset.get_feedback_for("rule", r.id)
-                if rule_fb:
-                    entry["user_feedback"] = [f.text for f in rule_fb]
-            rules_detail.append(entry)
+            if r.id in relevant_ids:
+                entry = {
+                    "name": r.name,
+                    "description": r.description,
+                    "format": r.format.value,
+                    "content": r.content,
+                    "priority": r.priority,
+                }
+                if r.output_template:
+                    entry["output_template"] = r.output_template
+                if r.output_key:
+                    entry["output_key"] = r.output_key
+                # Attach rule-level feedback if available
+                if dataset:
+                    rule_fb = dataset.get_feedback_for("rule", r.id)
+                    if rule_fb:
+                        entry["user_feedback"] = [f.text for f in rule_fb]
+                rules_detail_1.append(entry)
+
+            else:
+                entry = {
+                    "name": r.name,
+                    "description": r.description,
+                }
+                rules_detail_2.append(entry)
 
         failure_snippets = []
         for f in failures[:20]:
@@ -1006,7 +1071,7 @@ INSTRUCTIONS:
             data_evidence = self.prompt_builder._build_data_evidence(dataset)
         else:
             response_schema = """Return JSON:
-{
+{   
   "analysis": "short reasoning",
   "rules": [
     {
@@ -1019,6 +1084,7 @@ INSTRUCTIONS:
   ],
   "deleted_rules": ["name_of_rule_to_remove"]
 }"""
+
             data_evidence = ""
 
         # Collect task-level feedback
@@ -1059,6 +1125,15 @@ INSTRUCTIONS:
                 fp_lines.append(line)
             fp_section = "\n".join(fp_lines) + "\n"
 
+        # pruned section
+        prune_section = ""
+        if pruned_names:
+            prune_section = (
+                f"\n For these rules provide a narrower replacement. DELETE only as last resort!):\n"
+                + "\n".join(f"- {n}" for n in pruned_names)
+                + "\n"
+            )
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
@@ -1066,8 +1141,13 @@ INSTRUCTIONS:
 {task_feedback_section}
 {guidance_section}
 {class_metrics_section}
-CURRENT RULES (full details, note any user_feedback on specific rules):
-{json.dumps(rules_detail, indent=2)}
+RULES with failures (full details, note any user_feedback on specific rules):
+{json.dumps(rules_detail_1, indent=2)}
+
+{prune_section}
+
+Rules not active in current failures (do not modify unless necessary)
+{json.dumps(rules_detail_2, indent=2)}
 
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}
@@ -1261,9 +1341,31 @@ Instructions:
             if "{" in text and "}" in text:
                 try:
                     candidate = text[text.index("{") : text.rindex("}") + 1]
+                    print("Attempting salvage with substring between { and }...")
                     return json.loads(candidate)
                 except Exception:
-                    pass
+                    try:
+                        print("Salvage attempt I failed, trying json_repair library...")
+                        from json_repair import repair_json
+
+                        repaired = repair_json(text, return_objects=True)
+                        if isinstance(repaired, dict):
+                            print(f"json_repair  worked!")
+                            return repaired
+                        if not isinstance(repaired, dict):
+                            if (
+                                isinstance(repaired, list)
+                                and result
+                                and isinstance(repaired[0], dict)
+                            ):
+                                repaired = repaired[0]
+                                print(f"json_repair  worked!")
+                            else:
+                                repaired = {}
+                                print(f"json_repair  did not work!")
+
+                    except Exception as e2:
+                        pass
             raise
 
     def _validate_rule(self, rule: Rule) -> bool:
