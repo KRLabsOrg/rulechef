@@ -508,9 +508,9 @@ class RuleLearner:
             if iteration_callback:
                 iteration_callback(iter_num, rules, eval_result)
 
-            if exact >= 0.90:
-                print("✓ Achieved 90%+ exact match!")
-                break
+            # if exact >= 0.90:
+            #   print("✓ Achieved 90%+ exact match!")
+            #  break
 
             # Periodic audit to consolidate rules mid-refinement
             if (
@@ -815,66 +815,98 @@ class RuleLearner:
             max_samples=self.max_samples,
             class_metrics=class_metrics,
         )
-        prompt = self._build_patch_prompt(
-            current_rules,
-            sampled_failures,
-            max_rules,
-            dataset=dataset,
-            guidance=guidance,
-            class_metrics=class_metrics,
-            fp_examples=fp_examples,
-        )
 
         print("🩹 Synthesizing patch rules...")
         start = time.time()
 
-        try:
-            response = self.llm.chat.completions.create(
-                model=self.model,
-                max_completion_tokens=16384,
-                max_tokens=16384,
-                # max_completion_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+        MAX_RETRIES = 5
+        max_failures = len(sampled_failures)
+
+        for attempt in range(MAX_RETRIES + 1):
+            failures_to_use = sampled_failures[:max_failures]
+            prompt = self._build_patch_prompt(
+                current_rules,
+                failures_to_use,
+                max_rules,
+                dataset=dataset,
+                guidance=guidance,
+                class_metrics=class_metrics,
+                fp_examples=fp_examples,
             )
 
-            response_text = response.choices[0].message.content
-            response_text = response.choices[0].message.content
-            print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
-            result = self._parse_json(response_text)
-
-            rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
-            deleted_names = set(result.get("deleted_rules", [])) if result else set()
-
-            if self.training_logger:
-                self.training_logger.log(
-                    "rule_patch",
-                    [{"role": "user", "content": prompt}],
-                    response_text,
-                    {
-                        "task_name": dataset.task.name if dataset and dataset.task else None,
-                        "task_type": dataset.task.type.value if dataset and dataset.task else None,
-                        "num_failures": len(sampled_failures),
-                        "num_existing_rules": len(current_rules),
-                        "num_rules_in_response": len(rules),
-                        "num_deleted": len(deleted_names),
-                        "response_valid": bool(rules),
-                        "guidance": guidance[:200] if guidance else None,
-                    },
+            try:
+                response = self.llm.chat.completions.create(
+                    model=self.model,
+                    max_completion_tokens=16384,
+                    max_tokens=16384,
+                    # max_completion_tokens=4096,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                    temperature=0,
+                    seed=42,
                 )
 
-            elapsed = time.time() - start
-            msg = f"✓ Patch synthesis returned {len(rules)} rules"
-            if deleted_names:
-                msg += f", {len(deleted_names)} deletions"
-            print(f"{msg} ({elapsed:.1f}s)")
-            return rules, deleted_names
-        except Exception as e:
-            print(e)
-            print(f"Error synthesizing patch rules: {e}")
-            return [], set()
+                response_text = response.choices[0].message.content
+                finish_reason = response.choices[0].finish_reason
+                print(f"  finish={finish_reason}  len={len(response_text or '')}")
+
+                if finish_reason == "length":
+                    new_max = max(1, max_failures // 2)
+                    print(
+                        f"  Output truncated on attempt {attempt + 1} "
+                        f"({max_failures} failures → retrying with {new_max})"
+                    )
+                    max_failures = new_max
+                    continue
+
+                result = self._parse_json(response_text)
+                rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
+                deleted_names = set(result.get("deleted_rules", [])) if result else set()
+
+                if self.training_logger:
+                    self.training_logger.log(
+                        "rule_patch",
+                        [{"role": "user", "content": prompt}],
+                        response_text,
+                        {
+                            "task_name": dataset.task.name if dataset and dataset.task else None,
+                            "task_type": dataset.task.type.value
+                            if dataset and dataset.task
+                            else None,
+                            "num_failures": len(failures_to_use),
+                            "num_existing_rules": len(current_rules),
+                            "num_rules_in_response": len(rules),
+                            "num_deleted": len(deleted_names),
+                            "response_valid": bool(rules),
+                            "guidance": guidance[:200] if guidance else None,
+                        },
+                    )
+
+                elapsed = time.time() - start
+                msg = f"✓ Patch synthesis returned {len(rules)} rules"
+                if deleted_names:
+                    msg += f", {len(deleted_names)} deletions"
+                print(f"{msg} ({elapsed:.1f}s)")
+                return rules, deleted_names
+
+            except Exception as e:
+                err_str = str(e).lower()
+                if attempt < MAX_RETRIES and any(
+                    kw in err_str for kw in ("token", "context", "length", "too long", "maximum")
+                ):
+                    new_max = max(1, max_failures // 2)
+                    print(
+                        f"  Token limit error on attempt {attempt + 1}: {e} "
+                        f"— retrying with {new_max} failures"
+                    )
+                    max_failures = new_max
+                    continue
+                print(e)
+                print(f"Error synthesizing patch rules: {e}")
+                return [], set()
+
+        print("  Patch synthesis failed after all retries (token limit).")
+        return [], set()
 
     # ========================================
     # Prompt Building
@@ -916,9 +948,9 @@ class RuleLearner:
         prompt += self.prompt_builder._build_format_instructions(dataset.task.type)
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
-        prompt += self.prompt_builder._build_extra_instructions(
-            dataset.task.type
-        )  # extra instructions
+        # prompt += self.prompt_builder._build_extra_instructions(
+        #       dataset.task.type
+        # )  # extra instructions
         prompt += self.prompt_builder._build_closing_instructions()
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
@@ -978,26 +1010,23 @@ INSTRUCTIONS:
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
-    def _categorize_rules_fp(
-        self, current_rules: list[Rule], failures: list[dict], threshold: float = 0.7
-    ):
-        from collections import defaultdict
-
-        rule_fp_counts: dict[str, int] = defaultdict(int)
-        for f in failures:
-            for ent in (f.get("got") or {}).get("entities", []):
-                if isinstance(ent, dict) and "rule_id" in ent:
-                    rule_fp_counts[ent["rule_id"]] += 1
-
-        cutoff = len(failures) * threshold
-        surviving, pruned_names = [], []
-        for r in current_rules:
-            if rule_fp_counts.get(r.id, 0) >= cutoff:
-                pruned_names.append(r.name)
-            else:
-                surviving.append(r)
-
-        return surviving, pruned_names
+    def _truncate_failure_input(self, text: str, expected: dict, window: int = 50) -> str:
+        if not text:
+            return text
+        entities = (expected or {}).get("entities", [])
+        for ent in entities:
+            ent_text = ent.get("text", "") if isinstance(ent, dict) else ""
+            pos = text.find(ent_text) if ent_text else -1
+            if pos != -1:
+                start = max(0, pos - window)
+                end = min(len(text), pos + len(ent_text) + window)
+                snippet = text[start:end]
+                if start > 0:
+                    snippet = "..." + snippet
+                if end < len(text):
+                    snippet = snippet + "..."
+                return snippet
+        return text[: window * 2] if len(text) > window * 2 else text
 
     def _build_patch_prompt(
         self,
@@ -1023,9 +1052,8 @@ INSTRUCTIONS:
         }
         relevant_ids = active_ids | feedback_ids
 
-        rules_detail_1 = []
-        rules_detail_2 = []
-        current_rules, pruned_names = self._categorize_rules_fp(current_rules, failures)
+        relevant = []
+        background = []
         for r in current_rules:
             if r.id in relevant_ids:
                 entry = {
@@ -1044,21 +1072,26 @@ INSTRUCTIONS:
                     rule_fb = dataset.get_feedback_for("rule", r.id)
                     if rule_fb:
                         entry["user_feedback"] = [f.text for f in rule_fb]
-                rules_detail_1.append(entry)
+                relevant.append(entry)
 
             else:
                 entry = {
                     "name": r.name,
                     "description": r.description,
                 }
-                rules_detail_2.append(entry)
+                background.append(entry)
 
         failure_snippets = []
-        for f in failures[:20]:
+        for f in failures:
+            raw_input = f.get("input")
+            expected = f.get("expected")
+            input_text = raw_input.get("text") if isinstance(raw_input, dict) else raw_input
             failure_snippets.append(
                 {
-                    "input": f.get("input"),
-                    "expected": f.get("expected"),
+                    "input": self._truncate_failure_input(input_text, expected)
+                    if isinstance(input_text, str)
+                    else raw_input,
+                    "expected": expected,
                     "got": f.get("got"),
                     "is_correction": f.get("is_correction", False),
                 }
@@ -1072,7 +1105,7 @@ INSTRUCTIONS:
         else:
             response_schema = """Return JSON:
 {   
-  "analysis": "short reasoning",
+ "analysis": "1-2 sentences short reasoning",
   "rules": [
     {
       "name": "rule name",
@@ -1125,15 +1158,6 @@ INSTRUCTIONS:
                 fp_lines.append(line)
             fp_section = "\n".join(fp_lines) + "\n"
 
-        # pruned section
-        prune_section = ""
-        if pruned_names:
-            prune_section = (
-                f"\n For these rules provide a narrower replacement. DELETE only as last resort!):\n"
-                + "\n".join(f"- {n}" for n in pruned_names)
-                + "\n"
-            )
-
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
@@ -1142,12 +1166,9 @@ INSTRUCTIONS:
 {guidance_section}
 {class_metrics_section}
 RULES with failures (full details, note any user_feedback on specific rules):
-{json.dumps(rules_detail_1, indent=2)}
-
-{prune_section}
-
+{json.dumps(relevant, indent=2)}
 Rules not active in current failures (do not modify unless necessary)
-{json.dumps(rules_detail_2, indent=2)}
+{json.dumps(background, indent=2)}
 
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}
@@ -1355,7 +1376,7 @@ Instructions:
                         if not isinstance(repaired, dict):
                             if (
                                 isinstance(repaired, list)
-                                and result
+                                and repaired
                                 and isinstance(repaired[0], dict)
                             ):
                                 repaired = repaired[0]
@@ -1365,6 +1386,8 @@ Instructions:
                                 print(f"json_repair  did not work!")
 
                     except Exception as e2:
+                        print(f"json_repair failed: {e2}")
+                        repaired = {}
                         pass
             raise
 

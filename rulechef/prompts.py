@@ -336,8 +336,8 @@ def get_schema_aware_response_schema(
     return f'''
 Return JSON:
 {{
-  "analysis": "What patterns did you find? What went wrong in corrections?",
-  "strategy": "Overall approach",
+  "analysis": "What patterns did you find? What went wrong in corrections? Respond in 1-2 sentences",
+  "strategy": "Overall approach in 1 sentence",
   "note": "Every rule must include both output_template and output_key",
   "rules": [
     {{
@@ -1108,7 +1108,8 @@ Each rule needs:
     def _build_extra_instructions(self, task_type: TaskType) -> str:
         if task_type == TaskType.NER:
             return """
-        - DO NOT learn rules based SOLELY on grammatical patterns. 
+- Prioritize generating general rules and DO NOT memorize entities. 
+- DO NOT learn rules based SOLELY on grammatical patterns. 
         """
 
     def _build_closing_instructions(self) -> str:
