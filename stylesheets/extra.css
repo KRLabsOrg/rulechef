@@ -1,0 +1,87 @@
+/* RuleChef docs — match the app's design language */
+
+:root {
+  /* Brand: hsl(358, 88%, 66%) ≈ #f04248 */
+  --md-primary-fg-color: #e84249;
+  --md-primary-fg-color--light: #f06a70;
+  --md-primary-fg-color--dark: #c4343a;
+  --md-accent-fg-color: #e84249;
+  --md-accent-fg-color--transparent: #e8424926;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #ef5358;
+  --md-primary-fg-color--light: #f57a7f;
+  --md-primary-fg-color--dark: #c4343a;
+  --md-accent-fg-color: #ef5358;
+  --md-accent-fg-color--transparent: #ef535826;
+}
+
+/* Monospace font throughout — matches the app */
+:root {
+  --md-text-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --md-code-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Subtle background gradient like the app */
+body {
+  background-image:
+    radial-gradient(circle at 10% 0%, hsl(220 20% 97%) 0%, transparent 40%),
+    radial-gradient(circle at 90% 0%, hsl(358 88% 97%) 0%, transparent 35%);
+  background-attachment: fixed;
+}
+
+[data-md-color-scheme="slate"] body {
+  background-image:
+    radial-gradient(circle at 10% 0%, hsl(220 20% 8%) 0%, transparent 40%),
+    radial-gradient(circle at 90% 0%, hsl(358 40% 10%) 0%, transparent 35%);
+}
+
+/* Tighten body text size for monospace readability */
+.md-typeset {
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+/* Softer header — translucent like the app */
+.md-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: hsla(0, 0%, 100%, 0.85);
+  box-shadow: 0 1px 0 hsl(220 14% 90%);
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background-color: hsla(0, 0%, 4%, 0.85);
+  box-shadow: 0 1px 0 hsl(0 0% 15%);
+}
+
+/* Code blocks — clean look */
+.md-typeset code {
+  border-radius: 4px;
+}
+
+.md-typeset pre > code {
+  border-radius: 6px;
+}
+
+/* Nav sidebar — lighter active state */
+.md-nav__link--active {
+  font-weight: 600;
+}
+
+/* Admonitions — use brand color for note */
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .note > .admonition-title,
+.md-typeset .note > summary {
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+.md-typeset .note > .admonition-title::before,
+.md-typeset .note > summary::before {
+  background-color: var(--md-accent-fg-color);
+}
