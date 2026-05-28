@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from rulechef.llm_calls import LLMCallConfig, LLMCallManager
+
 if TYPE_CHECKING:
     from rulechef.buffer import ExampleBuffer
     from rulechef.core import Rule
@@ -273,6 +275,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         audit_interval: int = 3,
         critic_interval: int = 4,
         training_logger=None,
+        llm_config: LLMCallConfig | dict | None = None,
     ):
         """
         Args:
@@ -287,6 +290,7 @@ class AgenticCoordinator(CoordinatorProtocol):
             audit_interval: Run mid-refinement audit every N iterations (0 to disable).
             critic_interval: Run critic every N iterations (0 to disable).
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            llm_config: Optional shared LLM call/budget configuration.
         """
         self.llm = llm_client
         self.model = model
@@ -299,6 +303,12 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.critic_interval = critic_interval
         self.training_logger = training_logger
         self.temperature: float | None = None
+        self.llm_config = (
+            (llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config))
+            if llm_config is not None
+            else LLMCallConfig()
+        )
+        self.llm_calls = LLMCallManager(llm_client, model, self.llm_config)
 
     def _temp_kwargs(self) -> dict:
         """Return temperature kwarg dict if set, empty dict otherwise."""

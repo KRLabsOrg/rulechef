@@ -16,6 +16,7 @@ from rulechef.evaluation import (
     evaluate_rules_individually,
 )
 from rulechef.executor import RuleExecutor
+from rulechef.llm_calls import LLMCallConfig, LLMCallManager, PromptTooLargeError, PromptVariant
 from rulechef.prompts import RULE_QUALITY_GUIDE, PromptBuilder
 
 
@@ -36,6 +37,7 @@ class RuleLearner:
         max_counter_examples: int = 10,
         training_logger=None,
         temperature: float | None = None,
+        llm_config: LLMCallConfig | None = None,
     ):
         """Initialize the rule learner.
 
@@ -67,6 +69,8 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.llm_config = llm_config or LLMCallConfig()
+        self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
@@ -769,7 +773,7 @@ class RuleLearner:
             max_samples=self.max_samples,
             class_metrics=class_metrics,
         )
-        prompt = self._build_patch_prompt(
+        variants = self._build_patch_prompt_variants(
             current_rules,
             sampled_failures,
             max_rules,
@@ -783,15 +787,12 @@ class RuleLearner:
         start = time.time()
 
         try:
-            response = self.llm.chat.completions.create(
-                model=self.model,
-                max_completion_tokens=16384,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                **self._temp_kwargs(),
+            call_result = self.llm_calls.complete_with_variants(
+                variants,
+                output_tokens=self.llm_config.patch_output_tokens,
+                extra_kwargs=self._temp_kwargs(),
             )
-
-            response_text = response.choices[0].message.content
+            response_text = call_result.response_text
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
             deleted_names = set(result.get("deleted_rules", [])) if result else set()
@@ -799,7 +800,7 @@ class RuleLearner:
             if self.training_logger:
                 self.training_logger.log(
                     "rule_patch",
-                    [{"role": "user", "content": prompt}],
+                    call_result.messages,
                     response_text,
                     {
                         "task_name": dataset.task.name if dataset and dataset.task else None,
@@ -810,6 +811,9 @@ class RuleLearner:
                         "num_deleted": len(deleted_names),
                         "response_valid": bool(rules),
                         "guidance": guidance[:200] if guidance else None,
+                        "prompt_variant": call_result.variant.name,
+                        **call_result.variant.metadata,
+                        **call_result.metadata,
                     },
                 )
 
@@ -819,6 +823,9 @@ class RuleLearner:
                 msg += f", {len(deleted_names)} deletions"
             print(f"{msg} ({elapsed:.1f}s)")
             return rules, deleted_names
+        except PromptTooLargeError as e:
+            print(f"⚠ Patch prompt too large: {e}")
+            return [], set()
         except Exception as e:
             print(f"Error synthesizing patch rules: {e}")
             return [], set()
@@ -922,6 +929,125 @@ INSTRUCTIONS:
 
         return prompt
 
+    def _build_patch_prompt_variants(
+        self,
+        current_rules: list[Rule],
+        failures: list[dict],
+        max_rules: int,
+        dataset: Dataset | None = None,
+        guidance: str = "",
+        class_metrics: list | None = None,
+        fp_examples: list[dict] | None = None,
+    ) -> list[PromptVariant]:
+        """Build ordered patch prompt variants from richest to most compact."""
+        specs = [
+            ("full", 20, True, "full"),
+            ("fewer_failures", 10, True, "full"),
+            ("minimal_failures", 5, True, "full"),
+            ("no_data_evidence", 5, False, "full"),
+            ("relevant_rules", 5, False, "relevant"),
+            ("compact_rules", 5, False, "compact"),
+        ]
+
+        variants = []
+        for name, failure_limit, include_data_evidence, rules_mode in specs:
+            prompt = self._build_patch_prompt(
+                current_rules,
+                failures,
+                max_rules,
+                dataset=dataset,
+                guidance=guidance,
+                class_metrics=class_metrics,
+                fp_examples=fp_examples,
+                failure_limit=failure_limit,
+                include_data_evidence=include_data_evidence,
+                rules_mode=rules_mode,
+            )
+            variants.append(
+                PromptVariant(
+                    name=name,
+                    prompt=prompt,
+                    metadata={
+                        "failure_limit": failure_limit,
+                        "include_data_evidence": include_data_evidence,
+                        "rules_mode": rules_mode,
+                    },
+                )
+            )
+        return variants
+
+    def _failure_labels(
+        self, failures: list[dict], fp_examples: list[dict] | None = None
+    ) -> set[str]:
+        labels: set[str] = set()
+
+        def add_from_output(output):
+            if isinstance(output, dict):
+                label = output.get("label") or output.get("type")
+                if isinstance(label, str):
+                    labels.add(label)
+                for key in ("entities", "spans"):
+                    items = output.get(key)
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                item_label = item.get("type") or item.get("label")
+                                if isinstance(item_label, str):
+                                    labels.add(item_label)
+
+        for failure in failures:
+            add_from_output(failure.get("expected"))
+            add_from_output(failure.get("got"))
+
+        for fp in fp_examples or []:
+            for key in ("predicted_type", "correct_type"):
+                value = fp.get(key)
+                if isinstance(value, str):
+                    labels.add(value)
+        return labels
+
+    def _rule_labels(self, rule: Rule) -> set[str]:
+        labels: set[str] = set()
+        if isinstance(rule.output_template, dict):
+            for key in ("label", "type"):
+                value = rule.output_template.get(key)
+                if isinstance(value, str) and not value.startswith("$"):
+                    labels.add(value)
+        return labels
+
+    def _rule_prompt_entry(
+        self,
+        rule: Rule,
+        dataset: Dataset | None = None,
+        *,
+        compact: bool = False,
+        truncate: bool = False,
+    ) -> dict:
+        entry = {
+            "name": rule.name,
+            "format": rule.format.value,
+            "priority": rule.priority,
+        }
+        if rule.output_template:
+            entry["output_template"] = rule.output_template
+        if rule.output_key:
+            entry["output_key"] = rule.output_key
+
+        if compact:
+            labels = sorted(self._rule_labels(rule))
+            if labels:
+                entry["labels"] = labels
+            return entry
+
+        entry["description"] = rule.description[:160] if truncate else rule.description
+        entry["content"] = rule.content[:300] if truncate else rule.content
+
+        if dataset:
+            rule_fb = dataset.get_feedback_for("rule", rule.id)
+            if rule_fb:
+                entry["user_feedback"] = [f.text for f in rule_fb]
+        return entry
+
     def _build_patch_prompt(
         self,
         current_rules: list[Rule],
@@ -931,30 +1057,35 @@ INSTRUCTIONS:
         guidance: str = "",
         class_metrics: list | None = None,
         fp_examples: list[dict] | None = None,
+        failure_limit: int = 20,
+        include_data_evidence: bool = True,
+        rules_mode: str = "full",
     ) -> str:
         """Build prompt for targeted patch rules."""
         rules_detail = []
+        compact_rules = []
+        failure_labels = self._failure_labels(failures, fp_examples)
+
         for r in current_rules:
-            entry = {
-                "name": r.name,
-                "description": r.description,
-                "format": r.format.value,
-                "content": r.content,
-                "priority": r.priority,
-            }
-            if r.output_template:
-                entry["output_template"] = r.output_template
-            if r.output_key:
-                entry["output_key"] = r.output_key
-            # Attach rule-level feedback if available
-            if dataset:
-                rule_fb = dataset.get_feedback_for("rule", r.id)
-                if rule_fb:
-                    entry["user_feedback"] = [f.text for f in rule_fb]
-            rules_detail.append(entry)
+            has_feedback = bool(dataset and dataset.get_feedback_for("rule", r.id))
+            labels = self._rule_labels(r)
+            is_relevant = not failure_labels or bool(labels & failure_labels) or has_feedback
+
+            if rules_mode == "relevant" and not is_relevant:
+                compact_rules.append(self._rule_prompt_entry(r, dataset, compact=True))
+                continue
+
+            rules_detail.append(
+                self._rule_prompt_entry(
+                    r,
+                    dataset,
+                    compact=False,
+                    truncate=rules_mode == "compact",
+                )
+            )
 
         failure_snippets = []
-        for f in failures[:20]:
+        for f in failures[:failure_limit]:
             failure_snippets.append(
                 {
                     "input": f.get("input"),
@@ -968,7 +1099,9 @@ INSTRUCTIONS:
         # output_template/output_key when needed (NER, TRANSFORMATION).
         if dataset:
             response_schema = self.prompt_builder._build_response_schema(dataset)
-            data_evidence = self.prompt_builder._build_data_evidence(dataset)
+            data_evidence = (
+                self.prompt_builder._build_data_evidence(dataset) if include_data_evidence else ""
+            )
         else:
             response_schema = """Return JSON:
 {
@@ -1024,6 +1157,13 @@ INSTRUCTIONS:
                 fp_lines.append(line)
             fp_section = "\n".join(fp_lines) + "\n"
 
+        compact_rules_section = ""
+        if compact_rules:
+            compact_rules_section = (
+                "\nOTHER CURRENT RULES (compact index; avoid duplicating these names/labels):\n"
+                f"{json.dumps(compact_rules, indent=2)}\n"
+            )
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
@@ -1033,6 +1173,7 @@ INSTRUCTIONS:
 {class_metrics_section}
 CURRENT RULES (full details, note any user_feedback on specific rules):
 {json.dumps(rules_detail, indent=2)}
+{compact_rules_section}
 
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}

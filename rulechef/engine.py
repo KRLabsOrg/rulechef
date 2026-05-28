@@ -29,6 +29,7 @@ from rulechef.evaluation import (
     print_rule_metrics,
 )
 from rulechef.learner import RuleLearner
+from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
 from rulechef.pipeline import LearningPipeline
 from rulechef.storage import DatasetStore
@@ -58,6 +59,14 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = None,
+        llm_config: LLMCallConfig | dict | None = None,
+        context_window: int | None = None,
+        output_token_param: str | None = "max_completion_tokens",
+        synthesis_output_tokens: int = 16384,
+        patch_output_tokens: int = 8192,
+        default_output_tokens: int | None = None,
+        llm_safety_margin_tokens: int = 512,
+        response_format_json: bool = True,
     ):
         """Initialize a RuleChef instance.
 
@@ -94,6 +103,17 @@ class RuleChef:
                 all LLM calls as training data for model distillation.
             temperature: LLM temperature for rule synthesis calls. Set to 0 for
                 deterministic results. None uses the model's default.
+            llm_config: Optional LLMCallConfig or dict. If provided, overrides
+                the individual LLM budget arguments below.
+            context_window: Optional model context window for local prompt checks.
+                If None, RuleChef does not block prompts by estimated length.
+            output_token_param: Provider-specific output token kwarg name
+                (for example "max_completion_tokens" or "max_tokens"), or None to omit.
+            synthesis_output_tokens: Reserved output tokens for synthesis calls.
+            patch_output_tokens: Reserved output tokens for patch calls.
+            default_output_tokens: Optional fallback reserved output token budget.
+            llm_safety_margin_tokens: Extra margin for local prompt checks.
+            response_format_json: If True, request JSON object output when supported.
         """
         self.task = task
         self.llm = client or OpenAI()
@@ -106,6 +126,20 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        if llm_config is not None:
+            self.llm_config = (
+                llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
+            )
+        else:
+            self.llm_config = LLMCallConfig(
+                context_window=context_window,
+                output_token_param=output_token_param,
+                synthesis_output_tokens=synthesis_output_tokens,
+                patch_output_tokens=patch_output_tokens,
+                default_output_tokens=default_output_tokens,
+                safety_margin_tokens=llm_safety_margin_tokens,
+                response_format_json=response_format_json,
+            )
 
         # Save constructor args for lazy initialization (when task=None)
         self._dataset_name = dataset_name
@@ -124,6 +158,10 @@ class RuleChef:
                 self.coordinator.training_logger = self.training_logger
             if self.temperature is not None:
                 self.coordinator.temperature = self.temperature
+            self.coordinator.llm_config = self.llm_config
+            self.coordinator.llm_calls = LLMCallManager(
+                self.coordinator.llm, self.coordinator.model, self.llm_config
+            )
 
         # Buffer for observed examples (buffer-first architecture)
         self.buffer = ExampleBuffer()
@@ -205,6 +243,7 @@ class RuleChef:
             max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
             temperature=self.temperature,
+            llm_config=self.llm_config,
         )
 
         # Load existing dataset if on disk
