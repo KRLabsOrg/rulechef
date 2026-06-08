@@ -93,22 +93,6 @@ def sample_few_shot(
     )
 
 
-def label_distribution_sent(samples) -> Counter:
-    return Counter(label["type"] for sample in samples for label in sample["entities"])
-
-
-def print_distribution(samples, name: str, fn=label_distribution_doc) -> None:
-    dist = fn(samples)
-    total = sum(dist.values())
-    print(f"\n{name} ({len(samples)} sentences, {total} entities):")
-    for label, count in sorted(dist.items()):
-        print(f"  {label}: {count} ({count / total:.1%})")
-
-
-def label_distribution_doc(samples) -> Counter:
-    return Counter(label["type"] for s in samples for sent in s.sentences for label in sent.labels)
-
-
 # ============================================================================
 # Split assembly
 # ============================================================================
@@ -174,20 +158,12 @@ def build_data_split(
             for sent in s.sentences
         ]
         n_test_docs = len(dev_all.samples)
+        dev_label = f"{n_test_docs} source docs"
     elif fallback_dev is not None:
         dev = fallback_dev
         n_test_docs = len(dev)
     else:
         raise ValueError(f"build_data_split({name!r}): provide test_dir or fallback_dev")
-
-    print(f"{'─' * 70}")
-    print(f"Source docs — train: {len(train_all.samples)}, dev: {dev_label}")
-    print(f"Sampled     — train docs: {n_train_docs}, eval docs: {n_eval_docs}")
-    print(f"Sentences   — train: {len(train)}, eval: {len(eval_)}, dev: {len(dev)}")
-    print_distribution(train, "TRAIN", fn=label_distribution_sent)
-    print_distribution(eval_, "EVAL", fn=label_distribution_sent)
-    print(f"Classes     — {len(selected_classes)}: {', '.join(sorted(selected_classes))}")
-    print(f"{'─' * 70}")
 
     return DataSplit(
         name=name,
