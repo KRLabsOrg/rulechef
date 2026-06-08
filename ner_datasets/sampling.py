@@ -1,4 +1,3 @@
-import json
 import random
 from dataclasses import dataclass
 
@@ -104,6 +103,10 @@ def print_distribution(samples, name: str, fn=label_distribution_doc) -> None:
     print(f"\n{name} ({len(samples)} sentences, {total} entities):")
     for label, count in sorted(dist.items()):
         print(f"  {label}: {count} ({count / total:.1%})")
+
+
+def label_distribution_doc(samples) -> Counter:
+    return Counter(label["type"] for s in samples for sent in s.sentences for label in sent.labels)
 
 
 # ============================================================================
