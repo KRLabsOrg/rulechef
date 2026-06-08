@@ -126,7 +126,6 @@ def build_data_split(
     train_ratio: float = 0.7,
 ) -> DataSplit:
     """Load and sample one dataset into a DataSplit ready for training."""
-    print(f"\nLoading {name} dataset...")
     train_all = load_ner_dataset_from_conll(train_dir)
     dev_all = load_ner_dataset_from_conll(test_dir)
     class_list = [c.strip() for c in classes.split(",")] if classes else None
@@ -158,7 +157,6 @@ def build_data_split(
             for sent in s.sentences
         ]
         n_test_docs = len(dev_all.samples)
-        dev_label = f"{n_test_docs} source docs"
     elif fallback_dev is not None:
         dev = fallback_dev
         n_test_docs = len(dev)
