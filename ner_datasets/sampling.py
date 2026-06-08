@@ -1,16 +1,8 @@
 import json
 import random
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
-from typing import Any
-
-import yaml
+from dataclasses import dataclass
 
 from ner_datasets import load_ner_dataset_from_conll
-from rulechef.core import Correction, Dataset, Example, Feedback, Rule, RuleFormat
-from rulechef.training_logger import TrainingDataLogger
 
 # ============================================================================
 # Sampling
@@ -102,6 +94,18 @@ def sample_few_shot(
     )
 
 
+def label_distribution_sent(samples) -> Counter:
+    return Counter(label["type"] for sample in samples for label in sample["entities"])
+
+
+def print_distribution(samples, name: str, fn=label_distribution_doc) -> None:
+    dist = fn(samples)
+    total = sum(dist.values())
+    print(f"\n{name} ({len(samples)} sentences, {total} entities):")
+    for label, count in sorted(dist.items()):
+        print(f"  {label}: {count} ({count / total:.1%})")
+
+
 # ============================================================================
 # Split assembly
 # ============================================================================
@@ -123,13 +127,16 @@ class DataSplit:
 
 
 def build_data_split(
-    args,
     *,
     name: str,
     train_dir: str,
-    test_dir: str,
+    test_dir: str | None = None,
     classes: str | None = None,
     fallback_dev: list | None = None,
+    seed: int = 42,
+    num_classes: int | None = None,
+    pool_size: int | None = None,
+    train_ratio: float = 0.7,
 ) -> DataSplit:
     """Load and sample one dataset into a DataSplit ready for training."""
     print(f"\nLoading {name} dataset...")
@@ -145,11 +152,11 @@ def build_data_split(
         n_eval_docs,
     ) = sample_few_shot(
         train_data=train_all.samples,
-        seed=args.seed,
-        num_classes=args.num_classes,
+        seed=seed,
+        num_classes=num_classes,
         classes=class_list,
-        pool_size=args.pool_size,
-        train_ratio=args.train_ratio,
+        pool_size=pool_size,
+        train_ratio=train_ratio,
     )
 
     if dev_all:
