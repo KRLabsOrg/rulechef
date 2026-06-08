@@ -1,5 +1,5 @@
 DATASET_CLASS_DEFINITIONS = {
-    "ler": {
+    "germanler": {
         "PERS": "Personen (Familien-, Vor-, Beinamen und Pseudonyme)",
         "LOC": "Ortsnamen und geographische Bezeichnungen (Land, Stadt, Region)",
         "ORG": "Organisationsnamen (Parteien, Vereine, Institutionen, Unternehmen)",
@@ -7,37 +7,7 @@ DATASET_CLASS_DEFINITIONS = {
         "RS": "Rechtsprechung (Zitate von Gerichtsentscheidungen, keine Personennamen)",
         "LIT": "Rechtsliteratur (Fachliteratur, Gesetzgebungsmaterialien)",
         "REG": "Einzelfallregelungen (Vorschriften, Verträge)",
-    },
-    "m2n": {
-        "person": "Personennamen",
-        "organisation": "Organisationsnamen",
-        "account": "Konten",
-        "email_address": "E-Mail-Adressen",
-        "date": "Datumsangaben",
-        "business_register_number": "Handelsregister- oder Unternehmensnummern",
-        "phone_number": "Telefonnummern",
-        "website": "Webseiten oder URLs",
-        "vehicle_license": "Kfz-Kennzeichen",
-        "vat_reg_no": "Umsatzsteuer-Identifikationsnummern",
-        "address": "Postadressen",
-        "tax_number": "Steuernummern",
-    },
-    "bfg": {
-        "person": "Personennamen",
-        "organisation": "Organisationsnamen",
-        "account": "Konten",
-        "address": "Postadressen",
-        "business_register_number": "Handelsregister- oder Unternehmensnummern",
-        "city": "Stadt",
-        "country": "Staat",
-        "date": "Datumsangaben",
-        "email_address": "E-Mail-Adressen",
-        "property_number": "Grundstücksnummer",
-        "social_security_number": "Sozialversicherungsnummer",
-        "tax_number": "Steuernummern",
-        "vehicle_license": "Kfz-Kennzeichen",
-        "website": "website",
-    },
+    }
 }
 
 
@@ -47,7 +17,22 @@ def get_dataset_class_definitions(dataset: str) -> dict[str, str]:
     return DATASET_CLASS_DEFINITIONS[dataset]
 
 
+def load_ner_dataset_from_json(
+    data_path: Path,
+) -> NERData:
+    return NERData.from_json(json.loads(Path(data_path).read_text()))
+
+
+def load_ner_dataset_from_conll(
+    data_path: Path,
+) -> NERData:
+    with open(data_path) as f:
+        data = NERData.from_conll(f.read())
+    return data
+
+
 __all__ = [
     "DATASET_CLASS_DEFINITIONS",
     "get_dataset_class_definitions",
+    "load_ner_dataset",
 ]
