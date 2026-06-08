@@ -1,4 +1,5 @@
 import json
+import random
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -6,10 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from rulechef.core import Correction, Dataset, Example, Feedback, Rule, RuleFormat
-from rulechef.training_logger import TrainingDataLogger
 
 from ner_datasets import load_ner_dataset_from_conll
+from rulechef.core import Correction, Dataset, Example, Feedback, Rule, RuleFormat
+from rulechef.training_logger import TrainingDataLogger
 
 # ============================================================================
 # Sampling
@@ -122,6 +123,7 @@ class DataSplit:
 
 
 def build_data_split(
+    args,
     *,
     name: str,
     train_dir: str,
@@ -152,29 +154,39 @@ def build_data_split(
 
     if dev_all:
         dev = [
-              {
-                  "doc_id": s.doc_id,
-                  "sent_id": sent.sent_id,
-                  "text": sent.text,
-                  "entities": sent.labels,
-              }
-              for s in dev_all.samples
-              for sent in s.sentences
-          ]
-          n_test_docs = len(dev_all.samples)
-        elif fallback_dev is not None:
-            dev = fallback_dev
-            n_test_docs = len(dev)
-        else:
-          raise ValueError(f"build_data_split({name!r}): provide test_dir or fallback_dev")
+            {
+                "doc_id": s.doc_id,
+                "sent_id": sent.sent_id,
+                "text": sent.text,
+                "entities": sent.labels,
+            }
+            for s in dev_all.samples
+            for sent in s.sentences
+        ]
+        n_test_docs = len(dev_all.samples)
+    elif fallback_dev is not None:
+        dev = fallback_dev
+        n_test_docs = len(dev)
+    else:
+        raise ValueError(f"build_data_split({name!r}): provide test_dir or fallback_dev")
+
+    print(f"{'─' * 70}")
+    print(f"Source docs — train: {len(train_all.samples)}, dev: {dev_label}")
+    print(f"Sampled     — train docs: {n_train_docs}, eval docs: {n_eval_docs}")
+    print(f"Sentences   — train: {len(train)}, eval: {len(eval_)}, dev: {len(dev)}")
+    print_distribution(train, "TRAIN", fn=label_distribution_sent)
+    print_distribution(eval_, "EVAL", fn=label_distribution_sent)
+    print(f"Classes     — {len(selected_classes)}: {', '.join(sorted(selected_classes))}")
+    print(f"{'─' * 70}")
+
     return DataSplit(
-          name=name,
-          train=train,
-          eval=eval_,
-          dev=dev,
-          counter_examples=counter_examples,
-          selected_classes=selected_classes,
-          n_train_docs=n_train_docs,
-          n_eval_docs=n_eval_docs,
-          n_test_docs=n_test_docs,
-      )
+        name=name,
+        train=train,
+        eval=eval_,
+        dev=dev,
+        counter_examples=counter_examples,
+        selected_classes=selected_classes,
+        n_train_docs=n_train_docs,
+        n_eval_docs=n_eval_docs,
+        n_test_docs=n_test_docs,
+    )
