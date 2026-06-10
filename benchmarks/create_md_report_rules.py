@@ -8,12 +8,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from benchmarks.benchmark_pipeline import NEROutput
-from benchmarks.data import BenchmarkRun, make_dataset
+from benchmarks.data import BenchmarkRun
 from ner_datasets import (
     get_dataset_class_definitions,
     load_ner_dataset_from_conll,
     load_ner_dataset_from_json,
 )
+from ner_datasets.conversion import make_dataset
 from ner_datasets.dataset import NERData
 from ner_datasets.sampling import sample_few_shot
 from rulechef import RuleChef
