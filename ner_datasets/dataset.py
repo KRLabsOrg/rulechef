@@ -4,7 +4,7 @@ from stanza.models.common.doc import Document
 from stanza.utils.conll import CoNLL
 from torch.utils.data import Dataset
 
-from ner_datasets.conversion import recreate_sent_labels_from_tokens
+from ner_datasets.utils import recreate_sent_labels_from_tokens
 
 
 @dataclass
