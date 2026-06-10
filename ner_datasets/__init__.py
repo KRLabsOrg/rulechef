@@ -1,3 +1,8 @@
+import json
+from pathlib import Path
+
+from ner_datasets.dataset import NERData, NERSample, NERSentence
+
 DATASET_CLASS_DEFINITIONS = {
     "germanler": {
         "PERS": "Personen (Familien-, Vor-, Beinamen und Pseudonyme)",
@@ -34,5 +39,6 @@ def load_ner_dataset_from_conll(
 __all__ = [
     "DATASET_CLASS_DEFINITIONS",
     "get_dataset_class_definitions",
-    "load_ner_dataset",
+    "load_ner_dataset_from_json",
+    "load_ner_dataset_from_conll",
 ]
