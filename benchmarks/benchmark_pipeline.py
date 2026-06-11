@@ -390,9 +390,6 @@ class FeedbackStep(Step):
             learner=ctx.chef,
             rules=ctx.rules,
         )
-
-        # Inlined NERLearner.apply_feedback_patch: one patch-and-merge pass
-        # guided by the feedback notes just added to ctx.dev_dataset.
         learner = ctx.chef.learner
         eval_result = learner._evaluate_rules(ctx.rules, ctx.dev_dataset)
         guidance = "\n".join(ctx.dev_dataset.feedback)

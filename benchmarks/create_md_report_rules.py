@@ -465,19 +465,20 @@ def main():
     config = saved.get("config", {})
 
     selected_classes = config.get("selected_classes", ["organisation"])
-    chef = build_chef(
-        model=config.get("model"),
-        dataset_name=config.get("dataset_name"),
-        base_url=config.get("base_url", "http://localhost:8000/v1"),
-        use_grex=not config.get("no_grex"),
-        max_rules=config.get("max_rules"),
-        max_samples=config.get("max_samples"),
-        max_counter_examples=config.get("max_counter_examples"),
-        logger=None,
-        sampling_strategy=config.get("sampling_strategy"),
-        synthesis_strategy=config.get("synthesis_strategy"),
-        selected_classes=selected_classes,
+
+    task = Task(
+        name="German Legal Named Entity Recognition",
+        description=(
+            f"Recognize named entities in German legal text. "
+            f"Entities to look for: {', '.join(sorted(selected_classes))}."
+        ),
+        input_schema={"text": "str"},
+        output_schema=NEROutput,
+        type=TaskType.NER,
+        text_field="text",
     )
+    executor = RuleExecutor()
+    chef = SimpleNamespace(learner=SimpleNamespace(_apply_rules=executor.apply_rules), task=task)
 
     results_folder = os.path.dirname(args.rules_json)
     test_data_raw = load_ner_dataset_from_conll(
@@ -494,7 +495,7 @@ def main():
         for sent in s.sentences
     ]
 
-    test_dataset = make_dataset(f"{args.dataset_name}_eval", test_data, learner.task)
+    test_dataset = make_dataset(f"{args.dataset_name}_eval", test_data, chef.task)
     print(f"Loaded {len(test_data_raw.samples)} test documents")
     print(f"Loaded {len(test_data)} test annotations")
     gold_count = sum(len(item["entities"]) for item in test_data)
@@ -531,7 +532,7 @@ def main():
 
     create_md_report(
         md_path,
-        chef=learner,
+        chef=chef,
         run=benchmark_run,
         test_dataset=test_dataset,
         results_folder=results_folder,
