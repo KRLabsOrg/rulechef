@@ -1,4 +1,5 @@
 import json
+import random
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,7 +82,10 @@ def prepare_split(
         classes=class_list,
         pool_size=args.pool_size,
         train_ratio=args.train_ratio,
+        negative_classes=args.negative_classes,
+        num_negative_examples=args.num_negative_examples,
     )
+
     if dev_all:
         dev = [
             {
@@ -109,6 +113,7 @@ def prepare_split(
     print_distribution(train, "TRAIN", fn=label_distribution_sent)
     print_distribution(eval_, "EVAL", fn=label_distribution_sent)
     print(f"Classes     — {len(selected_classes)}: {', '.join(sorted(selected_classes))}")
+    print(f"Counter-examples — {len(counter_examples)}")
     print(f"{'─' * 70}")
 
     return DataSplit(

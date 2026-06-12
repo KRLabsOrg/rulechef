@@ -31,13 +31,19 @@ def _resolve_classes(train_data, classes, num_classes, rng):
     return set(all_labels)
 
 
-def _partition_by_entities(train_data, classes):
+def _partition_by_entities(train_data, classes, negative_classes=None):
     """Split docs into those with >=1 selected-class entity, and those with none."""
-    pos_docs, neg_docs = [], []
+    pos_docs, neg_class_examples = [], []
     for doc in train_data:
         sents = list(_doc_sentences(doc, classes))
-        (pos_docs if any(s["entities"] for s in sents) else neg_docs).append(sents)
-    return pos_docs, neg_docs
+        if any(s["entities"] for s in sents):
+            pos_docs.append(sents)
+        if negative_classes:
+            for s, sent in zip(sents, doc.sentences):
+                if not s["entities"] and any(l["type"] in negative_classes for l in sent.labels):
+                    neg_class_examples.append({"text": s["text"], "entities": []})
+
+    return pos_docs, neg_class_examples
 
 
 def sample_few_shot(
@@ -48,6 +54,8 @@ def sample_few_shot(
     pool_size: int | None = None,
     train_ratio: float = 0.7,
     shuffle: bool = True,
+    negative_classes: list[str] | set[str] | None = None,
+    num_negative_examples: int = 0,
 ):
     """Sample a few-shot train/eval split from a list of documents.
 
@@ -70,19 +78,20 @@ def sample_few_shot(
 
     rng = random.Random(seed)
     classes = _resolve_classes(train_data, classes, num_classes, rng)
-    pos_docs, neg_docs = _partition_by_entities(train_data, classes)
+    pos_docs, neg_class_examples = _partition_by_entities(train_data, classes, negative_classes)
 
     if shuffle:
         rng.shuffle(pos_docs)
-        rng.shuffle(neg_docs)
 
     pool = pos_docs[:pool_size] if pool_size else pos_docs
     split_idx = int(len(pool) * train_ratio)
 
     train_examples = [s for doc in pool[:split_idx] for s in doc if s["entities"]]
     eval_examples = [s for doc in pool[split_idx:] for s in doc if s["entities"]]
-    counter_examples = [s for doc in neg_docs + pool for s in doc if not s["entities"]]
-
+    counter_examples = []
+    if negative_classes and num_negative_examples:
+        rng.shuffle(neg_class_examples)
+        counter_examples = neg_class_examples[:num_negative_examples]
     return (
         train_examples,
         eval_examples,
@@ -124,6 +133,8 @@ def build_data_split(
     num_classes: int | None = None,
     pool_size: int | None = None,
     train_ratio: float = 0.7,
+    negative_classes: list[str] | set[str] | None = None,
+    num_negative_examples: int = 0,
 ) -> DataSplit:
     """Load and sample one dataset into a DataSplit ready for training."""
     train_all = load_ner_dataset_from_conll(train_dir)
@@ -143,6 +154,8 @@ def build_data_split(
         classes=class_list,
         pool_size=pool_size,
         train_ratio=train_ratio,
+        negative_classes=negative_classes,
+        num_negative_examples=num_negative_examples,
     )
 
     if dev_all:
