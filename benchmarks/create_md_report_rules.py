@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from benchmarks.benchmark_pipeline import NEROutput
+from benchmarks.chef_setup import patch_regex_timeout
 from benchmarks.data import BenchmarkRun
+from benchmarks.schemas import NEROutput
 from ner_datasets import (
     get_dataset_class_definitions,
     load_ner_dataset_from_conll,
@@ -39,7 +40,9 @@ def _init_worker(dataset, mode, max_samples, iou_threshold):
     _worker_state["mode"] = mode
     _worker_state["max_samples"] = max_samples
     _worker_state["iou_threshold"] = iou_threshold
-    _worker_state["executor"] = RuleExecutor()
+    executor = RuleExecutor()
+    patch_regex_timeout(executor)
+    _worker_state["executor"] = executor
 
 
 def _eval_rule_worker(rule):
@@ -478,6 +481,7 @@ def main():
         text_field="text",
     )
     executor = RuleExecutor()
+    patch_regex_timeout(executor)
     chef = SimpleNamespace(learner=SimpleNamespace(_apply_rules=executor.apply_rules), task=task)
 
     results_folder = os.path.dirname(args.rules_json)

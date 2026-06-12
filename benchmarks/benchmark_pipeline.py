@@ -1,115 +1,21 @@
 import json
-import os
 import random
-import signal
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
-from openai import OpenAI
-from pydantic import BaseModel, Field
-
-from benchmarks.data import BenchmarkRun, DataSplit, load_human_feedback
+from benchmarks.chef_setup import build_chef
+from benchmarks.data import DataSplit, load_human_feedback
 from benchmarks.io import save_checkpoint
 from benchmarks.reporting import eval_metrics, evaluate_test, make_oniteration_callback
 from ner_datasets.conversion import make_dataset
-from rulechef.coordinator import AgenticCoordinator
-from rulechef.core import Dataset, RuleFormat, Task, TaskType
+from rulechef.core import Dataset
 from rulechef.engine import RuleChef
 
 CHECKPOINT_FILE = "checkpoint.json"
-
-
-class Entity(BaseModel):
-    text: str = Field(description="The matched text span")
-    start: int = Field(description="Start character offset")
-    end: int = Field(description="End character offset")
-    type: str = Field(description="Entity label")
-
-
-class NEROutput(BaseModel):
-    entities: List[Entity]
-
-
-def _patch_regex_timeout(chef: RuleChef, timeout_secs: int = 5) -> None:
-    """Skip regex rules that hang instead of letting them stall the run."""
-    original = chef.learner.executor._execute_regex_rule
-    timed_out_rules: set[str] = set()
-
-    def _execute_with_timeout(rule, input_data, text_field=None):
-        if rule.id in timed_out_rules:
-            return []
-
-        def _handler(signum, frame):
-            raise TimeoutError()
-
-        old_handler = signal.signal(signal.SIGALRM, _handler)
-        signal.alarm(timeout_secs)
-        try:
-            return original(rule, input_data, text_field)
-        except TimeoutError:
-            timed_out_rules.add(rule.id)
-            print(f"   ⚠ Regex timeout ({timeout_secs}s): {rule.name} — skipping")
-            return []
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
-
-    chef.learner.executor._execute_regex_rule = _execute_with_timeout
-
-
-def build_chef(args, split: DataSplit, storage_dir: str, logger=None) -> RuleChef:
-    selected_classes = sorted(split.selected_classes)
-    task = Task(
-        name="German Legal Named Entity Recognition",
-        description=(
-            f"Recognize named entities in German legal text. "
-            f"Entities to look for: {', '.join(selected_classes)}."
-        ),
-        input_schema={"text": "str"},
-        output_schema=NEROutput,
-        type=TaskType.NER,
-        text_field="text",
-    )
-
-    client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY") or "EMPTY",
-        base_url=args.base_url,
-    )
-
-    coordinator = None
-    if args.agentic:
-        coordinator = AgenticCoordinator(
-            client,
-            model=args.model,
-            prune_after_learn=args.enable_prune,
-            audit_interval=args.audit_interval,
-            enable_critic=args.enable_critic,
-            critic_interval=args.critic_interval,
-            verbose=True,
-        )
-
-    chef = RuleChef(
-        task=task,
-        client=client,
-        dataset_name=split.name,
-        model=args.model,
-        allowed_formats=[RuleFormat.REGEX],
-        use_grex=not args.no_grex,
-        max_rules=args.max_rules,
-        max_samples=args.max_samples,
-        max_counter_examples=args.max_counter_examples,
-        coordinator=coordinator,
-        training_logger=logger,
-        storage_path=storage_dir,
-        sampling_strategy=args.sampling_strategy,
-        synthesis_strategy=args.synthesis_strategy,
-    )
-    _patch_regex_timeout(chef)
-    return chef
 
 
 def fit_batched(
