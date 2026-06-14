@@ -114,7 +114,7 @@ class LLMCallManager:
         if not variants:
             raise PromptTooLargeError("No prompt variants were provided")
 
-        estimates = []
+        estimates: list[dict[str, Any]] = []
         resolved_output = self.resolve_output_tokens(output_tokens)
         for variant in variants:
             messages = [{"role": "user", "content": variant.prompt}]
