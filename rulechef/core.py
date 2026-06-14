@@ -419,6 +419,10 @@ class Rule:
             $0, $1, $start, $end, $ent_type. None for plain span extraction.
         output_key: Which key in the output dict to populate (e.g. 'entities').
             Inferred from task type if not set.
+        validated_precision: Precision measured on held-out data (set by
+            ranking.rank_rules). Used by the executor to order rules within
+            the same priority so the more precise rule wins conflicts.
+        validated_support: Number of predictions behind validated_precision.
     """
 
     id: str
@@ -435,6 +439,9 @@ class Rule:
     # Schema-aware rule fields (optional, for NER/TRANSFORMATION)
     output_template: dict[str, Any] | None = None  # Template for output JSON
     output_key: str | None = None  # Which output key to populate (e.g., "entities")
+    # Measured on held-out data by ranking.rank_rules()
+    validated_precision: float | None = None
+    validated_support: int = 0
 
     @property
     def pattern(self) -> str:
@@ -477,6 +484,9 @@ class Rule:
             result["output_template"] = self.output_template
         if self.output_key is not None:
             result["output_key"] = self.output_key
+        if self.validated_precision is not None:
+            result["validated_precision"] = self.validated_precision
+            result["validated_support"] = self.validated_support
         return result
 
 

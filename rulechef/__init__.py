@@ -22,6 +22,8 @@ from rulechef.core import (
     TaskType,
 )
 from rulechef.evaluation import ClassMetrics, EvalResult, RuleMetrics
+from rulechef.ranking import RankingReport, RuleRanking, prune_harmful_rules, rank_rules
+from rulechef.splitting import split_dataset
 
 if TYPE_CHECKING:
     from rulechef.coordinator import AgenticCoordinator as AgenticCoordinator
@@ -43,6 +45,11 @@ __all__ = [
     "EvalResult",
     "RuleMetrics",
     "ClassMetrics",
+    "RankingReport",
+    "RuleRanking",
+    "rank_rules",
+    "prune_harmful_rules",
+    "split_dataset",
     "CoordinatorProtocol",
     "SimpleCoordinator",
     "AgenticCoordinator",

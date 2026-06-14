@@ -214,3 +214,16 @@ docs/internal/
 node_modules/
 frontend/dist/
 frontend/.vite/
+# --- RuleChef: paper kept local, benchmark caches, scratch ---
+.DS_Store
+docs/internal/
+docs/SESSION_STATE.md
+docs/PAPER_OUTLINE.md
+# LLM prediction caches and trajectory logs (results JSONs hold the cited numbers)
+benchmarks/*cache*.jsonl
+benchmarks/**/*cache*.jsonl
+benchmarks/*.training.jsonl
+benchmarks/**/*.training.jsonl
+benchmarks/training_log_*.jsonl
+# GLiNER2 recompute checkpoint (not cited; Table 1 numbers live in results_extract_tab.json)
+benchmarks/results/*.ckpt_gliner2.json

@@ -89,6 +89,8 @@ class DatasetStore:
                     failures=rule_data.get("failures", 0),
                     output_template=rule_data.get("output_template"),
                     output_key=rule_data.get("output_key"),
+                    validated_precision=rule_data.get("validated_precision"),
+                    validated_support=rule_data.get("validated_support", 0),
                 )
                 dataset.rules.append(rule)
 
