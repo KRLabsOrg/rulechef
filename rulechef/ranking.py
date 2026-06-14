@@ -8,6 +8,7 @@ and can prune rules that hurt the ensemble.
 """
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from rulechef.core import Dataset, Rule
@@ -104,7 +105,7 @@ class RankingReport:
 def rank_rules(
     rules: list[Rule],
     dataset: Dataset,
-    apply_rules_fn,
+    apply_rules_fn: Callable,
     mode: str = "text",
     compute_marginal: bool = True,
     stamp_validated_stats: bool = True,

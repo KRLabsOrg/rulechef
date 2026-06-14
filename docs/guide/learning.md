@@ -30,6 +30,8 @@ The main learning method orchestrates the full pipeline:
 rules, eval_result = chef.learn_rules(
     max_refinement_iterations=3,  # Evaluation-refinement cycles
     incremental_only=False,       # If True, only patch (don't re-synthesize)
+    holdout_fraction=0.2,         # Decide patch acceptance on a held-out dev split
+    split_seed=42,                # Seed for the stratified split
 )
 ```
 
@@ -39,9 +41,44 @@ rules, eval_result = chef.learn_rules(
 2. Rules are synthesized using the LLM
 3. Rules are evaluated against the dataset
 4. Failed examples drive refinement iterations
-5. Rules are persisted to disk
+5. Each surviving rule is stamped with a validated precision (see [Evaluation & Feedback](evaluation.md#rule-trust-and-conflict-resolution))
+6. Rules are persisted to disk
 
-**Returns:** A tuple of `(List[Rule], Optional[EvalResult])`.
+**Returns:** A tuple of `(List[Rule], Optional[EvalResult])`. When `holdout_fraction > 0`, `eval_result` is measured on the held-out dev split.
+
+## Holdout Acceptance
+
+By default the refinement loop accepts or rejects patches based on quality measured on the same data the patches were learned from, which can let rules memorize their training failures instead of generalizing. Set `holdout_fraction` to split off a development set:
+
+```python
+chef.learn_rules(holdout_fraction=0.2, split_seed=42)
+```
+
+With a holdout active:
+
+- The training data is split into train and dev portions, **stratified by class signature**.
+- **Corrections always stay in train** — they are explicit user fixes and the highest-value patching signal, so holding them out would hide them from the learner.
+- Patch synthesis only ever sees the train portion, but **acceptance is decided on dev**: a patch is kept only if held-out F1 does not degrade (or precision improves).
+- Best-rule selection across iterations is also decided on dev.
+
+This is the recommended setting for datasets with hundreds of examples or more. If the resulting dev split would be too small (fewer than 5 examples), no split is performed and acceptance falls back to the training data.
+
+## Failure-Mode Clustering
+
+On large datasets an intermediate ruleset can produce thousands of failures — far more than fit in a patch prompt. Rather than truncating arbitrarily, RuleChef clusters failures by their **signature** — the expected class and the kind of error (missed span, spurious span, wrong type) — and gives the LLM:
+
+- the full distribution of failure modes (counts per signature), so it sees the shape of the problem, and
+- a round-robin sample of concrete instances drawn evenly across clusters.
+
+This keeps patch prompts bounded while ensuring rare failure modes are not crowded out by common ones.
+
+## Synthesis Robustness
+
+LLM-written rules can misbehave; RuleChef guards against the common failure modes automatically:
+
+- **Catch-all ban.** Patterns that match arbitrary text (e.g. `.*`, `^.{1,}$`, pure negative-lookahead) are rejected at validation by probing them against generic strings, so a rule cannot inflate its score by matching everything.
+- **Execution timeouts.** Each rule runs under a wall-clock budget (`RULE_TIMEOUT_S`, 3s); a catastrophically-backtracking regex or a runaway code rule is aborted and skipped instead of freezing the loop.
+- **Truncated-output recovery.** If the LLM's JSON response is cut off, complete rule objects are salvaged from the partial output rather than discarding the whole response.
 
 ## Synthesis Strategies
 
@@ -136,7 +173,7 @@ Incremental patching:
 
 During patching, the LLM can list rules in a `"deleted_rules"` field to remove them from the ruleset. This is used when a rule is too broad (high false positives) and the LLM provides narrower replacement rules in the same response.
 
-A patch is accepted if micro F1 stays within 0.5%, or if precision improves (higher precision at the cost of some recall is considered a net quality win). Otherwise the patch is rejected and the previous rules are kept.
+A patch is accepted if micro F1 stays within 0.5%, or if precision improves (higher precision at the cost of some recall is considered a net quality win). Otherwise the patch is rejected and the previous rules are kept. When `holdout_fraction > 0`, this decision is made on the held-out dev split (see [Holdout Acceptance](#holdout-acceptance)).
 
 ## Persistence
 

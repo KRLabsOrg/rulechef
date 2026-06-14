@@ -88,6 +88,8 @@ nav:
     - RuleChef: api/rulechef.md
     - Core Types: api/core.md
     - Evaluation: api/evaluation.md
+    - Ranking: api/ranking.md
+    - Splitting: api/splitting.md
     - Coordinator: api/coordinator.md
     - Executor: api/executor.md
     - Training Logger: api/training-logger.md
