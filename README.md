@@ -366,7 +366,9 @@ DATA EVIDENCE FROM TRAINING:
 
 Install with `pip install rulechef[grex]`. Disable with `use_grex=False`.
 
-## Benchmark: Banking77
+## Benchmark: 
+
+### Banking77
 
 On the [Banking77](https://huggingface.co/datasets/legacy-datasets/banking77) intent classification dataset (5-class subset, 5-shot per class, regex-only):
 
@@ -379,6 +381,76 @@ On the [Banking77](https://huggingface.co/datasets/legacy-datasets/banking77) in
 | Per-query latency | 0.19ms |
 
 With agentic coordinator guiding 15 refinement iterations against a dev set. Zero false positives — rules never give a wrong answer, they just abstain when unsure. Full results and learned rules: [`benchmarks/results_banking77.json`](benchmarks/results_banking77.json). Reproduce: `python benchmarks/benchmark_banking77.py --classes beneficiary_not_allowed,card_arrival,disposable_card_limits,exchange_rate,pending_cash_withdrawal --shots 5 --max-iterations 15 --agentic`.
+
+### GermanLER
+
+First, serve a model with [vLLM](https://docs.vllm.ai/):
+```bash
+vllm serve Qwen/Qwen3.5-35B-A3B \
+  --port 8000 \
+  --max-model-len 64000 \
+  --reasoning-parser qwen3 \
+  --language-model-only \
+  --default-chat-template-kwargs '{"enable_thinking": false}'
+```
+
+Then run:
+```bash
+python benchmarks/benchmark.py \
+  --train-dir data/findok/data/{dataset_name}/{dataset_name}_train.conllu \
+  --test-dir data/findok//{dataset_name}/{dataset_name}_dev.conllu \
+  --dataset-name findok \
+  --classes organisation \
+  --model Qwen/Qwen3.5-35B-A3B \
+  --base-url http://localhost:8000/v1 \
+  --max-rules 30 \
+  --batch-size 30 \
+  --max-iterations 1 \
+  --output results_findok.json
+```
+
+Or use a config file (CLI flags override config values):
+```bash
+python benchmarks/benchmark.py --config benchmarks/config.yaml
+```
+### Key arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--train-dir` | — | CoNLL-U training data |
+| `--test-dir` | — | CoNLL-U dev / test data |
+| `--transfer-train-dir:` | — | CoNLL-U transfer train data  |
+| `--transfer-val-dir:` | — | CoNLL-U transfer dev / test data if not provided uses test-dir  |
+| `--dataset-name` | `findok` | Dataset name |
+| `--classes` | all | Comma-separated entity classes to learn |
+| `--model` | `Qwen/Qwen3.5-35B-A3B` | vLLM model name |
+| `--base-url` | `http://localhost:8000/v1` | OpenAI-compatible endpoint |
+| `--max-rules` | 10 | Maximum number of rules to generate per LLM call |
+| `--batch-size` | 20 | Training sentences per batch |
+| `--max-iterations` | 3 | Refinement iterations after synthesis |
+| `--sampling-strategy` | `balanced` | How to sample training examples |
+| `--seed` | 42 | Random seed for reproducibility |
+| `--rules-json` | — | Seed training with existing rules |
+| `--skip-synthesis` | false | Skip synthesis, only run refinement |
+| `--agentic` | false | Enable agentic LLM feedback loop |
+| `--enable-critic` | false | Enable LLM-based rule critique |
+| `--no-mdreport` | false | Skip generating the Markdown report |
+| `--negative-classes` | - | Negative class to sample examples from |
+| `--num-negative-examples` | - | How many negative example to include |
+
+### Resuming after a crash
+
+If a run is interrupted, resume from the last completed batch:
+```bash
+python  benchmarks/benchmark.py \
+  --resume-from reports/findok/Qwen_Qwen3.5-35B-A3B/organisation/{folder_you_want_to_resume_experiment}/
+```
+
+The checkpoint file (`checkpoint.json`) is written after every batch and deleted on clean completion. The output directory already contains `config.yaml` with all original settings, so no other flags are needed.
+
+---
+
+
 
 ## CLI
 
