@@ -1,0 +1,28 @@
+{
+  "phases": [
+    "germanler"
+  ],
+  "history": [
+    {
+      "phase": "refine",
+      "dataset": "germanler",
+      "num_rules": 0,
+      "micro_f1": 0.0,
+      "micro_precision": 0.0,
+      "micro_recall": 0.0,
+      "iteration_metrics": [
+        {
+          "iteration": 1,
+          "num_rules": 0,
+          "exact_match": 1.0,
+          "micro_f1": 0.0,
+          "micro_precision": 0.0,
+          "micro_recall": 0.0,
+          "macro_f1": 0.0,
+          "per_class": []
+        }
+      ],
+      "timestamp": "2026-06-15T14:17:19.636261"
+    }
+  ]
+}

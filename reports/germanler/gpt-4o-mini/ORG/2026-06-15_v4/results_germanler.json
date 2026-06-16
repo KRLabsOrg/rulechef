@@ -1,0 +1,64 @@
+{
+  "config": {
+    "shots": null,
+    "model": "gpt-4o-mini",
+    "format": "regex",
+    "max_rules": 30,
+    "max_samples": 150,
+    "max_iterations": 6,
+    "seed": 42,
+    "train_size": 3950,
+    "eval_size": 988,
+    "test_size": 6666,
+    "train_annotations": 3950,
+    "eval_annotations": 988,
+    "test_annotations": 6666,
+    "use_grex": true,
+    "agentic": true,
+    "enable_critic": true,
+    "enable_prune": false,
+    "critic_interval": 10,
+    "audit_interval": 0,
+    "windows": false,
+    "sampling_strategy": "balanced",
+    "train_ratio": 0.8,
+    "pool_size": null,
+    "batch_size": 100,
+    "refine_per_batch": 2,
+    "synthesis_strategy": "bulk",
+    "selected_classes": [
+      "ORG"
+    ],
+    "train_name": "germanler",
+    "test_name": "germanler",
+    "transfer_name": null,
+    "transfer_test_name": null,
+    "max_counter_examples": 10,
+    "refine_every": 10
+  },
+  "metadata": {
+    "best_batch_idx": -1,
+    "best_batch_f1": 0.0,
+    "best_rules_serialized": []
+  },
+  "results": {
+    "accuracy": 1.0,
+    "micro_precision": 0.0,
+    "micro_recall": 0.0,
+    "micro_f1": 0.0,
+    "macro_f1": 0.0,
+    "num_rules": 0,
+    "learning_time_s": 0.0,
+    "eval_time_s": 0.017,
+    "per_query_ms": 0.0
+  },
+  "per_class": [],
+  "iteration_metrics": [],
+  "batch_test_metrics": [],
+  "rules": [],
+  "best_rules": {
+    "batch": -1,
+    "micro_f1": 0.0,
+    "rules": []
+  }
+}
