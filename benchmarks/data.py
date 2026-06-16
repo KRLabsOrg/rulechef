@@ -6,27 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from ner_datasets import load_ner_dataset_from_conll
-from ner_datasets.sampling import sample_few_shot
+from ner_datasets.sampling import sample_few_shot, DataSplit
 from ner_datasets.utils import (
     label_distribution_sent,
     print_distribution,
 )
 from rulechef.core import Correction, Dataset, Example, Feedback, Rule, RuleFormat
-
-
-@dataclass
-class DataSplit:
-    """Sampled, train/eval/dev-split data ror eady for a learning phase."""
-
-    name: str
-    train: list
-    eval: list
-    dev: list
-    counter_examples: list
-    selected_classes: set
-    n_train_docs: int
-    n_eval_docs: int
-    n_test_docs: int
 
 
 @dataclass
