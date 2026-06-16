@@ -69,6 +69,7 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.counter_examples_pool: list = []
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
@@ -222,7 +223,7 @@ class RuleLearner:
                     positives.append(ex)
 
             # Use pool of pre-built counter_examples if available
-            if getattr(self, "counter_examples_pool", None):
+            if self.counter_examples_pool:
                 counter_examples = list(self.counter_examples_pool)
 
             # Sample positives using the configured strategy
@@ -251,8 +252,7 @@ class RuleLearner:
 
             # Sample counter-examples to keep prompt manageable
             if len(counter_examples) > max_counter_examples:
-                if getattr(self, "counter_examples_pool", None):
-                    # Pool is pre-built — sample fresh each call for variety across batches
+                if self.counter_examples_pool:
                     counter_examples = random.sample(counter_examples, max_counter_examples)
                 else:
                     rng = random.Random(42 + i)
