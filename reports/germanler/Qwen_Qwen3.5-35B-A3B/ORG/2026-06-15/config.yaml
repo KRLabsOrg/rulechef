@@ -15,11 +15,11 @@ max-iterations: 6
 max-rules: 30
 max-samples: 150
 model: Qwen/Qwen3.5-35B-A3B
-negative-classes: NRM
+negative-classes: null
 no-grex: false
 no-mdreport: false
 num-classes: null
-num-negative-examples: 1000
+num-negative-examples: null
 output: results_germanler.json
 pool-size: null
 refine-every: 10
