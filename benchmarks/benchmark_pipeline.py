@@ -1,6 +1,7 @@
 import json
 import random
 import time
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -12,7 +13,7 @@ from benchmarks.data import DataSplit, load_human_feedback
 from benchmarks.io import save_checkpoint
 from benchmarks.reporting import eval_metrics, evaluate_test, make_oniteration_callback
 from ner_datasets.conversion import make_dataset
-from rulechef.core import Dataset
+from rulechef.core import Dataset, Example
 from rulechef.engine import RuleChef
 
 CHECKPOINT_FILE = "checkpoint.json"
@@ -147,8 +148,18 @@ class SynthesisStep(Step):
 
     def run(self, ctx: StepContext) -> StepContext:
         if self.synthesis_strategy != "bulk":
-            train_for_chef = ctx.split.train + ctx.split.counter_examples
+            train_for_chef = list(ctx.split.train)
             random.Random(self.seed).shuffle(train_for_chef)
+            if ctx.split.counter_examples:
+                ctx.chef.learner.counter_examples_pool = [
+                    Example(
+                        id=str(uuid.uuid4())[:8],
+                        input={"text": ex["text"]},
+                        expected_output={"entities": ex["entities"]},
+                        source="counter_example",
+                    )
+                    for ex in ctx.split.counter_examples
+                ]
         else:
             train_for_chef = ctx.split.train
         batch_metrics = list(ctx.batch_metrics)

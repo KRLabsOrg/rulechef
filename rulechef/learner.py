@@ -5,9 +5,9 @@ import json
 import random
 import re
 import time
-from urllib import response
 import uuid
 from collections import defaultdict
+from urllib import response
 
 from openai import OpenAI
 
@@ -112,14 +112,15 @@ class RuleLearner:
         """
         max_rules = max_rules or self.max_rules
         prompt = self._build_synthesis_prompt(dataset, max_rules)
+        # print(prompt)
 
         print("📚 Synthesizing rules from dataset...")
         start = time.time()
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
-                # max_completion_tokens=16384,
-                max_tokens=16384,
+                max_completion_tokens=16384,
+                # max_tokens=16384,
                 # max_completion_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
@@ -194,6 +195,7 @@ class RuleLearner:
         print(
             f"📚 Per-class synthesis: {len(classes)} classes, up to {max_rules_per_class} rules each"
         )
+
         print(f"  Classes: {classes}")
         all_rules = []
         total_start = time.time()
@@ -219,9 +221,9 @@ class RuleLearner:
                 elif task_type == TaskType.TRANSFORMATION:
                     positives.append(ex)
 
-            print("POSITIVES:", len(positives), positives[:2])
-
-            print("COUNTER-EXAMPLES:", len(counter_examples), counter_examples[:2])
+            # Use pool of pre-built counter_examples if available
+            if getattr(self, "counter_examples_pool", None):
+                counter_examples = list(self.counter_examples_pool)
 
             # Sample positives using the configured strategy
             if len(positives) > self.max_samples:
@@ -249,8 +251,14 @@ class RuleLearner:
 
             # Sample counter-examples to keep prompt manageable
             if len(counter_examples) > max_counter_examples:
-                rng = random.Random(42 + i)
-                counter_examples = rng.sample(counter_examples, max_counter_examples)
+                if getattr(self, "counter_examples_pool", None):
+                    # Pool is pre-built — sample fresh each call for variety across batches
+                    counter_examples = random.sample(counter_examples, max_counter_examples)
+                else:
+                    rng = random.Random(42 + i)
+                    counter_examples = rng.sample(counter_examples, max_counter_examples)
+            print("POSITIVES", len(positives))
+            print("NEGATIVES", len(counter_examples))
 
             prompt = self._build_per_class_prompt(
                 dataset,
@@ -264,8 +272,8 @@ class RuleLearner:
             try:
                 response = self.llm.chat.completions.create(
                     model=self.model,
-                    # max_completion_tokens=16384,
-                    max_tokens=16384,
+                    max_completion_tokens=16384,
+                    # max_tokens=16384,
                     # max_completion_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
@@ -838,7 +846,7 @@ class RuleLearner:
                 response = self.llm.chat.completions.create(
                     model=self.model,
                     max_completion_tokens=16384,
-                    max_tokens=16384,
+                    # max_tokens=16384,
                     # max_completion_tokens=4096,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
