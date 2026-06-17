@@ -27,7 +27,7 @@ from rulechef.core import (
     Task,
     TaskType,
 )
-from rulechef.evaluation import evaluate_dataset
+from rulechef.evaluation import evaluate_dataset, evaluate_rules_individually
 from rulechef.executor import RuleExecutor
 
 _worker_state = {}
@@ -46,7 +46,6 @@ def _init_worker(dataset, mode, max_samples, iou_threshold):
 
 
 def _eval_rule_worker(rule):
-    from rulechef.evaluation import evaluate_rules_individually
 
     return evaluate_rules_individually(
         rules=[rule],
@@ -55,6 +54,7 @@ def _eval_rule_worker(rule):
         mode=_worker_state["mode"],
         max_samples=_worker_state["max_samples"],
         iou_threshold=_worker_state["iou_threshold"],
+        in_context=True,
     )[0]
 
 
@@ -390,15 +390,30 @@ def create_md_report(
     exclude = exclude_rule_ids or set()
     rules = [r for r in run.rules if r.id not in exclude]
 
-    append_overall_metrics(file_path, chef, test_dataset, run, results_folder, rules=rules)
+    test_eval = append_overall_metrics(
+        file_path, chef, test_dataset, run, results_folder, rules=rules
+    )
+
+    if test_eval and test_eval.fp_examples:
+        append_fp_by_rule(file_path, test_eval.fp_examples)
+    """
 
     with ProcessPoolExecutor(
         max_workers=16,
         initializer=_init_worker,
-        initargs=(test_dataset, "text", 100, 0.5),
+        initargs=(test_dataset, "text", 100, 1),
     ) as pool:
         rule_metrics = list(pool.map(_eval_rule_worker, rules))
+    """
 
+    rule_metrics = evaluate_rules_individually(
+        rules,
+        test_dataset,
+        chef.learner._apply_rules,
+        mode="text",
+        max_samples=100,
+        in_context=True,
+    )
     write_summary_table(file_path, rule_metrics)
     append_influential_rules(file_path, rule_metrics, rules, top_n=10)
 
