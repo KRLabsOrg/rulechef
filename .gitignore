@@ -227,3 +227,7 @@ benchmarks/**/*.training.jsonl
 benchmarks/training_log_*.jsonl
 # GLiNER2 recompute checkpoint (not cited; Table 1 numbers live in results_extract_tab.json)
 benchmarks/results/*.ckpt_gliner2.json
+
+# Generated rule-inspection reports
+rule_report.html
+rules_*.html

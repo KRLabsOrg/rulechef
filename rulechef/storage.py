@@ -10,7 +10,6 @@ from rulechef.core import (
     Example,
     Feedback,
     Rule,
-    RuleFormat,
 )
 
 
@@ -76,23 +75,7 @@ class DatasetStore:
 
             # Restore rules
             for rule_data in data.get("rules", []):
-                rule = Rule(
-                    id=rule_data["id"],
-                    name=rule_data["name"],
-                    description=rule_data["description"],
-                    format=RuleFormat(rule_data["format"]),
-                    content=rule_data["content"],
-                    priority=rule_data.get("priority", 5),
-                    confidence=rule_data.get("confidence", 0.5),
-                    times_applied=rule_data.get("times_applied", 0),
-                    successes=rule_data.get("successes", 0),
-                    failures=rule_data.get("failures", 0),
-                    output_template=rule_data.get("output_template"),
-                    output_key=rule_data.get("output_key"),
-                    validated_precision=rule_data.get("validated_precision"),
-                    validated_support=rule_data.get("validated_support", 0),
-                )
-                dataset.rules.append(rule)
+                dataset.rules.append(Rule.from_dict(rule_data))
 
             print(
                 f"✓ Loaded dataset: {len(dataset.corrections)} corrections, "

@@ -3,6 +3,7 @@
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from openai import OpenAI
 
@@ -16,6 +17,7 @@ from rulechef.core import (
     DEFAULT_OUTPUT_KEYS,
     Dataset,
     Feedback,
+    Rule,
     RuleFormat,
     Task,
     TaskType,
@@ -482,6 +484,64 @@ class RuleChef:
             holdout_fraction=holdout_fraction,
             split_seed=split_seed,
         )
+
+    def load_rules(self, source: str | Path | list | dict, persist: bool = False) -> list[Rule]:
+        """Load a previously learned ruleset into this RuleChef.
+
+        ``source`` may be a path to a JSON file, an already-parsed object, or a
+        list of rule dicts. The rules list is located whether the JSON is a bare
+        list, a dataset dict with a top-level ``rules`` key, a benchmark
+        checkpoint with ``result.rules``, or a comparison result with
+        ``meta.rulechef.rules``. Partial rule dicts (e.g. those exported by the
+        benchmark harnesses without ``id``/``description``) are accepted.
+
+        The loaded rules replace the current in-memory ruleset, so the chef can
+        immediately ``extract`` with them or evaluate them with ``evaluate`` /
+        ``get_rule_metrics`` / ``rank_rules`` against any data added to it. Set
+        ``persist=True`` to also save them to the dataset file on disk.
+
+        Returns the list of loaded Rule objects.
+        """
+        if isinstance(source, (str, Path)):
+            data: Any = json.loads(Path(source).read_text())
+        else:
+            data = source
+
+        rule_dicts = None
+        if isinstance(data, list):
+            rule_dicts = data
+        elif isinstance(data, dict):
+            # Known shapes: dataset ('rules'), checkpoint ('result.rules'),
+            # comparison result ('meta.rulechef.rules').
+            meta = data.get("meta")
+            rulechef_meta = meta.get("rulechef") if isinstance(meta, dict) else None
+            result = data.get("result")
+            for candidate in (
+                data.get("rules"),
+                result.get("rules") if isinstance(result, dict) else None,
+                rulechef_meta.get("rules") if isinstance(rulechef_meta, dict) else None,
+            ):
+                if isinstance(candidate, list):
+                    rule_dicts = candidate
+                    break
+        if rule_dicts is None:
+            raise ValueError(
+                "Could not find a rules list in the source. Expected a list of "
+                "rule dicts, or a dict with 'rules', 'result.rules', or "
+                "'meta.rulechef.rules'."
+            )
+
+        if self.dataset is None:
+            raise ValueError(
+                "RuleChef has no dataset to load rules into. Construct it with a "
+                "task (or call start_observing) first."
+            )
+
+        rules = [Rule.from_dict(r) for r in rule_dicts]
+        self.dataset.rules = rules
+        if persist:
+            self._store.save(self.dataset)
+        return rules
 
     # ========================================
     # Execution

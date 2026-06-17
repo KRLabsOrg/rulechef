@@ -578,8 +578,8 @@
           "format": "regex",
           "content": "(?i)(?:\\bno\\.?\\s*\\(?|\\(|\\[|\\bapplication\\s+no\\.?\\s*|ECHR\\s+)(\\d{4,6}/\\d{2,4}|\\d{4}-[IVX]+)|\\b(?:\\d{5,8}(?!\\s*/\\d{2,4})|\\d{3,6}/\\d{2,4})(?!\\s*%|\\s*(?:EUR|PLN|GBP|TRL|FRF|NOK|DKK|ATS|TRY|kg|km|m\\b|cm\\b|mm\\b|mg\\b|g\\b|lbs|oz|%))\\b",
           "priority": 10,
-          "validated_precision": null,
-          "validated_support": 0,
+          "validated_precision": 0.8636363636363636,
+          "validated_support": 22,
           "output_template": {
             "text": "$1",
             "start": "$start",
@@ -593,7 +593,7 @@
           "format": "regex",
           "content": "(?i)\\b(?:file\\s+(?:no\\.?\\s*)?|case\\s+(?:no\\.?\\s*)?|RPO|appeal\\s+case)\\s*([A-Z]?\\d[\\d\\-/]*(?:/[A-Z]+)?)|(?:plot|parcel)s?\\s+no\\.?\\s*(\\d{1,4})(?:\\s*,\\s*\\d{1,4})*",
           "priority": 9,
-          "validated_precision": null,
+          "validated_precision": 0.0,
           "validated_support": 0,
           "output_template": {
             "text": "$1",

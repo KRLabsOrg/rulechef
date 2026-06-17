@@ -1,5 +1,6 @@
 """Core data structures for RuleChef"""
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -488,6 +489,41 @@ class Rule:
             result["validated_precision"] = self.validated_precision
             result["validated_support"] = self.validated_support
         return result
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Rule":
+        """Reconstruct a Rule from a serialized dict.
+
+        Tolerant of partial dicts: a missing ``id``, ``description``, or
+        ``created_at`` is filled in, so rules exported by the benchmark
+        harnesses (which omit bookkeeping fields) load as readily as full
+        ``to_dict`` output. Only ``name`` and ``content`` are required.
+        """
+        created = d.get("created_at")
+        if isinstance(created, str):
+            try:
+                created = datetime.fromisoformat(created)
+            except ValueError:
+                created = None
+        kwargs: dict[str, Any] = {
+            "id": d.get("id") or uuid.uuid4().hex[:8],
+            "name": d["name"],
+            "description": d.get("description", ""),
+            "format": RuleFormat(d.get("format", "regex")),
+            "content": d["content"],
+            "priority": d.get("priority", 5),
+            "confidence": d.get("confidence", 0.5),
+            "times_applied": d.get("times_applied", 0),
+            "successes": d.get("successes", 0),
+            "failures": d.get("failures", 0),
+            "output_template": d.get("output_template"),
+            "output_key": d.get("output_key"),
+            "validated_precision": d.get("validated_precision"),
+            "validated_support": d.get("validated_support", 0),
+        }
+        if created is not None:
+            kwargs["created_at"] = created
+        return cls(**kwargs)
 
 
 @dataclass
