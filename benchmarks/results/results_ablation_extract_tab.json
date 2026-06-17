@@ -1,0 +1,287 @@
+{
+  "config": {
+    "dataset": "tab",
+    "model": "moonshotai/Kimi-K2.6",
+    "base_url": "https://inference.baseten.co/v1",
+    "train": 1000,
+    "test": 600,
+    "max_rules": 60,
+    "max_samples": 80,
+    "max_iterations": 3,
+    "seed": 42,
+    "output": null
+  },
+  "cells": {
+    "simple": {
+      "format_f1": 0.6316,
+      "semantic_f1": 0.382,
+      "per_type_f1": {
+        "CODE": 0.5207,
+        "DATETIME": 0.6634,
+        "QUANTITY": 0.3188,
+        "PERSON": 0.6014,
+        "ORG": 0.3424,
+        "LOC": 0.4083,
+        "DEM": 0.4321,
+        "MISC": 0.048
+      },
+      "num_rules": 38,
+      "learn_s": 203.4,
+      "heavy_llm_calls": 12
+    },
+    "simple+holdout": {
+      "format_f1": 0.8347,
+      "semantic_f1": 0.4439,
+      "per_type_f1": {
+        "CODE": 0.8926,
+        "DATETIME": 0.8614,
+        "QUANTITY": 0.3103,
+        "PERSON": 0.5968,
+        "ORG": 0.4235,
+        "LOC": 0.4076,
+        "DEM": 0.3481,
+        "MISC": 0.0343
+      },
+      "num_rules": 36,
+      "learn_s": 286.2,
+      "heavy_llm_calls": 14
+    },
+    "agentic": {
+      "format_f1": 0.1741,
+      "semantic_f1": 0.3321,
+      "per_type_f1": {
+        "CODE": 0.8936,
+        "DATETIME": 0.1065,
+        "QUANTITY": 0.0949,
+        "PERSON": 0.4048,
+        "ORG": 0.3608,
+        "LOC": 0.3179,
+        "DEM": 0.032,
+        "MISC": 0.0305
+      },
+      "num_rules": 16,
+      "learn_s": 872.8,
+      "heavy_llm_calls": 18
+    },
+    "agentic+holdout": {
+      "format_f1": 0.8089,
+      "semantic_f1": 0.3591,
+      "per_type_f1": {
+        "CODE": 0.8591,
+        "DATETIME": 0.8352,
+        "QUANTITY": 0.3407,
+        "PERSON": 0.2077,
+        "ORG": 0.4306,
+        "LOC": 0.4893,
+        "DEM": 0.3518,
+        "MISC": 0.0284
+      },
+      "num_rules": 21,
+      "learn_s": 601.8,
+      "heavy_llm_calls": 19
+    },
+    "oneshot_prompting": {
+      "format_f1": 0.7421,
+      "semantic_f1": 0.0744,
+      "per_type_f1": {
+        "CODE": 0.0,
+        "DATETIME": 0.8509,
+        "QUANTITY": 0.2,
+        "PERSON": 0.3143,
+        "ORG": 0.1679,
+        "LOC": 0.4198,
+        "DEM": 0.0088,
+        "MISC": 0.0625
+      },
+      "num_rules": 31,
+      "learn_s": 106.2,
+      "heavy_llm_calls": 8
+    },
+    "agentic+holdout_8iter_run1_norules": {
+      "format_f1": 0.8174,
+      "semantic_f1": 0.4785,
+      "per_type_f1": {
+        "CODE": 0.6376,
+        "DATETIME": 0.8569,
+        "QUANTITY": 0.3134,
+        "PERSON": 0.6642,
+        "ORG": 0.4833,
+        "LOC": 0.3853,
+        "DEM": 0.2757,
+        "MISC": 0.0337
+      },
+      "num_rules": 9,
+      "learn_s": 805.1,
+      "heavy_llm_calls": 33
+    },
+    "agentic+holdout_8iter": {
+      "format_f1": 0.8329,
+      "semantic_f1": 0.3468,
+      "per_type_f1": {
+        "CODE": 0.8897,
+        "DATETIME": 0.8567,
+        "QUANTITY": 0.0,
+        "PERSON": 0.5783,
+        "ORG": 0.2824,
+        "LOC": 0.2662,
+        "DEM": 0.3358,
+        "MISC": 0.0
+      },
+      "num_rules": 7,
+      "learn_s": 788.5,
+      "heavy_llm_calls": 38,
+      "rules": [
+        {
+          "id": "f0f2302f",
+          "name": "simple_case_number",
+          "description": "Case numbers and patent identifiers with relaxed prefix constraints.",
+          "format": "regex",
+          "content": "(?i)(?:^|\\s|,|;|\\(|\\[)(?:no\\.?\\s*)?(\\b\\d{4,6}/\\d{1,4}\\b|\\b\\d{8}\\b)(?!\\d)",
+          "priority": 10,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:51:15.444120",
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "CODE"
+          },
+          "output_key": "entities",
+          "validated_precision": 0.9523809523809523,
+          "validated_support": 21
+        },
+        {
+          "id": "c00fb7cc",
+          "name": "person_with_title",
+          "description": "Person names with titles: Mr/Mrs/Ms/Miss/Dr/Prof followed by initials and surname, or full names. Handles 'Mr Fikret Karao\u011flan', 'Ms A. Worrall QC', 'Mr I. \u00d6.', 'Lord Lester of Herne Hill QC'.",
+          "format": "regex",
+          "content": "\\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Lord)\\.?\\s+(?:[A-Z]\\.\\s*)*[A-Z][a-zA-Z\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f0\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f8\u00f9\u00fa\u00fb\u00fc\u00fd\u00fe\u00ff\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00cc\u00cd\u00ce\u00cf\u00d0\u00d1\u00d2\u00d3\u00d4\u00d5\u00d6\u00d8\u00d9\u00da\u00db\u00dc\u00dd\u00de\u00df]+(?:\\s+(?:of|van|de|di|del|da|dos|du|la|le|ter|ten|von|zu|zur|zum|und|der|den|dem|des|het|\\'t|ten))?\\s*(?:[A-Z][a-zA-Z\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f0\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f8\u00f9\u00fa\u00fb\u00fc\u00fd\u00fe\u00ff\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00cc\u00cd\u00ce\u00cf\u00d0\u00d1\u00d2\u00d3\u00d4\u00d5\u00d6\u00d8\u00d9\u00da\u00db\u00dc\u00dd\u00de\u00df]+(?:\\s+[A-Z][a-zA-Z\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f0\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f8\u00f9\u00fa\u00fb\u00fc\u00fd\u00fe\u00ff\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00cc\u00cd\u00ce\u00cf\u00d0\u00d1\u00d2\u00d3\u00d4\u00d5\u00d6\u00d8\u00d9\u00da\u00db\u00dc\u00dd\u00de\u00df]+)*)?(?:\\s+(?:QC|Jr\\.?|Sr\\.?|III|IV|V))?\\b",
+          "priority": 7,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:50:47.893967",
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "PERSON"
+          },
+          "output_key": "entities",
+          "validated_precision": 0.6164383561643836,
+          "validated_support": 73
+        },
+        {
+          "id": "09143658",
+          "name": "nationality_dem",
+          "description": "Nationality adjectives and compound forms. Matches 'Turkish', 'Polish national', 'French citizen', 'British resident', 'German applicant', 'Swiss authorities'.",
+          "format": "regex",
+          "content": "\\b(?:Turkish|Polish|French|British|German|Spanish|Irish|Italian|Dutch|Swiss|Austrian|Belgian|Portuguese|Greek|Danish|Swedish|Norwegian|Finnish|Kurdish|Islamic|Czech|Hungarian|Romanian|Bulgarian|Slovak|Slovenian|Croatian|Serbian|Bosnian|Albanian|Macedonian|Montenegrin|Ukrainian|Belarusian|Lithuanian|Latvian|Estonian|Russian|Moldovan|Georgian|Armenian|Azerbaijani|Kazakh|Uzbek|Turkmen|Kyrgyz|Tajik|Pakistani|Indian|Chinese|Japanese|Korean|Vietnamese|Thai|Malaysian|Indonesian|Filipino|Australian|Canadian|Mexican|Brazilian|Argentine|Chilean|Peruvian|Colombian|Venezuelan|Uruguayan|Paraguayan|Bolivian|Ecuadorian|Cuban|Jamaican|Haitian|Dominican|Puerto\\s+Rican|Israeli|Palestinian|Jordanian|Lebanese|Syrian|Iraqi|Iranian|Saudi|Kuwaiti|Qatari|Bahraini|Emirati|Omani|Yemeni|Egyptian|Libyan|Tunisian|Algerian|Moroccan|Sudanese|Ethiopian|Somali|Kenyan|Ugandan|Tanzanian|Rwandan|Burundian|Congolese|Angolan|Zambian|Zimbabwean|Mozambican|Botswanan|Namibian|South\\s+African|Nigerian|Ghanaian|Ivorian|Senegalese|Malian|Burkinabe|Nigerien|Chadian|Cameroonian|Gabonese|Equatorial\\s+Guinean|Sao\\s+Tomean|Central\\s+African|Congolese|Zairean|Ugandan|Rwandan|Burundian)(?:\\s+(?:national|citizen|resident|applicant|government|authorities|nationality|origin|descent|background|community|population|minority|majority|diaspora))?\\b",
+          "priority": 6,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:50:47.895531",
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DEM"
+          },
+          "output_key": "entities",
+          "validated_precision": 0.4032258064516129,
+          "validated_support": 62
+        },
+        {
+          "id": "a11cdcd4",
+          "name": "loc_cities_countries",
+          "description": "Location names: cities and countries. Negative lookahead to avoid court/institution suffixes that would make ORG.",
+          "format": "regex",
+          "content": "\\b(?:Spain|France|Italy|Germany|Poland|Turkey|Netherlands|Belgium|Austria|Switzerland|Portugal|Greece|Sweden|Norway|Denmark|Finland|Ireland|Luxembourg|United\\s+Kingdom|United\\s+States|Pakistan|Egypt|London|Paris|Berlin|Warsaw|Ankara|Rome|Madrid|Lisbon|Vienna|Athens|Dublin|Copenhagen|Oslo|Helsinki|Stockholm|Brussels|Geneva|Strasbourg|Liverpool|Gie\u00dfen|\u0130zmir|\u0130stanbul|Bursa|Katowice|Nancy|Lublin|Bielsko-Bia\u0142a|Krak\u00f3w|\u0141\u00f3d\u017a|Wroc\u0142aw|Pozna\u0144|Gda\u0144sk|Szczecin|Bia\u0142ystok|Bydgoszcz|Cz\u0119stochowa|Bia\u0142a\\s+Podlaska|Brzeg|Herning|D\u00fcsseldorf|Hamburg|Barcelona|Milan|Prague|Budapest|Bucharest|Sofia|Tallinn|Riga|Vilnius)\\b(?!\\s+(?:Court|Courts|Tribunal|Office|Ministry|Commission|Council|Committee|Assembly|Parliament|Government|Agency|Authority|Service|Police|Prosecutor|Registry|Chamber|Section|Panel|Board|Department|Division|Unit|Bureau|Center|Centre|Institute|University|College|Hospital|School|Bank|Fund|Agency|Corporation|Inc\\.?|Ltd\\.?|LLP|PLC|Corp\\.?|GmbH|S\\.A\\.?|B\\.V\\.?|S\\.p\\.A\\.?))",
+          "priority": 6,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:51:15.447523",
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "LOC"
+          },
+          "output_key": "entities",
+          "validated_precision": 0.26595744680851063,
+          "validated_support": 94
+        },
+        {
+          "id": "e226948c",
+          "name": "org_standalone",
+          "description": "Standalone organizations: courts, ministries, government bodies, institutions without city prefix.",
+          "format": "regex",
+          "content": "(?i)\\b(?:Federal\\s+Court\\s+of\\s+Justice|Supreme\\s+Court|Constitutional\\s+Court|Administrative\\s+Court|Court\\s+of\\s+(?:Appeal|Cassation|Justice|Arbitration|Audit|First\\s+Instance)|(?:District|Regional|High|Supreme|Federal|Constitutional|Central|Local|Civil|Criminal|Labour|Tax|Migration)\\s+(?:Court|Courts)|(?:Public\\s+)?Prosecutor['\\u2019]?s?\\s+Office|Ministry\\s+of\\s+(?:Foreign\\s+Affairs|Justice|Interior|Defence|Finance|Education|Health|Labour|Social\\s+Affairs|Culture)|Federal\\s+Ministry\\s+of\\s+(?:Foreign\\s+Affairs|Justice|Interior)|City\\s+Council|European\\s+(?:Commission|Court|Union|Parliament)|Section\\s+Registrar|(?:Third|Fourth|Fifth|Sixth|Seventh|First|Second)\\s+Section\\s+of\\s+the\\s+Court|Grand\\s+Chamber|Chamber|Foreign\\s+and\\s+Commonwealth\\s+Office|Post\\s+Office|EWOSE|(?:the\\s+)?Government(?:\\s+of\\s+(?:the\\s+)?(?:United\\s+Kingdom|France|Germany|Turkey|Austria|Poland|Spain|Italy|Netherlands|Belgium|Sweden|Norway|Denmark|Finland|Ireland|Portugal|Switzerland|Greece))?|United\\s+Kingdom\\s+Government|French\\s+Government|Turkish\\s+Government|German\\s+Government|Austrian\\s+Government|Polish\\s+Government)\\b",
+          "priority": 5,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:51:15.449460",
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities",
+          "validated_precision": 0.376,
+          "validated_support": 250
+        },
+        {
+          "id": "33527f93",
+          "name": "bare_year_merged",
+          "description": "Merged: Rules 7f974639 and 8f87f296 are near-duplicates targeting same DATETIME label with identical semantics. 7f974639 has priority 8, 8f87f296 has priority 7; 8f87f296 has slightly more keywords (during/before/after) and month abbreviations. Combined pattern merges the keyword lists and negative lookahead for both full and abbreviated months. Metrics are nearly identical (168 vs 169 matches, 162 vs 163 TPs) \u2014 running both wastes compute and causes double-matching.",
+          "format": "regex",
+          "content": "(?i)\\b(?:born\\s+in|in|dated?|year|from|until|since|between|during|before|after)\\s+(\\b(?:19|20)\\d{2}\\b)(?!\\s*(?:\\d{1,2}|January|February|March|April|May|June|July|August|September|October|November|December|Jan\\.?|Feb\\.?|Mar\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sep\\.?|Sept\\.?|Oct\\.?|Nov\\.?|Dec\\.?))",
+          "priority": 8,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:51:27.849921",
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "DATETIME"
+          },
+          "output_key": "entities"
+        },
+        {
+          "id": "ef0e277d",
+          "name": "datetime_date_and_month_year",
+          "description": "Merged: Both rules extract DATETIME entities with complementary patterns: f081eaaa handles full day-month-year dates, f771166e handles month-year with prepositions and parenthetical forms. Merging reduces rule count and avoids priority conflicts. f771166e pattern is truncated in source; merged version completes the alternation and captures groups properly. Both have excellent precision (0.96 and 0.99) so combined rule maintains high quality.",
+          "format": "regex",
+          "content": "(?i)\\b(?:[0-3]?[0-9](?:st|nd|rd|th)?\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)|(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+[0-3]?[0-9](?:st|nd|rd|th)?)\\s+(?:19|20)\\d{2}\\b|\\b(?:in|since|on|as of|dated?|during|between|from|until|before|after)\\s+((?:January|February|March|April|May|June|July|August|September|October|November|December|Jan\\.?|Feb\\.?|Mar\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sep\\.?|Sept\\.?|Oct\\.?|Nov\\.?|Dec\\.?)\\s+(?:19|20)\\d{2})\\b|\\((?:\\s*)((?:January|February|March|April|May|June|July|August|September|October|November|December|Jan\\.?|Feb\\.?|Mar\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sep\\.?|Sept\\.?|Oct\\.?|Nov\\.?|Dec\\.?)\\s+(?:19|20)\\d{2})\\b",
+          "priority": 10,
+          "confidence": 0.5,
+          "times_applied": 0,
+          "successes": 0,
+          "failures": 0,
+          "created_at": "2026-06-12T15:51:27.852568",
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DATETIME"
+          },
+          "output_key": "entities"
+        }
+      ]
+    }
+  }
+}

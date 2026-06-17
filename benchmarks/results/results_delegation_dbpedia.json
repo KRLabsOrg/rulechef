@@ -1,0 +1,172 @@
+{
+  "config": {
+    "dataset": "dbpedia",
+    "classes": [
+      "Company",
+      "EducationalInstitution",
+      "Artist",
+      "Athlete",
+      "OfficeHolder",
+      "MeanOfTransportation",
+      "Building",
+      "NaturalPlace",
+      "Village",
+      "Animal",
+      "Plant",
+      "Album",
+      "Film",
+      "WrittenWork"
+    ],
+    "model": "moonshotai/Kimi-K2.6",
+    "stream": 1200,
+    "future": 400,
+    "trust_levels": [
+      0.0,
+      0.3,
+      0.5,
+      0.7,
+      0.9
+    ],
+    "checkpoints": [
+      150,
+      300,
+      600,
+      1200
+    ],
+    "seed": 42
+  },
+  "curve": [
+    {
+      "observed_calls": 150,
+      "train": 120,
+      "num_rules": 72,
+      "by_trust": {
+        "0.0": {
+          "delegation_rate": 0.4425,
+          "fidelity_to_target": 0.8927,
+          "gold_acc_on_delegated": 0.8927
+        },
+        "0.3": {
+          "delegation_rate": 0.0475,
+          "fidelity_to_target": 0.9474,
+          "gold_acc_on_delegated": 0.9474
+        },
+        "0.5": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        },
+        "0.7": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        },
+        "0.9": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        }
+      },
+      "learn_s": 228.9
+    },
+    {
+      "observed_calls": 300,
+      "train": 240,
+      "num_rules": 58,
+      "by_trust": {
+        "0.0": {
+          "delegation_rate": 0.34,
+          "fidelity_to_target": 0.9559,
+          "gold_acc_on_delegated": 0.9559
+        },
+        "0.3": {
+          "delegation_rate": 0.1275,
+          "fidelity_to_target": 1.0,
+          "gold_acc_on_delegated": 1.0
+        },
+        "0.5": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        },
+        "0.7": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        },
+        "0.9": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        }
+      },
+      "learn_s": 394.0
+    },
+    {
+      "observed_calls": 600,
+      "train": 480,
+      "num_rules": 75,
+      "by_trust": {
+        "0.0": {
+          "delegation_rate": 0.5825,
+          "fidelity_to_target": 0.8712,
+          "gold_acc_on_delegated": 0.8712
+        },
+        "0.3": {
+          "delegation_rate": 0.3575,
+          "fidelity_to_target": 0.9091,
+          "gold_acc_on_delegated": 0.9091
+        },
+        "0.5": {
+          "delegation_rate": 0.065,
+          "fidelity_to_target": 0.8846,
+          "gold_acc_on_delegated": 0.8846
+        },
+        "0.7": {
+          "delegation_rate": 0.0125,
+          "fidelity_to_target": 1.0,
+          "gold_acc_on_delegated": 1.0
+        },
+        "0.9": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        }
+      },
+      "learn_s": 504.1
+    },
+    {
+      "observed_calls": 1200,
+      "train": 960,
+      "num_rules": 76,
+      "by_trust": {
+        "0.0": {
+          "delegation_rate": 0.6575,
+          "fidelity_to_target": 0.8517,
+          "gold_acc_on_delegated": 0.8517
+        },
+        "0.3": {
+          "delegation_rate": 0.42,
+          "fidelity_to_target": 0.9821,
+          "gold_acc_on_delegated": 0.9821
+        },
+        "0.5": {
+          "delegation_rate": 0.325,
+          "fidelity_to_target": 0.9769,
+          "gold_acc_on_delegated": 0.9769
+        },
+        "0.7": {
+          "delegation_rate": 0.21,
+          "fidelity_to_target": 0.9762,
+          "gold_acc_on_delegated": 0.9762
+        },
+        "0.9": {
+          "delegation_rate": 0.0,
+          "fidelity_to_target": 0.0,
+          "gold_acc_on_delegated": 0.0
+        }
+      },
+      "learn_s": 798.5
+    }
+  ]
+}

@@ -2,9 +2,54 @@
 
 import json
 import re
+import signal
+import threading
 from typing import Any
 
 from rulechef.core import DEFAULT_OUTPUT_KEYS, Rule, RuleFormat, Span, TaskType
+
+try:
+    import regex as _regex_mod  # supports a matching timeout (catastrophic backtracking guard)
+except ImportError:
+    _regex_mod = None
+
+# Wall-clock budget for a single rule on a single document. LLM-written rules
+# can contain infinite loops or exponentially-backtracking patterns; without a
+# bound, one bad rule freezes the whole evaluation loop.
+RULE_TIMEOUT_S = 3.0
+
+
+class _RuleTimeout(Exception):
+    pass
+
+
+class _code_rule_alarm:
+    """SIGALRM-based wall-clock guard for code-rule execution.
+
+    Interrupts pure-Python infinite loops (signal handlers fire between
+    bytecodes). Only active on the main thread; a no-op elsewhere.
+    """
+
+    def __init__(self, seconds: float):
+        self.seconds = seconds
+        self.active = False
+
+    def __enter__(self):
+        if threading.current_thread() is threading.main_thread() and hasattr(signal, "SIGALRM"):
+            self._old = signal.signal(signal.SIGALRM, self._raise)
+            signal.setitimer(signal.ITIMER_REAL, self.seconds)
+            self.active = True
+        return self
+
+    @staticmethod
+    def _raise(_signum, _frame):
+        raise _RuleTimeout()
+
+    def __exit__(self, *exc):
+        if self.active:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, self._old)
+        return False
 
 
 def substitute_template(
@@ -194,11 +239,15 @@ class RuleExecutor:
                 # Determine output key: use rule's key or default from task type
                 output_key = rule.output_key or default_key
 
-                # Handle classification specially (single label, not list)
+                # Handle classification specially (single label, not list).
+                # Rules are pre-sorted by priority then validated precision,
+                # so the first label wins; attribution is kept for audit.
                 if task_type == TaskType.CLASSIFICATION:
                     label = self._normalize_label(results)
                     if label is not None and "label" not in output:
                         output["label"] = label
+                        output["rule_id"] = rule.id
+                        output["rule_name"] = rule.name
                     continue
 
                 # For list results, aggregate into output_key
@@ -296,12 +345,32 @@ class RuleExecutor:
     def _execute_regex_rule(
         self, rule: Rule, input_data: dict, text_field: str | None = None
     ) -> Any:
-        """Execute regex rule."""
-        pattern = re.compile(rule.content)
+        """Execute regex rule.
+
+        Uses the third-party ``regex`` module with a matching timeout when
+        available, so a catastrophically-backtracking pattern aborts after
+        RULE_TIMEOUT_S instead of hanging the evaluation loop (stdlib ``re``
+        matching runs in C and cannot be interrupted by signals).
+        """
         text = self._select_text(input_data, text_field)
 
+        if _regex_mod is not None:
+            try:
+                pattern = _regex_mod.compile(rule.content)
+                matches = list(pattern.finditer(text, timeout=RULE_TIMEOUT_S))
+            except TimeoutError:
+                print(f"   ⚠ Rule '{rule.name}' timed out ({RULE_TIMEOUT_S}s) — skipping")
+                return []
+            except _regex_mod.error:
+                # Pattern valid for re but not regex module — fall back
+                pattern = re.compile(rule.content)
+                matches = pattern.finditer(text)
+        else:
+            pattern = re.compile(rule.content)
+            matches = pattern.finditer(text)
+
         results = []
-        for match in pattern.finditer(text):
+        for match in matches:
             match_text = match.group()
             start = match.start()
             end = match.end()
@@ -363,14 +432,21 @@ class RuleExecutor:
     }
 
     def _execute_code_rule(self, rule: Rule, input_data: dict) -> Any:
-        """Execute code rule"""
+        """Execute code rule under a wall-clock budget.
+
+        LLM-written code can contain accidental infinite loops; the alarm
+        interrupts them after RULE_TIMEOUT_S so one bad rule cannot freeze
+        the whole evaluation loop.
+        """
         try:
             namespace = {"__builtins__": self._SAFE_BUILTINS, "Span": Span, "re": re}
-            exec(rule.content, namespace)
-            extract_func = namespace.get("extract")
-
-            if extract_func:
-                return extract_func(input_data)
+            with _code_rule_alarm(RULE_TIMEOUT_S):
+                exec(rule.content, namespace)
+                extract_func = namespace.get("extract")
+                if extract_func:
+                    return extract_func(input_data)
+        except _RuleTimeout:
+            print(f"   ⚠ Code rule '{rule.name}' timed out ({RULE_TIMEOUT_S}s) — skipping")
         except Exception:
             pass
         return None
@@ -523,10 +599,19 @@ class RuleExecutor:
         return max(text_fields, key=len) if text_fields else ""
 
     def _rule_sort_key(self, rule: Rule) -> tuple:
-        """Deterministic ordering: priority desc, then name, then id."""
+        """Deterministic ordering: priority desc, then measured precision desc.
+
+        Within the same priority, rules with higher validated precision
+        (measured on held-out data by ranking.rank_rules) run first, so when
+        two rules conflict the empirically more precise one wins. Rules
+        without validated stats fall back to their confidence score.
+        """
+        precision = (
+            rule.validated_precision if rule.validated_precision is not None else rule.confidence
+        )
         name_key = rule.name.casefold() if rule.name else ""
         id_key = rule.id or ""
-        return (-rule.priority, name_key, id_key)
+        return (-rule.priority, -precision, name_key, id_key)
 
     def _is_dependency_pattern(self, pattern_data: list) -> bool:
         """Detect spaCy DependencyMatcher patterns."""

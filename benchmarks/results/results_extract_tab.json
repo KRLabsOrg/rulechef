@@ -1,0 +1,616 @@
+{
+  "config": {
+    "dataset": "tab",
+    "model": "moonshotai/Kimi-K2.6",
+    "base_url": "https://inference.baseten.co/v1",
+    "gliner2": "fastino/gliner2-base",
+    "llm_workers": 4,
+    "holdout_fraction": 0.2,
+    "train": 1000,
+    "test": 600,
+    "max_rules": 60,
+    "max_samples": 80,
+    "max_iterations": 3,
+    "seed": 42,
+    "output": "benchmarks/results_extract_tab.json"
+  },
+  "synthetic": false,
+  "format_types": [
+    "CODE",
+    "DATETIME",
+    "QUANTITY"
+  ],
+  "semantic_types": [
+    "PERSON",
+    "ORG",
+    "LOC",
+    "DEM",
+    "MISC"
+  ],
+  "gold_total": 4365,
+  "gold_format": 1763,
+  "per_type": {
+    "rulechef": {
+      "CODE": {
+        "p": 0.4652777777777778,
+        "r": 0.44370860927152317,
+        "f1": 0.4542372881355932,
+        "tp": 67,
+        "fp": 77,
+        "fn": 84
+      },
+      "DATETIME": {
+        "p": 0.9421686746987952,
+        "r": 0.7752808988764045,
+        "f1": 0.8506163886874547,
+        "tp": 1173,
+        "fp": 72,
+        "fn": 340
+      },
+      "QUANTITY": {
+        "p": 0.5,
+        "r": 0.030303030303030304,
+        "f1": 0.05714285714285715,
+        "tp": 3,
+        "fp": 3,
+        "fn": 96
+      },
+      "PERSON": {
+        "p": 0.8184523809523809,
+        "r": 0.3968253968253968,
+        "f1": 0.5344995140913509,
+        "tp": 275,
+        "fp": 61,
+        "fn": 418
+      },
+      "ORG": {
+        "p": 0.7255813953488373,
+        "r": 0.3616692426584235,
+        "f1": 0.48272305312016506,
+        "tp": 468,
+        "fp": 177,
+        "fn": 826
+      },
+      "LOC": {
+        "p": 0.7482517482517482,
+        "r": 0.4349593495934959,
+        "f1": 0.5501285347043702,
+        "tp": 107,
+        "fp": 36,
+        "fn": 139
+      },
+      "DEM": {
+        "p": 0.8615384615384616,
+        "r": 0.2641509433962264,
+        "f1": 0.40433212996389895,
+        "tp": 56,
+        "fp": 9,
+        "fn": 156
+      },
+      "MISC": {
+        "p": 0.25,
+        "r": 0.01910828025477707,
+        "f1": 0.03550295857988166,
+        "tp": 3,
+        "fp": 9,
+        "fn": 154
+      }
+    },
+    "gliner2": {
+      "CODE": {
+        "p": 0.019444444444444445,
+        "r": 0.046357615894039736,
+        "f1": 0.0273972602739726,
+        "tp": 7,
+        "fp": 353,
+        "fn": 144
+      },
+      "DATETIME": {
+        "p": 0.9092769440654843,
+        "r": 0.8810310641110377,
+        "f1": 0.8949311849613965,
+        "tp": 1333,
+        "fp": 133,
+        "fn": 180
+      },
+      "QUANTITY": {
+        "p": 0.14522821576763487,
+        "r": 0.35353535353535354,
+        "f1": 0.2058823529411765,
+        "tp": 35,
+        "fp": 206,
+        "fn": 64
+      },
+      "PERSON": {
+        "p": 0.17306350314026517,
+        "r": 0.3578643578643579,
+        "f1": 0.23330197554092189,
+        "tp": 248,
+        "fp": 1185,
+        "fn": 445
+      },
+      "ORG": {
+        "p": 0.47058823529411764,
+        "r": 0.5873261205564142,
+        "f1": 0.5225163286352698,
+        "tp": 760,
+        "fp": 855,
+        "fn": 534
+      },
+      "LOC": {
+        "p": 0.3623481781376518,
+        "r": 0.7276422764227642,
+        "f1": 0.4837837837837837,
+        "tp": 179,
+        "fp": 315,
+        "fn": 67
+      },
+      "DEM": {
+        "p": 0.16129032258064516,
+        "r": 0.04716981132075472,
+        "f1": 0.07299270072992702,
+        "tp": 10,
+        "fp": 52,
+        "fn": 202
+      },
+      "MISC": {
+        "p": 0.026595744680851064,
+        "r": 0.03184713375796178,
+        "f1": 0.02898550724637681,
+        "tp": 5,
+        "fp": 183,
+        "fn": 152
+      }
+    },
+    "llm": {
+      "CODE": {
+        "p": 0.2063253012048193,
+        "r": 0.9072847682119205,
+        "f1": 0.3361963190184049,
+        "tp": 137,
+        "fp": 527,
+        "fn": 14
+      },
+      "DATETIME": {
+        "p": 0.9358178053830227,
+        "r": 0.8962326503635162,
+        "f1": 0.9155975692099932,
+        "tp": 1356,
+        "fp": 93,
+        "fn": 157
+      },
+      "QUANTITY": {
+        "p": 0.21132075471698114,
+        "r": 0.5656565656565656,
+        "f1": 0.30769230769230765,
+        "tp": 56,
+        "fp": 209,
+        "fn": 43
+      },
+      "PERSON": {
+        "p": 0.6589446589446589,
+        "r": 0.7388167388167388,
+        "f1": 0.6965986394557824,
+        "tp": 512,
+        "fp": 265,
+        "fn": 181
+      },
+      "ORG": {
+        "p": 0.6557377049180327,
+        "r": 0.6182380216383307,
+        "f1": 0.6364359586316627,
+        "tp": 800,
+        "fp": 420,
+        "fn": 494
+      },
+      "LOC": {
+        "p": 0.5552486187845304,
+        "r": 0.8170731707317073,
+        "f1": 0.6611842105263158,
+        "tp": 201,
+        "fp": 161,
+        "fn": 45
+      },
+      "DEM": {
+        "p": 0.4492753623188406,
+        "r": 0.14622641509433962,
+        "f1": 0.22064056939501778,
+        "tp": 31,
+        "fp": 38,
+        "fn": 181
+      },
+      "MISC": {
+        "p": 0.06415929203539823,
+        "r": 0.18471337579617833,
+        "f1": 0.09523809523809523,
+        "tp": 29,
+        "fp": 423,
+        "fn": 128
+      }
+    }
+  },
+  "group_f1": {
+    "rulechef": {
+      "format": [
+        0.8910394265232975,
+        0.7050482132728304,
+        0.7872070930968967
+      ],
+      "semantic": [
+        0.7568692756036636,
+        0.3493466564181399,
+        0.47804364975019714
+      ]
+    },
+    "gliner2": {
+      "format": [
+        0.6652152878567973,
+        0.7799205899035735,
+        0.7180156657963447
+      ],
+      "semantic": [
+        0.3169831223628692,
+        0.4619523443504996,
+        0.37597747888645605
+      ]
+    },
+    "llm": {
+      "format": [
+        0.6513877207737595,
+        0.8786159954622802,
+        0.7481284713837237
+      ],
+      "semantic": [
+        0.5461805555555556,
+        0.6045349730976172,
+        0.5738781466618023
+      ]
+    }
+  },
+  "meta": {
+    "rulechef": {
+      "num_rules": 22,
+      "learn_s": 705.7,
+      "infer_ms": 0.628,
+      "rules": [
+        {
+          "name": "law_order_numbers",
+          "format": "regex",
+          "content": "(?i)(?:Law\\s+no\\.?\\s*|order\\s+no\\.?\\s*|Article\\s+\\d+\\s*\u00a7\\s*\\d+)\\s*(\\d{1,2}/\\d{4}|\\d{1,2}/\\d{2})",
+          "priority": 6,
+          "validated_precision": 0.0,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "CODE"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "duration_penalty",
+          "format": "regex",
+          "content": "\\b(?:ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|one|two|three|four|five|six|seven|eight|nine|\\d+)\\s+(?:years?|months?|weeks?|days?)\\b(?:\\s+and\\s+(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\\d+)?\\s*(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\\d+)?\\s*(?:years?|months?|weeks?|days?))?\\b(?=\\s*(?:'|\u2032)?\\s*(?:imprisonment|detention|custody|remand|bail|sentence|term|period|duration|old|of\\s+age|or\\s+more|or\\s+less|to\\s+run|suspended|to\\s+be\\s+served|to\\s+serve|to\\s+be\\s+imposed|to\\s+be\\s+paid|penalty|fine)?)",
+          "priority": 7,
+          "validated_precision": 0.5813953488372093,
+          "validated_support": 43,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DATETIME"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "age_description",
+          "format": "regex",
+          "content": "(?i)\\b(?:\\d{1,2}|fifteen|fourteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|one hundred)(?:\\s+and\\s+a\\s+half)?\\s+(?:years?\\s+old|year-old|years-old)\\b",
+          "priority": 8,
+          "validated_precision": 1.0,
+          "validated_support": 1,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DEM"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "ethnic_religious_group",
+          "format": "regex",
+          "content": "(?i)\\b(?:gyps(?:y|ies)|sami|jehovah['\\u2019]?s?\\s+witness(?:es)?|jew(?:ish)?|muslim|christian|hindu|buddhist|sikh|jain|shinto|taoist|confucian|zoroastrian|parsi|bah['\\u2019]?i|druze|alevi|yazidi|mandaean|samaritan|karaite|rabbanite|hasidic|orthodox\\s+jew|conservative\\s+jew|reform\\s+jew|sunni|shia|wahhabi|salafi|sufi|ibadi|ismaili|zaidi|alawite|druse|maronite|melkite|copt|assyrian|chaldean|nestorian|syriac|armenian\\s+apostolic|georgian\\s+orthodox|ethiopian\\s+orthodox|eritrean\\s+orthodox|romani|roma|sinti|yenish|irish\\s+traveller|scottish\\s+traveller|new\\s+age|pagan|wiccan|druid|heathen|asatru|thelemite|satanist|luciferian|goddess|unitarian|universalist|quaker|amish|mennonite|hutterite|brethren|moravian|hussite|waldensian|anabaptist|puritan|pilgrim|seventh-day\\s+adventist|mormon|latter-day\\s+saint|jehovah['\\u2019]?s?\\s+witness|christian\\s+scientist|scientologist|moonie|unificationist|raelian|falun\\s+gong|qi\\s+gong|transcendental\\s+meditation|hare\\s+krishna|iskcon|brahma\\s+kumaris|sahaja\\s+yoga|osho|rajneesh|sannyasin)\\b",
+          "priority": 8,
+          "validated_precision": 0.0,
+          "validated_support": 2,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DEM"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "lives_in_location",
+          "format": "regex",
+          "content": "(?:lives|was living|resides)\\s+in\\s+([A-Z][a-zA-Z\\u00C0-\\u017F]+(?:,\\s*[A-Z][a-zA-Z\\u00C0-\\u017F]+)?)\\b",
+          "priority": 9,
+          "validated_precision": 1.0,
+          "validated_support": 12,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "LOC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "street_names",
+          "format": "regex",
+          "content": "\\b([A-Z][a-zA-Z\\u00C0-\\u017F]+(?:\\s+[A-Z][a-zA-Z\\u00C0-\\u017F]+)*\\s+(?:Strasse|Stra\u00dfe|Street|Avenue|Boulevard|Road|Place|Square|Lane|Drive|Alley))\\b",
+          "priority": 8,
+          "validated_precision": 0.0,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "LOC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "geographic_preposition_in",
+          "format": "regex",
+          "content": "\\b(?:in|to|from|near|at|towards?|into)\\s+([A-Z][a-zA-Z\\u00C0-\\u017F]{2,}(?:,\\s*[A-Z][a-zA-Z\\u00C0-\\u017F]+)?)\\b(?=\\s*(?:\\.|,|;|\\n|where|and|on\\s+\\d|to\\s+(?:build|run|have|find|obtain)|for\\s+(?:financial|charitable)|with|without|because|since|where|when|during|after|before|under|over|since|until|about|against|between|among|through|throughout|across|around|behind|below|beneath|beside|beyond|inside|outside|upon|via|within|without|towards?|through|throughout|round|through|throughout|(?:January|February|March|April|May|June|July|August|September|October|November|December)|\\d{4}|the\\s+(?:applicant|Government|Court|Commission|police|authorities|public|case|matter|issue|question|problem|fact|event|incident|accident|meeting|hearing|trial|inquiry|investigation|proceedings|application|appeal|judgment|decision|order|rule|law|Act|Convention|Treaty|Agreement|Protocol|Charter|Code|Constitution|Statute|Regulation|Directive|Decision|Framework|Policy|Strategy|Plan|Programme|Project|Scheme|System|Process|Procedure|Practice|Method|Technique|Approach|Model|Theory|Concept|Principle|Criterion|Standard|Guideline|Recommendation|Opinion|Report|Study|Survey|Review|Analysis|Assessment|Evaluation|Examination|Investigation|Inquiry|Hearing|Trial|Appeal|Application|Complaint|Petition|Motion|Claim|Action|Suit|Case|Matter|Issue|Question|Problem|Fact|Event|Incident|Accident|Meeting|Conference|Summit|Assembly|Session|Council|Committee|Board|Panel|Group|Team|Unit|Force|Corps|Squad|Brigade|Division|Regiment|Battalion|Company|Platoon|Section|Department|Ministry|Office|Bureau|Agency|Service|Authority|Commission|Committee|Council|Assembly|Parliament|Congress|Senate|House|Chamber|Court|Tribunal|Bench|Bar|Registry|Clerk|Secretariat|Chancellery|Presidency|Premiership|Ministry|Department|Office|Bureau|Agency|Service|Authority|Commission|Committee|Council|Assembly|Parliament|Congress|Senate|House|Chamber|Court|Tribunal|Bench|Bar|Registry|Clerk|Secretariat|Chancellery|Presidency|Premiership)))",
+          "priority": 7,
+          "validated_precision": 0.7457627118644068,
+          "validated_support": 59,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "LOC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "case_names_and_legal_proceedings",
+          "format": "regex",
+          "content": "\\b(?:[A-Z][a-zA-Z\\.]+(?:\\s+v\\.?|\\s+V\\.?)\\s+(?:the\\s+)?[A-Z][a-zA-Z]+(?:\\s+[A-Z][a-zA-Z]+){0,4})\\b",
+          "priority": 8,
+          "validated_precision": 0.25,
+          "validated_support": 4,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "MISC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "massacre_event_names",
+          "format": "regex",
+          "content": "\\b[A-Z][a-zA-Z]+\\s+(?:Massacre|massacre|Affair|scandal|crisis|disaster)\\b",
+          "priority": 6,
+          "validated_precision": 0.0,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "MISC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "legal_concepts_and_roles",
+          "format": "regex",
+          "content": "\\b(?:duty of political loyalty|resisting the exercise of official authority|illegal organisation established with the aim of subverting the political and legal system of the State|change of the sexual role|foster family|sexual nature|motor cycle|organic farm|breeding sheep and goats|destroying genetically modified crops|unfit for work)\\b",
+          "priority": 5,
+          "validated_precision": 1.0,
+          "validated_support": 3,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "MISC"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "org_with_parenthetical",
+          "format": "regex",
+          "content": "\\b([A-Z][a-zA-Z\\s\\-]+(?:Court|Office|Company|Council|Authority|Department|Ministry|Service|Police|Prison|Building))\\s*\\([A-Z][a-zA-Z\\s\\u00c0-\\u017e\\-]+\\)\\b",
+          "priority": 8,
+          "validated_precision": 0.0,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "specific_institutions",
+          "format": "regex",
+          "content": "\\b(?:BBC Scotland|Belfast Telegraph(?:\\s+newspaper)?|House of Lords|Parliament|Conseil d\\u2019Etat|Audiencia Provincial|Three Powers|European Commission|Court of Cassation Bar|Principal Public Prosecutor|Ombudsman|State Security Court|Federal Court|Supreme Military Council|Supreme Administrative Court)\\b",
+          "priority": 7,
+          "validated_precision": 0.4666666666666667,
+          "validated_support": 30,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "titled_full_name",
+          "format": "regex",
+          "content": "\\b(?:Mr|Mrs|Ms|Dr|Sir|Lord|Lady|Justice)(?:\\.?\\s+)(?:[A-Z][a-zA-Z\\u00C0-\\u017F]*(?:-[A-Z][a-zA-Z\\u00C0-\\u017F]*)*\\.?\\s*)+(?:[A-Z][a-zA-Z\\u00C0-\\u017F]*(?:-[A-Z][a-zA-Z\\u00C0-\\u017F]*)*)",
+          "priority": 10,
+          "validated_precision": 0.927536231884058,
+          "validated_support": 69,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "PERSON"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "initials_with_period",
+          "format": "regex",
+          "content": "(?<!\\w)(?:[A-Z]\\.[\\s-]?){1,4}(?:[A-Z]\\.|\\u00D6\\.|\\u00C7\\.)(?!\\w)",
+          "priority": 9,
+          "validated_precision": 0.35294117647058826,
+          "validated_support": 17,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "PERSON"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "physical_measurements",
+          "format": "regex",
+          "content": "\\b(?:\\d[\\d.,\\s]*|(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|hundred|thousand|million)(?:\\s+(?:and|to)\\s+(?:\\d+|\\w+))?)\\s*(?:square\\s+metres?|metres?|m2|m\\^2|km|kilometres?|kg|kilograms?|grams?|mg|milligrams?|cm|centimetres?|mm|millimetres?|litres?|l|tons?|pounds?|lbs|ounces?|oz|acres?|hectares?|degrees?|percent?|%|\u00b0[CF]?)\\b|\\b\\d[\\d.,\\s]*\\s*x\\s*\\d[\\d.,\\s]*\\s*(?:cm|m|mm|metres?)\\b",
+          "priority": 9,
+          "validated_precision": 1.0,
+          "validated_support": 2,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "QUANTITY"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "republic_kingdom_government",
+          "format": "regex",
+          "content": "\\b(?:Federal Republic of Germany|French Republic|United Kingdom of Great Britain and Northern Ireland|Republic of (?:Turkey|Poland|Spain|Germany|Belgium|France|Italy|Austria|Sweden|Norway|Denmark|Finland|Ireland|Netherlands|Portugal|Greece|Switzerland)|Kingdom of (?:Sweden|Belgium|Great Britain and Northern Ireland|Denmark|Norway|Spain|the Netherlands)|United Kingdom)\\b|\\b(?:Turkish|Polish|French|Swedish|German|British|Belgian|Spanish|Italian|Austrian|Swiss|Norwegian|Danish|Finnish|Irish|Dutch|Portuguese|Greek) Government\\b",
+          "priority": 9,
+          "validated_precision": 0.972972972972973,
+          "validated_support": 37,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "ministries_departments",
+          "format": "regex",
+          "content": "\\b(?:Ministry|Department|Office|Bureau|Directorate|Authority|Commission|Board|Council|Agency)\\s+of\\s+(?:the\\s+)?(?:Foreign Affairs|Education|Justice|Interior|Defence|Defense|Health|Finance|Social|National|Veterans|Persecuted Persons|Chief of Staff|Legal Affairs|Human Rights|European|Radio and Television|General Directorate|National Roads and Highways|Foreign Affairs)\\b|\\b(?:Social Insurance Authority|Complaints Authority|Youth Office|Veterans and Persecuted Persons\\u2019 Office|Federal Radio and Television Act|European Commission of Human Rights|Federal Justice Department|Federal Department of Justice and Police|Foreign and Commonwealth Office)\\b",
+          "priority": 8,
+          "validated_precision": 0.5294117647058824,
+          "validated_support": 17,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "nationality_adjective",
+          "format": "regex",
+          "content": "\\b(?:Polish|Turkish|Italian|Spanish|German|British|Swiss|Egyptian|Austrian|French|Bulgarian|Norwegian|Nigerian|Cypriot|Basque|Hungarian|Japanese|Russian|American|Canadian|Australian|Dutch|Belgian|Swedish|Finnish|Danish|Portuguese|Greek|Romanian|Czech|Slovak|Serbian|Croatian|Slovenian|Bosnian|Albanian|Macedonian|Montenegrin|Kosovar|Ukrainian|Belarusian|Lithuanian|Latvian|Estonian|Georgian|Armenian|Azerbaijani|Kazakh|Uzbek|Turkmen|Kyrgyz|Tajik|Mongolian|Chinese|Indian|Pakistani|Bangladeshi|Sri Lankan|Nepalese|Bhutanese|Maldivian|Afghan|Iranian|Iraqi|Syrian|Lebanese|Jordanian|Israeli|Palestinian|Saudi|Emirati|Qatari|Kuwaiti|Bahraini|Omani|Yemeni|Libyan|Tunisian|Algerian|Moroccan|Mauritanian|Senegalese|Malian|Burkinabe|Ivorian|Ghanaian|Togolese|Beninese|Nigerien|Nigerian|Cameroonian|Chadian|Central African|Congolese|Gabonese|Equatorial Guinean|Sao Tomean|Angolan|Zambian|Zimbabwean|Malawian|Mozambican|Madagascan|Mauritian|Seychellois|Comoran|South African|Namibian|Botswanan|Swazi|Lesotho|Irish)\\b(?=\\s+(?:national|citizen|minority|origin|descent|language|speaker|nationals|citizens))",
+          "priority": 8,
+          "validated_precision": 0.7142857142857143,
+          "validated_support": 21,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DEM"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "single_date",
+          "format": "regex",
+          "content": "\\b(?:[1-9]|[12]\\d|3[01])\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+(?:19|20)\\d{2}\\b|\\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+(?:[1-9]|[12]\\d|3[01]),?\\s+(?:19|20)\\d{2}\\b",
+          "priority": 8,
+          "validated_precision": 0.9530386740331491,
+          "validated_support": 362,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "DATETIME"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "court_names",
+          "format": "regex",
+          "content": "\\b(?:[A-Z][\\w\\-]*(?:\\s+[A-Z][\\w\\-]*)*\\s+)?(?:District|Regional|Supreme|Constitutional|Administrative|Criminal|Civil|Assize|Labour|Social|Martial Law|State Security|Court of Appeal|Court of Cassation|Court of First Instance|High Court of Justice|Circuit Court|Magistrate|Crown|County Borough|High Court|County Court|Borgarting|Appeal|Crown)\\s+(?:Court|Tribunal|Chamber|Council)(?:\\s+of\\s+(?:Appeal|Cassation|Justice|First Instance|Armed Forces|General Jurisdiction))?\\b",
+          "priority": 9,
+          "validated_precision": 0.788135593220339,
+          "validated_support": 118,
+          "output_template": {
+            "text": "$0",
+            "start": "$start",
+            "end": "$end",
+            "type": "ORG"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "case_and_echr_numbers",
+          "format": "regex",
+          "content": "(?i)(?:\\bno\\.?\\s*\\(?|\\(|\\[|\\bapplication\\s+no\\.?\\s*|ECHR\\s+)(\\d{4,6}/\\d{2,4}|\\d{4}-[IVX]+)|\\b(?:\\d{5,8}(?!\\s*/\\d{2,4})|\\d{3,6}/\\d{2,4})(?!\\s*%|\\s*(?:EUR|PLN|GBP|TRL|FRF|NOK|DKK|ATS|TRY|kg|km|m\\b|cm\\b|mm\\b|mg\\b|g\\b|lbs|oz|%))\\b",
+          "priority": 10,
+          "validated_precision": null,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "CODE"
+          },
+          "output_key": "entities"
+        },
+        {
+          "name": "file_case_plot_parcel_numbers",
+          "format": "regex",
+          "content": "(?i)\\b(?:file\\s+(?:no\\.?\\s*)?|case\\s+(?:no\\.?\\s*)?|RPO|appeal\\s+case)\\s*([A-Z]?\\d[\\d\\-/]*(?:/[A-Z]+)?)|(?:plot|parcel)s?\\s+no\\.?\\s*(\\d{1,4})(?:\\s*,\\s*\\d{1,4})*",
+          "priority": 9,
+          "validated_precision": null,
+          "validated_support": 0,
+          "output_template": {
+            "text": "$1",
+            "start": "$start",
+            "end": "$end",
+            "type": "CODE"
+          },
+          "output_key": "entities"
+        }
+      ]
+    },
+    "gliner2": {
+      "infer_ms": 189.795
+    },
+    "llm": {
+      "llm_calls": 600,
+      "errors": 8
+    }
+  }
+}

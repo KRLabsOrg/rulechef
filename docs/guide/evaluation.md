@@ -34,6 +34,46 @@ Each rule gets individual metrics:
 chef.delete_rule("rule_id")
 ```
 
+## Rule Trust and Conflict Resolution
+
+When learning completes, every rule is evaluated in isolation and stamped with a **validated precision** and **support** (the number of predictions behind the estimate). When a holdout is active these are measured on the dev split — data the rule was never tuned on.
+
+```python
+rule.validated_precision   # e.g. 0.86
+rule.validated_support     # e.g. 22 predictions
+```
+
+For ranking and routing, precision is discounted by a **Wilson lower bound**, so a rule that was right 2/2 does not outrank one that was right 95/100. A rule that memorized a training lexicon flags itself this way: it transfers poorly to dev and ends up with a conspicuously low validated precision — you can spot it without reading the pattern.
+
+### Conflict resolution
+
+When several rules produce overlapping or conflicting matches, the executor orders them deterministically by **priority, then validated precision** (falling back to confidence for rules with no validated estimate). The higher-trust rule wins.
+
+### Ranking and pruning
+
+`rank_rules()` reports each rule's solo F1 and its leave-one-out marginal contribution to the ensemble, and can prune rules whose removal improves overall F1:
+
+```python
+ranked = chef.rank_rules(holdout_fraction=0.2)   # measured on a held-out split
+```
+
+See the [Ranking API](../api/ranking.md) for the full report structure.
+
+## Repairing Rules with Feedback
+
+Because rules are readable, their defects are too — and they can be fixed in plain English without re-synthesizing from scratch. Attach rule-level feedback and run one incremental round:
+
+```python
+chef.add_feedback(
+    "Never match number/number patterns like '1432/03' — those are case numbers.",
+    level="rule",
+    target_id=quantity_rule.id,
+)
+chef.learn_rules(incremental_only=True, holdout_fraction=0.2)
+```
+
+The targeted rules are patched while untouched rules are preserved. Human-written and LLM-generated (critic) feedback flow through the same channel.
+
 ## Corrections
 
 Corrections are the highest-value training signal. They show exactly where current rules fail:

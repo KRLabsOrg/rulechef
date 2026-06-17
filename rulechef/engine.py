@@ -441,6 +441,8 @@ class RuleChef:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
     ):
         """Learn rules from all collected data.
 
@@ -458,11 +460,18 @@ class RuleChef:
                 Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
             incremental_only: If True and rules already exist, only generate
                 patch rules for current failures instead of full re-synthesis.
+            holdout_fraction: Fraction of examples to hold out as a dev set
+                during refinement (0 disables). When set, patch acceptance and
+                best-rule selection are decided on held-out data instead of
+                the data patches were learned from. Recommended (~0.2) for
+                datasets with hundreds of examples or more.
+            split_seed: Random seed for the stratified train/dev split.
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
                 (learned_rules, eval_result) on success. eval_result is None
-                when refinement is disabled. Returns None if not enough data.
+                when refinement is disabled, and is measured on the dev set
+                when holdout_fraction is active. Returns None if not enough data.
         """
         return self._pipeline.run(
             run_evaluation=run_evaluation,
@@ -470,6 +479,8 @@ class RuleChef:
             max_refinement_iterations=max_refinement_iterations,
             sampling_strategy=sampling_strategy,
             incremental_only=incremental_only,
+            holdout_fraction=holdout_fraction,
+            split_seed=split_seed,
         )
 
     # ========================================
@@ -740,6 +751,73 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         if verbose:
             print_rule_metrics(metrics)
         return metrics
+
+    def rank_rules(
+        self,
+        verbose: bool = True,
+        compute_marginal: bool = True,
+        prune: bool = False,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
+    ):
+        """Rank rules by standalone precision and marginal ensemble contribution.
+
+        Evaluates each rule alone (precision/recall) and, when
+        compute_marginal is True, measures how much the ensemble micro F1
+        drops without it. Validated precision is stamped onto each rule, so
+        afterwards the executor resolves conflicts (two rules matching the
+        same input) in favor of the empirically more precise rule.
+
+        Args:
+            verbose: If True, print the ranking table.
+            compute_marginal: Run the leave-one-out ablation pass. One full
+                dataset evaluation per rule — disable for very large setups.
+            prune: If True, drop rules whose marginal contribution is
+                negative (the ensemble measurably does better without them)
+                and persist the pruned rule set.
+            holdout_fraction: If > 0, rank against a stratified held-out
+                slice of the dataset instead of the full training data, so
+                validated precision measures generalization.
+            split_seed: Random seed for the holdout split.
+
+        Returns:
+            RankingReport with ensemble metrics and per-rule rankings.
+        """
+        from rulechef.ranking import print_ranking_report, prune_harmful_rules, rank_rules
+        from rulechef.splitting import split_dataset
+
+        self._require_task("rank_rules")
+        if not self.dataset.rules:
+            print("No rules to rank")
+            from rulechef.ranking import RankingReport
+
+            return RankingReport()
+
+        eval_dataset = self.dataset
+        if holdout_fraction > 0:
+            _, dev = split_dataset(self.dataset, holdout_fraction, seed=split_seed)
+            if dev is not None:
+                eval_dataset = dev
+
+        report = rank_rules(
+            self.dataset.rules,
+            eval_dataset,
+            self.learner._apply_rules,
+            compute_marginal=compute_marginal,
+        )
+
+        if prune and compute_marginal:
+            kept, dropped = prune_harmful_rules(self.dataset.rules, report)
+            if dropped:
+                print(
+                    f"🧹 Pruned {len(dropped)} harmful rules: {', '.join(r.name for r in dropped)}"
+                )
+                self.dataset.rules = kept
+
+        self._store.save(self.dataset)
+        if verbose:
+            print_ranking_report(report)
+        return report
 
     def delete_rule(self, rule_id: str) -> bool:
         """Delete a rule by id.

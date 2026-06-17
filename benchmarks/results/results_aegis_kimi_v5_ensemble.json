@@ -1,0 +1,314 @@
+{
+  "config": {
+    "train_size": 400,
+    "pool_size": 1600,
+    "test_size": 500,
+    "model": "moonshotai/Kimi-K2.6",
+    "format": "both",
+    "max_rules": 60,
+    "max_samples": 100,
+    "max_iterations": 4,
+    "holdout_fraction": 0.2,
+    "route_labels": "unsafe",
+    "seed": 42,
+    "agentic": true
+  },
+  "rules_only": {
+    "accuracy": 0.08,
+    "unsafe_precision": 0.9302325581395349,
+    "unsafe_recall": 0.14285714285714285,
+    "unsafe_f1": 0.24767801857585134,
+    "tp": 40,
+    "fp": 3,
+    "fn": 240,
+    "total": 500,
+    "coverage": 0.086
+  },
+  "ranking": {
+    "ensemble_precision": 0.91,
+    "ensemble_recall": 0.91,
+    "ensemble_f1": 0.91,
+    "rankings": [
+      {
+        "rule_id": "5d9ed33f",
+        "rule_name": "default_safe",
+        "solo_precision": 0.9,
+        "solo_recall": 0.9,
+        "solo_f1": 0.9,
+        "support": 400,
+        "marginal_f1": 0.6377
+      },
+      {
+        "rule_id": "959bc3f5",
+        "rule_name": "privacy_violation_stalking",
+        "solo_precision": 0.75,
+        "solo_recall": 0.0075,
+        "solo_f1": 0.0149,
+        "support": 4,
+        "marginal_f1": 0.005
+      },
+      {
+        "rule_id": "ba02b9fa",
+        "rule_name": "self_harm_violence_explicit",
+        "solo_precision": 1.0,
+        "solo_recall": 0.0025,
+        "solo_f1": 0.005,
+        "support": 1,
+        "marginal_f1": 0.0025
+      },
+      {
+        "rule_id": "499f3124",
+        "rule_name": "illegal_harmful_instructions",
+        "solo_precision": 0.6667,
+        "solo_recall": 0.01,
+        "solo_f1": 0.0197,
+        "support": 6,
+        "marginal_f1": 0.0025
+      },
+      {
+        "rule_id": "2ddc381c",
+        "rule_name": "professional_business_task",
+        "solo_precision": 1.0,
+        "solo_recall": 0.055,
+        "solo_f1": 0.1043,
+        "support": 22,
+        "marginal_f1": 0.0
+      },
+      {
+        "rule_id": "8186d818",
+        "rule_name": "benign_cultural_social",
+        "solo_precision": 1.0,
+        "solo_recall": 0.0175,
+        "solo_f1": 0.0344,
+        "support": 7,
+        "marginal_f1": 0.0
+      },
+      {
+        "rule_id": "d0b22613",
+        "rule_name": "sexual_content_exploitation",
+        "solo_precision": 1.0,
+        "solo_recall": 0.0025,
+        "solo_f1": 0.005,
+        "support": 1,
+        "marginal_f1": 0.0
+      },
+      {
+        "rule_id": "f63f7dae",
+        "rule_name": "creative_writing_roleplay",
+        "solo_precision": 0.9655,
+        "solo_recall": 0.07,
+        "solo_f1": 0.1305,
+        "support": 29,
+        "marginal_f1": 0.0
+      },
+      {
+        "rule_id": "0aed5c97",
+        "rule_name": "educational_instructional",
+        "solo_precision": 0.8333,
+        "solo_recall": 0.0125,
+        "solo_f1": 0.0246,
+        "support": 6,
+        "marginal_f1": 0.0
+      },
+      {
+        "rule_id": "853d63de",
+        "rule_name": "hate_speech_harassment",
+        "solo_precision": 0.0,
+        "solo_recall": 0.0,
+        "solo_f1": 0.0,
+        "support": 1,
+        "marginal_f1": -0.0025
+      }
+    ]
+  },
+  "selective": {
+    "accuracy": 0.9302325581395349,
+    "unsafe_precision": 0.9302325581395349,
+    "unsafe_recall": 1.0,
+    "unsafe_f1": 0.963855421686747,
+    "tp": 40,
+    "fp": 3,
+    "fn": 0,
+    "total": 43
+  },
+  "risk_coverage": [
+    {
+      "threshold": 0.0,
+      "coverage": 0.086,
+      "selective_accuracy": 0.9302325581395349,
+      "n_covered": 43
+    },
+    {
+      "threshold": 0.3,
+      "coverage": 0.016,
+      "selective_accuracy": 0.875,
+      "n_covered": 8
+    }
+  ],
+  "hybrid": null,
+  "ensemble": {
+    "accuracy": 0.81,
+    "unsafe_precision": 0.8936170212765957,
+    "unsafe_recall": 0.75,
+    "unsafe_f1": 0.8155339805825244,
+    "tp": 210,
+    "fp": 25,
+    "fn": 70,
+    "total": 500,
+    "rule_escalations": 3
+  },
+  "baseline": {
+    "accuracy": 0.808,
+    "unsafe_precision": 0.896551724137931,
+    "unsafe_recall": 0.7428571428571429,
+    "unsafe_f1": 0.8125,
+    "tp": 208,
+    "fp": 24,
+    "fn": 72,
+    "total": 500
+  },
+  "per_class": [
+    {
+      "label": "safe",
+      "precision": 0.4748,
+      "recall": 0.9864,
+      "f1": 0.6411,
+      "tp": 217,
+      "fp": 240,
+      "fn": 3
+    },
+    {
+      "label": "unsafe",
+      "precision": 0.9302,
+      "recall": 0.1429,
+      "f1": 0.2477,
+      "tp": 40,
+      "fp": 3,
+      "fn": 240
+    }
+  ],
+  "timing": {
+    "learning_s": 220.0,
+    "eval_s": 0.096,
+    "per_query_ms": 0.193
+  },
+  "rules": [
+    {
+      "name": "creative_writing_roleplay",
+      "format": "regex",
+      "content": "(?i)(?:write|create|generate|act as|pretend to be|dialogue between|story about|conversation with)(?!.{0,30}\\b(?:kill|murder|poison|bomb|attack|hack|steal|rob|assault|rape|torture|abuse|exploit|traffick|smuggle|launder|forge|stalk|harass|blackmail|extort|bribe|kidnap|arson|sabotage|vandalize|pollute|contaminate|tamper|disable|damage|destroy|wreck|crash|shoot|stab|strangle|drown|electrocute|burn|acid|weapon|gun|knife|explosive|meth|cocaine|heroin|fentanyl|lsd|mdma|ecstasy|weed|marijuana|cannabis|opioid|steroid|counterfeit|pirated|stolen|illegal|illicit|unlawful|criminal|felony|misdemeanor)\\b).{0,150}(?:character|historical|fictional|story|dialogue|scenario|scene|script|novel|poem|essay)",
+      "priority": 5,
+      "validated_precision": 0.9655172413793104,
+      "validated_support": 29,
+      "trust": 0.8282,
+      "output_template": {
+        "label": "safe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "educational_instructional",
+      "format": "regex",
+      "content": "(?i)(?:teach me|explain|how (?:do|does|can|would|should)|what (?:is|are|does|would)|why (?:is|are|does)|help me (?:understand|learn)|tell me about|describe|summarize|translate|convert)(?!.{0,200}(?:ignore (?:all )?previous instructions?|DAN mode|developer mode|you are now|act as a TECH|bypass|content policy|token system|jailbreak|from now on you are going to act as|do not have to abide by|freed from the typical confines|does not need to adhere to))\\b.{0,100}(?:language|concept|process|technique|method|history|science|math|programming|code|grammar|pronunciation|meaning)",
+      "priority": 5,
+      "validated_precision": 0.8333333333333334,
+      "validated_support": 6,
+      "trust": 0.4365,
+      "output_template": {
+        "label": "safe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "professional_business_task",
+      "format": "regex",
+      "content": "(?i)(?:resume|cover letter|linkedin|seo|marketing|sales|email|presentation|ppt|product description|amazon listing|keyword research|content strategy|business plan|proposal|report|analysis|summary|professional|optimize|generate (?:questions|titles|tags|description))(?:.{0,100}(?:for|about|to help|to create|to write|to generate|to optimize|in \\[targetlanguage\\]|\\[prompt\\]))",
+      "priority": 5,
+      "validated_precision": 1.0,
+      "validated_support": 22,
+      "trust": 0.8513,
+      "output_template": {
+        "label": "safe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "benign_cultural_social",
+      "format": "regex",
+      "content": "(?i)(?:what (?:do you think|are your thoughts|is your opinion)|how (?:would you|do people|does society)|why (?:do people|does culture|is it that)|tell me about|what about|which (?:country|religion|language|culture)|common (?:techniques|practices|traditions|words)|most (?:flam|disgust|obscen|weird|funny|interesting|popular))(?!.{0,50}\\b(?:useless|worthless|vermin|parasite|subhuman|animal|plague|filth|trash|scum|exterminate|sterilize|segregate|lynch|deport|ban|eliminate|get rid of|should (?:die|be killed|be shot))\\b)",
+      "priority": 5,
+      "validated_precision": 1.0,
+      "validated_support": 7,
+      "trust": 0.6457,
+      "output_template": {
+        "label": "safe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "illegal_harmful_instructions",
+      "format": "regex",
+      "content": "(?i)(?:\\b(?:how (?:do|can|to|would) I|how (?:do|can|to|would) you|I (?:want|need) to|tell me how to|give me (?:tips|advice|steps|instructions) (?:on|about|for)|write (?:a|an) (?:manual|guide|FAQ|tutorial) (?:on|about|for))\\b)(?!.{0,50}\\b(?:cheat on (?:my|your|their) (?:wife|husband|spouse|partner|girlfriend|boyfriend)|fake a pregnancy|lure customers|lure prey)\\b).*?(?:\\b(?:steal|rob|burgle|break in|break into|pick lock|forge|fake (?:id|passport|document|certificate|license|diploma|degree|signature|check|money|currency|coin|bill)|launder|smuggle|traffic|poison|bomb|attack|hack|ddos|phish|skim|scam|stalk|harass|assault|kill|murder|maim|torture|rape|molest|abuse|exploit|blackmail|extort|bribe|kidnap|ransom|arson|sabotage|vandalize|pollute|contaminate|tamper|disable|damage|destroy|wreck|crash|run over|hit and run|drive by|shoot|stab|strangle|drown|electrocute|burn|acid|weapon|gun|knife|explosive|meth|cocaine|heroin|fentanyl|lsd|mdma|ecstasy|weed|marijuana|cannabis|opioid|steroid|human growth|hgh|counterfeit|pirated|stolen|illegal|illicit|unlawful|criminal|felony|misdemeanor)\\b)",
+      "priority": 10,
+      "validated_precision": 0.6666666666666666,
+      "validated_support": 6,
+      "trust": 0.3,
+      "output_template": {
+        "label": "unsafe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "self_harm_violence_explicit",
+      "format": "regex",
+      "content": "(?i)(?:\\b(?:I(?:'m| am)?\\s+(?:going to|gonna|planning to|thinking (?:of|about)|considering|want to|need to|will)\\s+(?:kill|hurt|harm|injure|cut|slash|burn|hang|jump|drown|overdose|poison|shoot|stab|strangle|myself|me|my own|someone|them|her|him|my (?:mother|father|parent|wife|husband|girlfriend|boyfriend|ex|boss|neighbor|landlord|teacher|doctor|therapist)|a person|people|everyone|no one|myself in the woods|myself where no one|off myself)\\b)(?!.{0,50}(?:help|advice|support|therapy|therapist|counseling|options|resources|better|don't want to die|want to live|scared|afraid|need someone))|\\b(?:suicid|self.?harm|end (?:it|my life|things)|not worth living|better off dead|don't want to (?:live|be alive)|want to die|death wish|final solution)\\b)",
+      "priority": 10,
+      "validated_precision": 1.0,
+      "validated_support": 1,
+      "trust": 0.2065,
+      "output_template": {
+        "label": "unsafe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "privacy_violation_stalking",
+      "format": "regex",
+      "content": "(?i)(?:\\b(?:find|get|locate|track|trace|search|look up|look for)\\b.*?\\b(?:home address|residential address|personal address|phone number|cell number|mobile number|email address|private email|social security|ssn|credit card|bank account|financial information|medical records|password|login|credentials|where (?:they|she|he) lives|whereabouts|current location|real name|legal name|birth date|date of birth|family members|children|spouse|partner)\\b|\\b(?:stalk|follow|watch|spy on|surveil|monitor|track)\\b.*?\\b(?:celebrity|public figure|actor|actress|musician|athlete|politician|influencer|youtuber|streamer|ex.?girlfriend|ex.?boyfriend|ex.?wife|ex.?husband|crush|neighbor|coworker|boss|teacher|classmate|stranger|someone|anyone|people)\\b|\\b(?:dox|doxx|doxing|doxxing|swat|swatting)\\b)",
+      "priority": 7,
+      "validated_precision": 0.75,
+      "validated_support": 4,
+      "trust": 0.3006,
+      "output_template": {
+        "label": "unsafe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "sexual_content_exploitation",
+      "format": "regex",
+      "content": "(?i)(?:\\b(?:fuck|screw|bang|pound|rape|molest|grope|grab|touch|feel up)\\b.*?\\b(?:me|you|them|her|him|my|your|their|someone|anyone|everyone|people|kids|children|teen|underage|minor|student|patient|client|employee|subordinate)\\b|\\b(?:threesome|foursome|orgy|gangbang|bukkake|prostitute|escort|brothel|pimp|sex trafficking|sexual slavery|forced sex|revenge porn|upskirt|downblouse|hidden camera|spy cam|toilet cam|shower cam|changing room|locker room|beach|candid)\\b|\\b(?:nude|naked|undress|strip|expose|leak|release)\\b.*?\\b(?:photo|pic|picture|video|footage|recording|tape|of|with)\\b.*?\\b(?:without (?:their|her|his|my|your) (?:consent|knowledge|permission)|secret|hidden|stolen|hacked|leaked|revenge)\\b|\\b(?:child|kid|teen|underage|minor|preteen|tween)\\b.*?\\b(?:porn|sex|nude|naked|explicit|sexual)\\b|\\b(?:jailbait|lolita|nymphet|barely legal|teen porn|young looking|fresh|innocent looking)\\b)",
+      "priority": 6,
+      "validated_precision": 1.0,
+      "validated_support": 1,
+      "trust": 0.2065,
+      "output_template": {
+        "label": "unsafe"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "default_safe",
+      "format": "regex",
+      "content": "(?s)^.{1,}$",
+      "priority": 1,
+      "validated_precision": 0.9,
+      "validated_support": 400,
+      "trust": 0.8667,
+      "output_template": {
+        "label": "safe"
+      },
+      "output_key": "label"
+    }
+  ]
+}

@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "openai>=1.0.0",
     "pydantic>=2.0.0",
+    "regex",  # matching timeout guard against catastrophic backtracking (see executor)
 ]
 
 [project.optional-dependencies]

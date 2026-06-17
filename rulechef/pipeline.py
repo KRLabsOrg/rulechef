@@ -25,6 +25,8 @@ class LearningPipeline:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
     ):
         """Run the full learning pipeline.
 
@@ -92,6 +94,8 @@ class LearningPipeline:
                     chef.dataset,
                     max_iterations=max_refinement_iterations,
                     coordinator=chef.coordinator,
+                    holdout_fraction=holdout_fraction,
+                    split_seed=split_seed,
                 )
             else:
                 eval_result = None
@@ -102,6 +106,17 @@ class LearningPipeline:
 
             # Step 8: Audit rules
             rules, eval_result = self._audit_rules(rules, eval_result)
+
+            # Step 9: Re-stamp validated stats. Audit merges create new Rule
+            # objects after the learner's stamping pass, so they would carry
+            # validated_precision=None into persistence and conflict
+            # resolution. Uses the same deterministic split as the learner.
+            if run_evaluation and rules:
+                from rulechef.splitting import split_dataset
+
+                _, dev_ds = split_dataset(chef.dataset, holdout_fraction, seed=split_seed)
+                chef.learner._stamp_validated_stats(rules, dev_ds or chef.dataset)
+                chef._store.save(chef.dataset)
 
             elapsed = time.time() - start_time
             self._print_summary(rules, eval_result, elapsed)
