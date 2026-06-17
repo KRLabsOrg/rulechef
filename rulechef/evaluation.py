@@ -520,11 +520,6 @@ def evaluate_dataset(
     )
 
 
-# ============================================================================
-# Per-rule evaluation
-# ============================================================================
-
-
 def evaluate_rules_individually(
     rules: List[Rule],
     dataset: Dataset,
@@ -532,25 +527,29 @@ def evaluate_rules_individually(
     mode: str = "text",
     max_samples: int = 10,
     iou_threshold: float = 0.5,
+    in_context: bool = False,
 ) -> list[RuleMetrics]:
-    """Evaluate each rule in isolation against the dataset.
+    """Evaluate each rule against the dataset.
 
-    For each rule, runs it alone and computes how many expected entities it
-    produces correctly (TP), how many spurious entities it produces (FP),
-    and how many expected entities it misses (recall denominator).
+    By default (in_context=False) each rule is run in isolation.
+    With in_context=True, all rules run together once per example and each
+    prediction is attributed to its rule via the rule_id stamp set by the
+    executor, giving TP/FP counts that reflect actual system behaviour.
 
     Args:
-        rules: Rules to evaluate individually.
+        rules: Rules to evaluate.
         dataset: Dataset with examples and corrections.
         apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
         mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
         iou_threshold: Minimum IoU for partial matching (default 0.5).
+        in_context: If True, run all rules together and attribute by rule_id.
 
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
         match counts, per-class breakdown, and sample matches.
     """
+
     task_type = dataset.task.type
     all_data = dataset.get_all_training_data()
 
@@ -559,6 +558,18 @@ def evaluate_rules_individually(
     for item in all_data:
         gold_entities = _get_entities(item.expected_output, task_type)
         total_expected += len(gold_entities)
+
+    context_preds = {}
+    # run all rules once per item and group preds by rule_id
+    if in_context:
+        for i, item in enumerate(all_data):
+            extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
+            by_rule = defaultdict(list)
+            for pred in _get_entities(extracted, task_type):
+                rule_id = pred.get("rule_id") if isinstance(pred, dict) else None
+                if rule_id:
+                    by_rule[rule_id].append(pred)
+            context_preds[i] = by_rule
 
     results = []
 
@@ -570,14 +581,16 @@ def evaluate_rules_individually(
         # check what entities a rule finds
         entities_found_by_rule = set()
 
-        for item in all_data:
-            extracted = apply_rules_fn([rule], item.input, task_type, dataset.task.text_field)
+        for i, item in enumerate(all_data):
+            if in_context:
+                pred_entities = context_preds[i].get(rule.id, [])
+            else:
+                pred_entities = _get_entities(
+                    apply_rules_fn([rule], item.input, task_type, dataset.task.text_field),
+                    task_type,
+                )
+
             expected_output = item.expected_output
-
-            for e in _get_entities(extracted, task_type):
-                entities_found_by_rule.add(_entity_type(e))
-
-            pred_entities = _get_entities(extracted, task_type)
             gold_entities = _get_entities(expected_output, task_type)
 
             for e in pred_entities:
