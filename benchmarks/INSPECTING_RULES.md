@@ -1,18 +1,6 @@
 # Inspecting learned rules
 
-How to load a saved ruleset back into RuleChef and browse what each rule does
-against gold data.
-
-## 0. Environment
-
-Use the project env. (A base/older `datasets` install can't read the TAB dataset
-schema and fails with `Feature type 'List' not found` — this avoids that.)
-
-```bash
-conda activate chef
-```
-
-## Load a saved ruleset into RuleChef (Python)
+## Load a saved ruleset into RuleChef
 
 `RuleChef.load_rules` accepts any of: the per-stage checkpoint
 (`*.ckpt_rulechef.json`), the three-way comparison result
@@ -76,5 +64,3 @@ The generated `*.html` is git-ignored, so producing one won't dirty the repo.
 
 > Note: the report recomputes precision live with same-type span-overlap
 > matching, which is slightly more lenient than the benchmark's exact scorer.
-> Use it to *read* what rules catch and get wrong; cite the benchmark tables for
-> the official numbers.
