@@ -133,55 +133,93 @@ def main():
                 bucket = "tp" if is_tp(pred, gold_entities) else "fp"
                 per_rule[r.id][bucket].append(context_html(text, pred))
 
-    # Sort rules: worst precision first (most to inspect/fix).
-    def prec(info):
+    def stats(info):
         tp, fp = len(info["tp"]), len(info["fp"])
-        return tp / (tp + fp) if (tp + fp) else 1.0
+        n = tp + fp
+        return tp, fp, n, (tp / n if n else None)
 
-    cards = sorted(per_rule.values(), key=lambda i: (prec(i), -len(i["fp"])))
+    # Sort by precision (accuracy), highest first; rules that never fired go last.
+    def sort_key(info):
+        tp, fp, n, p = stats(info)
+        return (0 if n else 1, -(p if p is not None else 0), -n)
+
+    cards = sorted(per_rule.values(), key=sort_key)
+
+    def items(matches):
+        return "".join(f"<li>{m}</li>" for m in matches) or '<li class="none">none</li>'
+
+    def badge(p):
+        if p is None:
+            return "na"
+        return "hi" if p >= 0.8 else "mid" if p >= 0.5 else "lo"
 
     parts = []
     for info in cards:
         r = info["rule"]
-        tp, fp = info["tp"], info["fp"]
-        n = len(tp) + len(fp)
-        pr = f"{len(tp) / n:.2f}" if n else "--"
-        dev = f"{r.validated_precision:.2f}" if r.validated_precision is not None else "--"
+        tp, fp, n, p = stats(info)
+        pr = f"{p:.0%}" if p is not None else "n/a"
+        dev = f"{r.validated_precision:.0%}" if r.validated_precision is not None else "n/a"
         out_type = (r.output_template or {}).get("type", "?")
-
-        def items(matches):
-            return "".join(f"<li>{m}</li>" for m in matches) or "<li><em>none</em></li>"
-
         parts.append(
             f"""
 <div class="rule" data-name="{html.escape(r.name.lower())}">
-  <h2>{html.escape(r.name)} <span class="type">{html.escape(out_type)}</span></h2>
-  <div class="meta">precision {pr} &middot; dev {dev} &middot;
-       <span class="tpc">{len(tp)} TP</span> / <span class="fpc">{len(fp)} FP</span></div>
-  <details><summary>{html.escape(r.pattern)}</summary></details>
-  <details open><summary>False positives ({len(fp)})</summary><ul class="fp">{items(fp)}</ul></details>
-  <details><summary>True positives ({len(tp)})</summary><ul class="tp">{items(tp)}</ul></details>
+  <div class="head">
+    <span class="rname">{html.escape(r.name)}</span>
+    <span class="type">{html.escape(str(out_type))}</span>
+    <span class="prec {badge(p)}">{pr}</span>
+    <span class="pills"><span class="tp">{tp} TP</span><span class="fp">{fp} FP</span><span class="dev">dev {dev}</span></span>
+  </div>
+  <details class="pat"><summary>pattern</summary><code>{html.escape(r.pattern)}</code></details>
+  <details open><summary>False positives <b>({fp})</b></summary><ul class="fp">{items(info["fp"])}</ul></details>
+  <details><summary>True positives <b>({tp})</b></summary><ul class="tp">{items(info["tp"])}</ul></details>
 </div>"""
         )
 
     css = """
-body{font:14px/1.5 -apple-system,system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#222}
-h1{font-size:20px} #q{width:100%;padding:.5rem;font-size:14px;margin-bottom:1rem;box-sizing:border-box}
-.rule{border:1px solid #ddd;border-radius:8px;padding:.5rem 1rem;margin:1rem 0}
-.rule h2{font-size:15px;margin:.3rem 0} .type{font-size:11px;color:#fff;background:#789;padding:1px 6px;border-radius:4px;vertical-align:middle}
-.meta{color:#666;font-size:12px;margin-bottom:.4rem} .tpc{color:#197;font-weight:600} .fpc{color:#b33;font-weight:600}
-summary{cursor:pointer;color:#456;font-family:ui-monospace,monospace;font-size:12px}
-ul{margin:.3rem 0;padding-left:1.2rem} li{margin:.25rem 0;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap}
-mark{background:#fe9;padding:0 1px} .fp mark{background:#fbb} .tp mark{background:#bf9}
+:root{--bg:#f6f7f9;--card:#fff;--bd:#e3e6ea;--fg:#1f2328;--mut:#6b7280}
+*{box-sizing:border-box}
+body{font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:var(--bg);color:var(--fg);max-width:920px;margin:0 auto;padding:1.5rem 1rem 4rem}
+h1{font-size:18px;font-weight:650;margin:.2rem 0 1rem}
+.bar{position:sticky;top:0;background:var(--bg);padding:.6rem 0;z-index:5}
+#q{width:100%;padding:.6rem .8rem;font-size:14px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+.rule{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:.7rem .9rem;margin:.7rem 0;
+  box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.head{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.rname{font-weight:650;font-size:14px}
+.type{font-size:10.5px;letter-spacing:.03em;color:#475569;background:#eef2f6;border:1px solid #e0e6ec;
+  padding:1px 7px;border-radius:999px;text-transform:uppercase}
+.prec{font-weight:650;font-size:12px;padding:1px 8px;border-radius:999px;color:#fff}
+.prec.hi{background:#16a34a}.prec.mid{background:#d97706}.prec.lo{background:#dc2626}.prec.na{background:#9aa3ad}
+.pills{margin-left:auto;display:flex;gap:.4rem;font-size:11.5px}
+.pills span{padding:1px 7px;border-radius:999px;border:1px solid var(--bd);color:var(--mut)}
+.pills .tp{color:#15803d;border-color:#bbf7d0;background:#f0fdf4}
+.pills .fp{color:#b91c1c;border-color:#fecaca;background:#fef2f2}
+details{margin-top:.5rem}
+summary{cursor:pointer;color:#475569;font-size:12px;user-select:none}
+summary:hover{color:#1f2328}
+.pat code{display:block;margin-top:.4rem;padding:.5rem .6rem;background:#0f172a;color:#e2e8f0;border-radius:6px;
+  font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+ul{margin:.4rem 0 .2rem;padding:0;list-style:none}
+li{padding:.3rem .5rem;border-left:2px solid #eef0f3;margin:.2rem 0;font-size:12.5px;
+  white-space:pre-wrap;overflow-wrap:anywhere;color:#374151}
+li.none{color:var(--mut);font-style:italic;border-left-color:transparent}
+.fp li{border-left-color:#fca5a5}.tp li{border-left-color:#86efac}
+mark{padding:0 2px;border-radius:3px;font-weight:600}
+.fp mark{background:#fecaca}.tp mark{background:#bbf7d0}
 """
     js = """
 const q=document.getElementById('q');
 q.addEventListener('input',()=>{const v=q.value.toLowerCase();
 document.querySelectorAll('.rule').forEach(r=>r.style.display=r.dataset.name.includes(v)?'':'none');});
 """
-    title = f"Rule report — {len(rules)} rules, {len(gold)} docs"
-    doc = f"""<!doctype html><meta charset=utf-8><title>{title}</title><style>{css}</style>
-<h1>{title}</h1><input id=q placeholder="filter rules by name…">{''.join(parts)}<script>{js}</script>"""
+    title = f"Rule report &mdash; {len(rules)} rules, {len(gold)} docs (sorted by precision)"
+    doc = f"""<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Rule report</title><style>{css}</style>
+<h1>{title}</h1>
+<div class="bar"><input id=q placeholder="filter rules by name…"></div>
+{''.join(parts)}<script>{js}</script>"""
     Path(args.out).write_text(doc)
     print(f"Wrote {args.out} ({len(doc) // 1024} KB) — open it in a browser")
 
