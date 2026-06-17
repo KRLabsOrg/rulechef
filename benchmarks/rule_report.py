@@ -158,7 +158,6 @@ def main():
         r = info["rule"]
         tp, fp, n, p = stats(info)
         pr = f"{p:.0%}" if p is not None else "n/a"
-        dev = f"{r.validated_precision:.0%}" if r.validated_precision is not None else "n/a"
         out_type = (r.output_template or {}).get("type", "?")
         parts.append(
             f"""
@@ -167,7 +166,7 @@ def main():
     <span class="rname">{html.escape(r.name)}</span>
     <span class="type">{html.escape(str(out_type))}</span>
     <span class="prec {badge(p)}">{pr}</span>
-    <span class="pills"><span class="tp">{tp} TP</span><span class="fp">{fp} FP</span><span class="dev">dev {dev}</span></span>
+    <span class="pills"><span class="tp">{tp} TP</span><span class="fp">{fp} FP</span></span>
   </div>
   <details class="pat"><summary>pattern</summary><code>{html.escape(r.pattern)}</code></details>
   <details open><summary>False positives <b>({fp})</b></summary><ul class="fp">{items(info["fp"])}</ul></details>
