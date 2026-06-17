@@ -490,9 +490,10 @@ class RuleChef:
 
         ``source`` may be a path to a JSON file, an already-parsed object, or a
         list of rule dicts. The rules list is located whether the JSON is a bare
-        list, a dataset dict with a top-level ``rules`` key, or a benchmark
-        checkpoint with ``result.rules``. Partial rule dicts (e.g. those exported
-        by the benchmark harnesses without ``id``/``description``) are accepted.
+        list, a dataset dict with a top-level ``rules`` key, a benchmark
+        checkpoint with ``result.rules``, or a comparison result with
+        ``meta.rulechef.rules``. Partial rule dicts (e.g. those exported by the
+        benchmark harnesses without ``id``/``description``) are accepted.
 
         The loaded rules replace the current in-memory ruleset, so the chef can
         immediately ``extract`` with them or evaluate them with ``evaluate`` /
@@ -506,21 +507,28 @@ class RuleChef:
         else:
             data = source
 
+        rule_dicts = None
         if isinstance(data, list):
             rule_dicts = data
-        elif isinstance(data, dict) and isinstance(data.get("rules"), list):
-            rule_dicts = data["rules"]
-        elif (
-            isinstance(data, dict)
-            and isinstance(data.get("result"), dict)
-            and isinstance(data["result"].get("rules"), list)
-        ):
-            rule_dicts = data["result"]["rules"]
-        else:
+        elif isinstance(data, dict):
+            # Known shapes: dataset ('rules'), checkpoint ('result.rules'),
+            # comparison result ('meta.rulechef.rules').
+            meta = data.get("meta")
+            rulechef_meta = meta.get("rulechef") if isinstance(meta, dict) else None
+            result = data.get("result")
+            for candidate in (
+                data.get("rules"),
+                result.get("rules") if isinstance(result, dict) else None,
+                rulechef_meta.get("rules") if isinstance(rulechef_meta, dict) else None,
+            ):
+                if isinstance(candidate, list):
+                    rule_dicts = candidate
+                    break
+        if rule_dicts is None:
             raise ValueError(
                 "Could not find a rules list in the source. Expected a list of "
-                "rule dicts, a dict with a 'rules' key, or a checkpoint with "
-                "'result.rules'."
+                "rule dicts, or a dict with 'rules', 'result.rules', or "
+                "'meta.rulechef.rules'."
             )
 
         if self.dataset is None:

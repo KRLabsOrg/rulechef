@@ -108,6 +108,13 @@ class TestLoadRules:
         )
         assert len(rules) == 2
 
+    def test_load_from_comparison_meta_shape(self):
+        # The shape of results_extract_tab.json: rules under meta.rulechef.rules
+        chef = _chef()
+        data = {"meta": {"rulechef": {"rules": [{"name": "a", "content": "x"}]}, "gliner2": {}}}
+        rules = chef.load_rules(data)
+        assert len(rules) == 1
+
     def test_load_from_file(self):
         chef = _chef()
         path = Path(tempfile.mkdtemp()) / "rules.json"
