@@ -52,8 +52,8 @@ def build_chef(args, split: DataSplit, storage_dir: str, logger=None) -> RuleChe
     )
 
     client = OpenAI(
-        api_key=os.environ.get("OPENAI_API_KEY") or "EMPTY",
-        base_url=args.base_url,
+        api_key=os.environ.get("OPENAI_API_KEY")
+        or "EMPTY",
     )
 
     coordinator = None
