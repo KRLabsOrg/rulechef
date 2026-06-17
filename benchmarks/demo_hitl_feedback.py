@@ -21,7 +21,6 @@ import argparse
 import json
 import os
 import tempfile
-import uuid
 from pathlib import Path
 
 from benchmark_extract import TAB_FORMAT, TAB_SEMANTIC, group_f1, load_tab_ds, prf, score
@@ -54,25 +53,9 @@ TASK_FEEDBACK = (
 
 
 def rebuild_rules(rule_dicts):
-    from rulechef.core import Rule, RuleFormat
+    from rulechef.core import Rule
 
-    rules = []
-    for d in rule_dicts:
-        rules.append(
-            Rule(
-                id=str(uuid.uuid4())[:8],
-                name=d["name"],
-                description=d.get("description", ""),
-                format=RuleFormat(d["format"]),
-                content=d["content"],
-                priority=d.get("priority", 5),
-                output_template=d.get("output_template"),
-                output_key=d.get("output_key"),
-                validated_precision=d.get("validated_precision"),
-                validated_support=d.get("validated_support", 0),
-            )
-        )
-    return rules
+    return [Rule.from_dict(d) for d in rule_dicts]
 
 
 def eval_rules(chef, rules, test):
