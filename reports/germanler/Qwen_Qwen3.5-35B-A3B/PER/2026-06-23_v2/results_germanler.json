@@ -1,0 +1,2006 @@
+{
+  "config": {
+    "shots": null,
+    "model": "Qwen/Qwen3.5-35B-A3B",
+    "format": "regex",
+    "max_rules": 30,
+    "max_samples": 150,
+    "max_iterations": 6,
+    "seed": 42,
+    "train_size": 2298,
+    "eval_size": 6666,
+    "test_size": 6673,
+    "train_annotations": 2298,
+    "eval_annotations": 468,
+    "test_annotations": 6673,
+    "use_grex": true,
+    "agentic": false,
+    "enable_critic": false,
+    "enable_prune": false,
+    "critic_interval": 10,
+    "audit_interval": 0,
+    "windows": false,
+    "sampling_strategy": "balanced",
+    "train_ratio": 0.8,
+    "pool_size": null,
+    "batch_size": 100,
+    "refine_per_batch": 1,
+    "synthesis_strategy": "bulk",
+    "selected_classes": [
+      "PER"
+    ],
+    "train_name": "germanler",
+    "test_name": "germanler",
+    "transfer_name": null,
+    "transfer_test_name": null,
+    "max_counter_examples": null,
+    "refine_every": 3
+  },
+  "metadata": {
+    "best_batch_idx": 9,
+    "best_batch_f1": 0.1968838526912181,
+    "best_rules_serialized": [
+      {
+        "id": "84421f67",
+        "name": "Full names with titles",
+        "description": "Captures full names preceded by titles like Dr., Prof., or Dipl.-Ing., ensuring multi-part names with middle initials (e.g., 'Jay B. Saoud') are captured as a single entity.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-Ing\\.\\s+|Dipl\\.-Psych\\.\\s+|Dipl\\.-Ing\\.\\s+Univ\\.\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z]\\.)\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296110",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "af28d6a7",
+        "name": "Anonymized initials with dots",
+        "description": "Captures anonymized person identifiers consisting of a single capital letter followed by a dot (e.g., 'T.', 'F.', 'S.'), ensuring the dot is included.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\b",
+        "priority": 15,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:29.378403",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "a3f99de3",
+        "name": "Initials with dots and spaces (e.g., T. D.)",
+        "description": "Captures sequences of initial-dot-space-initial-dot patterns.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.[ ]+[A-Z]\\.)\\b",
+        "priority": 8,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.824003",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "0599e43e",
+        "name": "Names after 'Herr'",
+        "description": "Captures names immediately following the title 'Herr' (including 'Herrn').",
+        "format": "regex",
+        "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.823824",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "4993cd07",
+        "name": "Names after 'Angeklagte' or 'Kl\u00e4gerin'",
+        "description": "Captures names following legal role indicators like 'Angeklagte' or 'Kl\u00e4gerin'.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4gerin|Kl\u00e4ger|Zeugin|Zeuge|Gesch\u00e4digte|Gutachter|Gutachterin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.824138",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "4f43c0ca",
+        "name": "Names after 'Richter' or 'Vorsitzender'",
+        "description": "Captures names following judicial titles like 'Richter', 'Vorsitzender', 'Richterin', 'Vorsitzende Richterin', ensuring the name is captured even if preceded by 'Dr.' or 'Prof.'.",
+        "format": "regex",
+        "content": "\\b(?:Richter|Vorsitzender|Richterin|Vorsitzende Richterin|Vorsitzenden Richters)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-[A-Za-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:29.379556",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6e133f27",
+        "name": "Names after 'Dr.' or 'Prof.'",
+        "description": "Captures names following titles like Dr. or Prof., handling both full names and initials.",
+        "format": "regex",
+        "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|[A-Z]\\.[ ]+[A-Z]\\.|[A-Z]\\.)\\b",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:01:57.254521",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6e0b7cc1",
+        "name": "Names after 'Rechtsanw\u00e4ltin' or 'Rechtsanwalt'",
+        "description": "Captures names following legal profession titles.",
+        "format": "regex",
+        "content": "\\b(?:Rechtsanw\u00e4ltin|Rechtsanwalt)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:11.569621",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6a893240",
+        "name": "Names with dots in middle (e.g., B1 \u2026)",
+        "description": "Captures anonymized names with dots and ellipses or spaces (e.g., 'B1 \u2026', 'K \u2026', 'K1 \u2026').",
+        "format": "regex",
+        "content": "\\b([A-Z]\\d?\\s+\u2026+)\\b",
+        "priority": 7,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:30.348163",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "88d3e859",
+        "name": "Names after 'Dr.' or 'Prof.' (standalone)",
+        "description": "Captures names following titles like Dr. or Prof. when not part of a longer title sequence, handling both full names and initials.",
+        "format": "regex",
+        "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|\\w+\\.?)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.298169",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "daa8797d",
+        "name": "Anonymized names with ellipses",
+        "description": "Captures anonymized names with ellipses like 'K \u2026', 'B1 \u2026', 'T. D.', 'L. \u2026', 'Ch. \u2026' ensuring no trailing spaces are included.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026|T\\.\\s+D\\.|B1\\s+\u2026|K1\\s+\u2026|H\\.\\s+\u2026|L\\.\\s+\u2026|Ch\\.\\s+\u2026|T\\.)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725154",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "12d202b6",
+        "name": "Names after 'Herr' or 'Herrn'",
+        "description": "Captures names immediately following the title 'Herr' or 'Herrn', including single initials.",
+        "format": "regex",
+        "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z])\\.)",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:05:14.298723",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "97b86ba2",
+        "name": "Hyphenated surnames",
+        "description": "Captures hyphenated surnames like 'Schmidt-R\u00e4ntsch' only when preceded by a title or in a list of names to avoid matching court names.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Richter\\s+|Vorsitzender\\s+|und\\s+|sowie\\s+|der\\s+|die\\s+|des\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)+)",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725880",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "ae91774f",
+        "name": "Anonymized initials with dots (multi-initial)",
+        "description": "Captures multi-initial anonymized names like 'A. S.' or 'R. C.' as a single entity.",
+        "format": "regex",
+        "content": "(?:[A-Z]\\.)\\s+(?:[A-Z]\\.)",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725844",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "549dd13e",
+        "name": "Surnames after 'Generalanwalt' or 'Generalanw\u00e4ltin'",
+        "description": "Captures names following 'Generalanwalt' or 'Generalanw\u00e4ltin' titles.",
+        "format": "regex",
+        "content": "\\b(?:Generalanwalt|Generalanw\u00e4ltin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725487",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "68df845b",
+        "name": "Surnames after 'Richter' or 'Vorsitzender' (refined)",
+        "description": "Captures names following judicial titles, ensuring the name is captured correctly even if preceded by 'Dipl.' or 'Prof.'.",
+        "format": "regex",
+        "content": "\\b(?:Richter|Vorsitzender)\\s+(?:Dipl\\.-[a-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725602",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "e91ec092",
+        "name": "Surnames after 'Rechtsanwalt' or 'Rechtsanw\u00e4ltin' (refined)",
+        "description": "Captures names following legal profession titles, handling potential titles like 'Dr.' or 'Prof.' before the name.",
+        "format": "regex",
+        "content": "\\b(?:Rechtsanwalt|Rechtsanw\u00e4ltin)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725712",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "2eb9f1cc",
+        "name": "Anonymized initials with ellipses after roles",
+        "description": "Captures anonymized names with ellipses (e.g., 'K \u2026', 'B1 \u2026') following legal roles or titles.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Patentanwalt|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026)",
+        "priority": 14,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.409226",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "2980bda7",
+        "name": "Known surnames after legal roles",
+        "description": "Captures specific known surnames (e.g., 'Knoll', 'Kriener', 'Schmid') when they follow legal role indicators, ensuring they are treated as PER.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1)\\b",
+        "priority": 13,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.297356",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "5ae5e583",
+        "name": "Initials with dots (standalone context)",
+        "description": "Captures single initials with dots (e.g., 'A.', 'S.') when they appear in contexts suggesting a name, such as after 'Dr.', 'Prof.', 'Herr', or at the start of a sentence followed by a verb.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+|Herr\\s+|Herrn\\s+|^|\\b)([A-Z]\\.)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410426",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "266c1518",
+        "name": "Full names with initials (e.g., K. Schmidt)",
+        "description": "Captures full names consisting of an initial and a surname (e.g., 'K. Schmidt', 'M. Rennpferdt').",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410538",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "76281285",
+        "name": "Multi-initial anonymized names",
+        "description": "Captures multi-initial anonymized names like 'M. D.' or 'A. S.'.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\s+([A-Z]\\.)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410643",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "381264c3",
+        "name": "Anonymized initials after legal roles",
+        "description": "Captures single-letter anonymized names (e.g., 'M.', 'F.', 'R', 'A') immediately following legal role indicators like 'Angeklagte', 'Kl\u00e4ger', 'Zeuge', etc., including those with or without dots.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Mitangeklagte|Mitangeklagten|Kl\u00e4ger|Kl\u00e4gerin|Kl\u00e4gers|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Beteiligte|Beteiligten|Antragsteller|Antragstellerin|Antragstellers|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndigen|Herr|Herrn)\\s+([A-Z]\\.?)\\b",
+        "priority": 15,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296128",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "a8cfecf8",
+        "name": "Isolated anonymized initials",
+        "description": "Captures single-letter anonymized names (e.g., 'A', 'K', 'E', 'S') appearing in legal contexts such as after prepositions ('von', 'zu', 'in'), after 'der/die/das', or at the start of a sentence, with or without dots.",
+        "format": "regex",
+        "content": "(?:\\b(?:von|zu|in|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem|ohne|ohne\\s+dass|solange|sobald|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines|mein|dein|sein|ihr|unser|euer|ihr|mein|dein|sein|ihr|unser|euer|ihr|der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|\\b(?:Kl\u00e4ger|Angeklagter|Angeklagte|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digter|Beteiligte|Beteiligter|Antragsteller|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndiger|Herr|Frau)\\s+|\\b(?:in|zu|von|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|^)([A-Z]\\.?)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296140",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "295b59c5",
+        "name": "Isolated known surnames",
+        "description": "Captures specific known surnames (e.g., 'Knoll', 'Kriener', 'Schmid') appearing in isolation or at the start of a sentence, treating them as PER.",
+        "format": "regex",
+        "content": "\\b(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1)\\b",
+        "priority": 14,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.297369",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      }
+    ]
+  },
+  "results": {
+    "accuracy": 0.8745691592986663,
+    "micro_precision": 0.16335078534031414,
+    "micro_recall": 0.48148148148148145,
+    "micro_f1": 0.24394057857701326,
+    "macro_f1": 0.24394057857701326,
+    "num_rules": 25,
+    "learning_time_s": 1087.3,
+    "eval_time_s": 3.055,
+    "per_query_ms": 0.46
+  },
+  "per_class": [
+    {
+      "label": "PER",
+      "precision": 0.16335078534031414,
+      "recall": 0.48148148148148145,
+      "f1": 0.24394057857701326,
+      "tp": 156,
+      "fp": 799,
+      "fn": 168
+    }
+  ],
+  "iteration_metrics": [
+    {
+      "iteration": 1,
+      "num_rules": 11,
+      "exact_match": 0.049145299145299144,
+      "micro_f1": 0.19663865546218484,
+      "micro_precision": 0.31536388140161725,
+      "micro_recall": 0.14285714285714285,
+      "macro_f1": 0.19663865546218484,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.19663865546218484,
+          "precision": 0.31536388140161725,
+          "recall": 0.14285714285714285
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 13,
+      "exact_match": 0.20512820512820512,
+      "micro_f1": 0.13172636224749618,
+      "micro_precision": 0.07649842271293375,
+      "micro_recall": 0.47374847374847373,
+      "macro_f1": 0.13172636224749618,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.13172636224749618,
+          "precision": 0.07649842271293375,
+          "recall": 0.47374847374847373
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 20,
+      "exact_match": 0.07264957264957266,
+      "micro_f1": 0.36592865928659285,
+      "micro_precision": 0.24455404849979448,
+      "micro_recall": 0.7264957264957265,
+      "macro_f1": 0.36592865928659285,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.36592865928659285,
+          "precision": 0.24455404849979448,
+          "recall": 0.7264957264957265
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 23,
+      "exact_match": 0.053418803418803416,
+      "micro_f1": 0.3053061224489796,
+      "micro_precision": 0.4605911330049261,
+      "micro_recall": 0.22832722832722832,
+      "macro_f1": 0.3053061224489796,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.3053061224489796,
+          "precision": 0.4605911330049261,
+          "recall": 0.22832722832722832
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 25,
+      "exact_match": 0.2222222222222222,
+      "micro_f1": 0.09446311692906421,
+      "micro_precision": 0.055233760860570955,
+      "micro_recall": 0.326007326007326,
+      "macro_f1": 0.09446311692906421,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.09446311692906421,
+          "precision": 0.055233760860570955,
+          "recall": 0.326007326007326
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 22,
+      "exact_match": 0.22008547008547008,
+      "micro_f1": 0.1421931485625753,
+      "micro_precision": 0.08276553106212425,
+      "micro_recall": 0.5042735042735043,
+      "macro_f1": 0.1421931485625753,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.1421931485625753,
+          "precision": 0.08276553106212425,
+          "recall": 0.5042735042735043
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 22,
+      "exact_match": 0.21581196581196582,
+      "micro_f1": 0.1395916942941895,
+      "micro_precision": 0.08143322475570032,
+      "micro_recall": 0.4884004884004884,
+      "macro_f1": 0.1395916942941895,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.1395916942941895,
+          "precision": 0.08143322475570032,
+          "recall": 0.4884004884004884
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "num_rules": 28,
+      "exact_match": 0.21794871794871795,
+      "micro_f1": 0.3718021603183627,
+      "micro_precision": 0.3478723404255319,
+      "micro_recall": 0.3992673992673993,
+      "macro_f1": 0.3718021603183627,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.3718021603183627,
+          "precision": 0.3478723404255319,
+          "recall": 0.3992673992673993
+        }
+      ]
+    }
+  ],
+  "batch_test_metrics": [
+    {
+      "batch": 0,
+      "num_rules": 11,
+      "exact_match": 0.7890004495729057,
+      "micro_f1": 0.03302373581011352,
+      "micro_precision": 0.01982651796778191,
+      "micro_recall": 0.09876543209876543,
+      "macro_f1": 0.03302373581011352,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.03302373581011352,
+          "precision": 0.01982651796778191,
+          "recall": 0.09876543209876543
+        }
+      ]
+    },
+    {
+      "batch": 1,
+      "num_rules": 11,
+      "exact_match": 0.02817323542634497,
+      "micro_f1": 0.006979324256177509,
+      "micro_precision": 0.0035126190331160787,
+      "micro_recall": 0.5339506172839507,
+      "macro_f1": 0.006979324256177509,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.006979324256177509,
+          "precision": 0.0035126190331160787,
+          "recall": 0.5339506172839507
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "num_rules": 12,
+      "exact_match": 0.7648733702982167,
+      "micro_f1": 0.022633744855967076,
+      "micro_precision": 0.01273148148148148,
+      "micro_recall": 0.10185185185185185,
+      "macro_f1": 0.022633744855967076,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.022633744855967076,
+          "precision": 0.01273148148148148,
+          "recall": 0.10185185185185185
+        }
+      ]
+    },
+    {
+      "batch": 3,
+      "num_rules": 12,
+      "exact_match": 0.6568260152854788,
+      "micro_f1": 0.056717805671780565,
+      "micro_precision": 0.030668677727501256,
+      "micro_recall": 0.3765432098765432,
+      "macro_f1": 0.056717805671780565,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.056717805671780565,
+          "precision": 0.030668677727501256,
+          "recall": 0.3765432098765432
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "num_rules": 15,
+      "exact_match": 0.8513412258354563,
+      "micro_f1": 0.12259615384615384,
+      "micro_precision": 0.07611940298507462,
+      "micro_recall": 0.3148148148148148,
+      "macro_f1": 0.12259615384615384,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.12259615384615384,
+          "precision": 0.07611940298507462,
+          "recall": 0.3148148148148148
+        }
+      ]
+    },
+    {
+      "batch": 5,
+      "num_rules": 16,
+      "exact_match": 0.8048853589090365,
+      "micro_f1": 0.13394216133942163,
+      "micro_precision": 0.0763888888888889,
+      "micro_recall": 0.5432098765432098,
+      "macro_f1": 0.13394216133942163,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.13394216133942163,
+          "precision": 0.0763888888888889,
+          "recall": 0.5432098765432098
+        }
+      ]
+    },
+    {
+      "batch": 6,
+      "num_rules": 18,
+      "exact_match": 0.8077326539787202,
+      "micro_f1": 0.14619211634137008,
+      "micro_precision": 0.08344255133245959,
+      "micro_recall": 0.5895061728395061,
+      "macro_f1": 0.14619211634137008,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.14619211634137008,
+          "precision": 0.08344255133245959,
+          "recall": 0.5895061728395061
+        }
+      ]
+    },
+    {
+      "batch": 7,
+      "num_rules": 18,
+      "exact_match": 0.8035366401918178,
+      "micro_f1": 0.1064638783269962,
+      "micro_precision": 0.060711188204683436,
+      "micro_recall": 0.43209876543209874,
+      "macro_f1": 0.1064638783269962,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.1064638783269962,
+          "precision": 0.060711188204683436,
+          "recall": 0.43209876543209874
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "num_rules": 19,
+      "exact_match": 0.026374943803386782,
+      "micro_f1": 0.0059928086296444265,
+      "micro_precision": 0.003014139052281612,
+      "micro_recall": 0.5092592592592593,
+      "macro_f1": 0.0059928086296444265,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.0059928086296444265,
+          "precision": 0.003014139052281612,
+          "recall": 0.5092592592592593
+        }
+      ]
+    },
+    {
+      "batch": 9,
+      "num_rules": 25,
+      "exact_match": 0.8624306908436985,
+      "micro_f1": 0.1968838526912181,
+      "micro_precision": 0.12775735294117646,
+      "micro_recall": 0.42901234567901236,
+      "macro_f1": 0.1968838526912181,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.1968838526912181,
+          "precision": 0.12775735294117646,
+          "recall": 0.42901234567901236
+        }
+      ]
+    },
+    {
+      "batch": 10,
+      "num_rules": 25,
+      "exact_match": 0.028772665967331034,
+      "micro_f1": 0.006927606511950121,
+      "micro_precision": 0.003484384455977553,
+      "micro_recall": 0.5864197530864198,
+      "macro_f1": 0.006927606511950121,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.006927606511950121,
+          "precision": 0.003484384455977553,
+          "recall": 0.5864197530864198
+        }
+      ]
+    },
+    {
+      "batch": 11,
+      "num_rules": 25,
+      "exact_match": 0.9210250262250862,
+      "micro_f1": 0.09641532756489493,
+      "micro_precision": 0.08041237113402062,
+      "micro_recall": 0.12037037037037036,
+      "macro_f1": 0.09641532756489493,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.09641532756489493,
+          "precision": 0.08041237113402062,
+          "recall": 0.12037037037037036
+        }
+      ]
+    },
+    {
+      "batch": 12,
+      "num_rules": 24,
+      "exact_match": 0.9019931065487786,
+      "micro_f1": 0.08167141500474835,
+      "micro_precision": 0.05898491083676269,
+      "micro_recall": 0.13271604938271606,
+      "macro_f1": 0.08167141500474835,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.08167141500474835,
+          "precision": 0.05898491083676269,
+          "recall": 0.13271604938271606
+        }
+      ]
+    },
+    {
+      "batch": 13,
+      "num_rules": 23,
+      "exact_match": 0.02712423197961936,
+      "micro_f1": 0.007125847557761175,
+      "micro_precision": 0.003584032768299596,
+      "micro_recall": 0.6049382716049383,
+      "macro_f1": 0.007125847557761175,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.007125847557761175,
+          "precision": 0.003584032768299596,
+          "recall": 0.6049382716049383
+        }
+      ]
+    },
+    {
+      "batch": 14,
+      "num_rules": 23,
+      "exact_match": 0.9178780158849094,
+      "micro_f1": 0.18418201516793065,
+      "micro_precision": 0.1419031719532554,
+      "micro_recall": 0.2623456790123457,
+      "macro_f1": 0.18418201516793065,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.18418201516793065,
+          "precision": 0.1419031719532554,
+          "recall": 0.2623456790123457
+        }
+      ]
+    },
+    {
+      "batch": 15,
+      "num_rules": 20,
+      "exact_match": 0.9153304360857185,
+      "micro_f1": 0.13891951488423374,
+      "micro_precision": 0.10806174957118353,
+      "micro_recall": 0.19444444444444445,
+      "macro_f1": 0.13891951488423374,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.13891951488423374,
+          "precision": 0.10806174957118353,
+          "recall": 0.19444444444444445
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "num_rules": 20,
+      "exact_match": 0.9160797242619512,
+      "micro_f1": 0.16043956043956045,
+      "micro_precision": 0.12457337883959044,
+      "micro_recall": 0.22530864197530864,
+      "macro_f1": 0.16043956043956045,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.16043956043956045,
+          "precision": 0.12457337883959044,
+          "recall": 0.22530864197530864
+        }
+      ]
+    },
+    {
+      "batch": 17,
+      "num_rules": 21,
+      "exact_match": 0.8014386332983665,
+      "micro_f1": 0.10409745293466223,
+      "micro_precision": 0.05911949685534591,
+      "micro_recall": 0.4351851851851852,
+      "macro_f1": 0.10409745293466223,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.10409745293466223,
+          "precision": 0.05911949685534591,
+          "recall": 0.4351851851851852
+        }
+      ]
+    },
+    {
+      "batch": 18,
+      "num_rules": 21,
+      "exact_match": 0.5591188371047505,
+      "micro_f1": 0.02446005724694249,
+      "micro_precision": 0.013356067064506962,
+      "micro_recall": 0.14506172839506173,
+      "macro_f1": 0.02446005724694249,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.02446005724694249,
+          "precision": 0.013356067064506962,
+          "recall": 0.14506172839506173
+        }
+      ]
+    },
+    {
+      "batch": 19,
+      "num_rules": 22,
+      "exact_match": 0.5528248164243968,
+      "micro_f1": 0.042678440029433405,
+      "micro_precision": 0.023181454836131096,
+      "micro_recall": 0.26851851851851855,
+      "macro_f1": 0.042678440029433405,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.042678440029433405,
+          "precision": 0.023181454836131096,
+          "recall": 0.26851851851851855
+        }
+      ]
+    },
+    {
+      "batch": 20,
+      "num_rules": 22,
+      "exact_match": 0.5956841001049004,
+      "micro_f1": 0.04381352961794602,
+      "micro_precision": 0.023225566703827572,
+      "micro_recall": 0.38580246913580246,
+      "macro_f1": 0.04381352961794602,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.04381352961794602,
+          "precision": 0.023225566703827572,
+          "recall": 0.38580246913580246
+        }
+      ]
+    },
+    {
+      "batch": 21,
+      "num_rules": 28,
+      "exact_match": 0.7927468904540687,
+      "micro_f1": 0.08110119047619047,
+      "micro_precision": 0.0461082910321489,
+      "micro_recall": 0.33641975308641975,
+      "macro_f1": 0.08110119047619047,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.08110119047619047,
+          "precision": 0.0461082910321489,
+          "recall": 0.33641975308641975
+        }
+      ]
+    },
+    {
+      "batch": 22,
+      "num_rules": 28,
+      "exact_match": 0.02547579799190769,
+      "micro_f1": 0.0065812261863526155,
+      "micro_precision": 0.0033112582781456954,
+      "micro_recall": 0.5277777777777778,
+      "macro_f1": 0.0065812261863526155,
+      "per_class": [
+        {
+          "label": "PER",
+          "f1": 0.0065812261863526155,
+          "precision": 0.0033112582781456954,
+          "recall": 0.5277777777777778
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "84421f67",
+      "name": "Full names with titles",
+      "description": "Captures full names preceded by titles like Dr., Prof., or Dipl.-Ing., ensuring multi-part names with middle initials (e.g., 'Jay B. Saoud') are captured as a single entity.",
+      "format": "regex",
+      "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-Ing\\.\\s+|Dipl\\.-Psych\\.\\s+|Dipl\\.-Ing\\.\\s+Univ\\.\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z]\\.)\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+      "priority": 10,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624875"
+    },
+    {
+      "id": "af28d6a7",
+      "name": "Anonymized initials with dots",
+      "description": "Captures anonymized person identifiers consisting of a single capital letter followed by a dot (e.g., 'T.', 'F.', 'S.'), ensuring the dot is included.",
+      "format": "regex",
+      "content": "\\b([A-Z]\\.)\\b",
+      "priority": 15,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:07:29.378403"
+    },
+    {
+      "id": "a3f99de3",
+      "name": "Initials with dots and spaces (e.g., T. D.)",
+      "description": "Captures sequences of initial-dot-space-initial-dot patterns.",
+      "format": "regex",
+      "content": "\\b([A-Z]\\.[ ]+[A-Z]\\.)\\b",
+      "priority": 8,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:02:17.824003"
+    },
+    {
+      "id": "0599e43e",
+      "name": "Names after 'Herr'",
+      "description": "Captures names immediately following the title 'Herr' (including 'Herrn').",
+      "format": "regex",
+      "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 9,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:02:17.823824"
+    },
+    {
+      "id": "4993cd07",
+      "name": "Names after 'Angeklagte' or 'Kl\u00e4gerin'",
+      "description": "Captures names following legal role indicators like 'Angeklagte' or 'Kl\u00e4gerin'.",
+      "format": "regex",
+      "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4gerin|Kl\u00e4ger|Zeugin|Zeuge|Gesch\u00e4digte|Gutachter|Gutachterin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 6,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:02:17.824138"
+    },
+    {
+      "id": "4f43c0ca",
+      "name": "Names after 'Richter' or 'Vorsitzender'",
+      "description": "Captures names following judicial titles like 'Richter', 'Vorsitzender', 'Richterin', 'Vorsitzende Richterin', ensuring the name is captured even if preceded by 'Dr.' or 'Prof.'.",
+      "format": "regex",
+      "content": "\\b(?:Richter|Vorsitzender|Richterin|Vorsitzende Richterin|Vorsitzenden Richters)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-[A-Za-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+      "priority": 11,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624898"
+    },
+    {
+      "id": "6e133f27",
+      "name": "Names after 'Dr.' or 'Prof.'",
+      "description": "Captures names following titles like Dr. or Prof., handling both full names and initials.",
+      "format": "regex",
+      "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|[A-Z]\\.[ ]+[A-Z]\\.|[A-Z]\\.)\\b",
+      "priority": 9,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:01:57.254521"
+    },
+    {
+      "id": "6e0b7cc1",
+      "name": "Names after 'Rechtsanw\u00e4ltin' or 'Rechtsanwalt'",
+      "description": "Captures names following legal profession titles.",
+      "format": "regex",
+      "content": "\\b(?:Rechtsanw\u00e4ltin|Rechtsanwalt)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 6,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:07:11.569621"
+    },
+    {
+      "id": "6a893240",
+      "name": "Names with dots in middle (e.g., B1 \u2026)",
+      "description": "Captures anonymized names with dots and ellipses or spaces (e.g., 'B1 \u2026', 'K \u2026', 'K1 \u2026').",
+      "format": "regex",
+      "content": "\\b([A-Z]\\d?\\s+\u2026+)\\b",
+      "priority": 7,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:02:30.348163"
+    },
+    {
+      "id": "daa8797d",
+      "name": "Anonymized names with ellipses",
+      "description": "Captures anonymized names with ellipses like 'K \u2026', 'B1 \u2026', 'T. D.', 'L. \u2026', 'Ch. \u2026' ensuring no trailing spaces are included.",
+      "format": "regex",
+      "content": "\\b([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026|T\\.\\s+D\\.|B1\\s+\u2026|K1\\s+\u2026|H\\.\\s+\u2026|L\\.\\s+\u2026|Ch\\.\\s+\u2026|T\\.)\\b",
+      "priority": 12,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:04:56.725154"
+    },
+    {
+      "id": "12d202b6",
+      "name": "Names after 'Herr' or 'Herrn'",
+      "description": "Captures names immediately following the title 'Herr' or 'Herrn', including single initials.",
+      "format": "regex",
+      "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z])\\.)",
+      "priority": 10,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624891"
+    },
+    {
+      "id": "97b86ba2",
+      "name": "Hyphenated surnames",
+      "description": "Captures hyphenated surnames like 'Schmidt-R\u00e4ntsch' only when preceded by a title or in a list of names to avoid matching court names.",
+      "format": "regex",
+      "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Richter\\s+|Vorsitzender\\s+|und\\s+|sowie\\s+|der\\s+|die\\s+|des\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)+)",
+      "priority": 11,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:04:56.725880"
+    },
+    {
+      "id": "ae91774f",
+      "name": "Anonymized initials with dots (multi-initial)",
+      "description": "Captures multi-initial anonymized names like 'A. S.' or 'R. C.' as a single entity.",
+      "format": "regex",
+      "content": "(?:[A-Z]\\.)\\s+(?:[A-Z]\\.)",
+      "priority": 9,
+      "output_template": {
+        "text": "$0",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624883"
+    },
+    {
+      "id": "549dd13e",
+      "name": "Surnames after 'Generalanwalt' or 'Generalanw\u00e4ltin'",
+      "description": "Captures names following 'Generalanwalt' or 'Generalanw\u00e4ltin' titles.",
+      "format": "regex",
+      "content": "\\b(?:Generalanwalt|Generalanw\u00e4ltin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 10,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:04:56.725487"
+    },
+    {
+      "id": "68df845b",
+      "name": "Surnames after 'Richter' or 'Vorsitzender' (refined)",
+      "description": "Captures names following judicial titles, ensuring the name is captured correctly even if preceded by 'Dipl.' or 'Prof.'.",
+      "format": "regex",
+      "content": "\\b(?:Richter|Vorsitzender)\\s+(?:Dipl\\.-[a-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 10,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:04:56.725602"
+    },
+    {
+      "id": "e91ec092",
+      "name": "Surnames after 'Rechtsanwalt' or 'Rechtsanw\u00e4ltin' (refined)",
+      "description": "Captures names following legal profession titles, handling potential titles like 'Dr.' or 'Prof.' before the name.",
+      "format": "regex",
+      "content": "\\b(?:Rechtsanwalt|Rechtsanw\u00e4ltin)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 6,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:04:56.725712"
+    },
+    {
+      "id": "2eb9f1cc",
+      "name": "Anonymized initials with ellipses after roles",
+      "description": "Captures anonymized names with ellipses (e.g., 'K \u2026', 'B1 \u2026') following legal roles or titles.",
+      "format": "regex",
+      "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Patentanwalt|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026)",
+      "priority": 14,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:07:53.409226"
+    },
+    {
+      "id": "2980bda7",
+      "name": "Known surnames after legal roles",
+      "description": "Captures specific known surnames (e.g., 'Knoll', 'Kriener', 'Schmid') when they follow legal role indicators, ensuring they are treated as PER.",
+      "format": "regex",
+      "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1)\\b",
+      "priority": 13,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:08:59.297356"
+    },
+    {
+      "id": "5ae5e583",
+      "name": "Initials with dots (standalone context)",
+      "description": "Captures single initials with dots (e.g., 'A.', 'S.') when they appear in contexts suggesting a name, such as after 'Dr.', 'Prof.', 'Herr', or at the start of a sentence followed by a verb.",
+      "format": "regex",
+      "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+|Herr\\s+|Herrn\\s+|^|\\b)([A-Z]\\.)\\b",
+      "priority": 12,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:07:53.410426"
+    },
+    {
+      "id": "266c1518",
+      "name": "Full names with initials (e.g., K. Schmidt)",
+      "description": "Captures full names consisting of an initial and a surname (e.g., 'K. Schmidt', 'M. Rennpferdt').",
+      "format": "regex",
+      "content": "\\b([A-Z]\\.)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+      "priority": 11,
+      "output_template": {
+        "text": "$0",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624905"
+    },
+    {
+      "id": "76281285",
+      "name": "Multi-initial anonymized names",
+      "description": "Captures multi-initial anonymized names like 'M. D.' or 'A. S.'.",
+      "format": "regex",
+      "content": "\\b([A-Z]\\.)\\s+([A-Z]\\.)\\b",
+      "priority": 10,
+      "output_template": {
+        "text": "$0",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:07:53.410643"
+    },
+    {
+      "id": "4d75d5d9",
+      "name": "Anonymized initials after legal roles",
+      "description": "Captures single-letter anonymized names (e.g., 'A', 'K', 'E', 'S') immediately following legal role indicators like 'Angeklagte', 'Kl\u00e4ger', 'Zeuge', etc., ensuring the dot is included if present.",
+      "format": "regex",
+      "content": "\\b(?:Angeklagte|Angeklagten|Mitangeklagte|Mitangeklagten|Kl\u00e4ger|Kl\u00e4gerin|Kl\u00e4gers|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Beteiligte|Beteiligten|Antragsteller|Antragstellerin|Antragstellers|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndigen|Herr|Herrn|Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-[A-Za-z]+\\s+)([A-Z]\\.)",
+      "priority": 15,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624520"
+    },
+    {
+      "id": "959f7758",
+      "name": "Isolated anonymized initials",
+      "description": "Captures single-letter anonymized names (e.g., 'A', 'K', 'E', 'S') appearing in legal contexts such as after prepositions ('von', 'zu', 'in'), after 'der/die/das', or at the start of a sentence, with a dot.",
+      "format": "regex",
+      "content": "(?:\\b(?:von|zu|in|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines|mein|dein|sein|ihr|unser|euer|ihr|mein|dein|sein|ihr|unser|euer|ihr|der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|\\b(?:Kl\u00e4ger|Angeklagter|Angeklagte|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digter|Beteiligte|Beteiligter|Antragsteller|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndiger|Herr|Frau)\\s+|\\b(?:in|zu|von|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|^)([A-Z]\\.)",
+      "priority": 12,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.624865"
+    },
+    {
+      "id": "ebde2cdc",
+      "name": "Names after 'Dr.' or 'Prof.' (standalone)",
+      "description": "Captures names following titles like Dr. or Prof. when not part of a longer title sequence, handling both full names and initials.",
+      "format": "regex",
+      "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z]\\.)\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+      "priority": 10,
+      "output_template": {
+        "text": "$1",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:28.019401"
+    },
+    {
+      "id": "325e1c8e",
+      "name": "Isolated known surnames",
+      "description": "Captures specific known surnames appearing in isolation, ensuring they are treated as PER. Excludes common German words like 'Das', 'Der', 'Die'.",
+      "format": "regex",
+      "content": "\\b(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1|Stresemann|Feddersen|Botur|Galke|Grupp|Naumann|Suckow|Cirener|Grube|Rahmstorf|Gehrlein|von Pentz)\\b",
+      "priority": 14,
+      "output_template": {
+        "text": "$0",
+        "start": "$start",
+        "end": "$end",
+        "type": "PER"
+      },
+      "output_key": "entities",
+      "created_at": "2026-06-23T07:18:58.623419"
+    }
+  ],
+  "best_rules": {
+    "batch": 9,
+    "micro_f1": 0.1968838526912181,
+    "rules": [
+      {
+        "id": "84421f67",
+        "name": "Full names with titles",
+        "description": "Captures full names preceded by titles like Dr., Prof., or Dipl.-Ing., ensuring multi-part names with middle initials (e.g., 'Jay B. Saoud') are captured as a single entity.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-Ing\\.\\s+|Dipl\\.-Psych\\.\\s+|Dipl\\.-Ing\\.\\s+Univ\\.\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z]\\.)\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296110",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "af28d6a7",
+        "name": "Anonymized initials with dots",
+        "description": "Captures anonymized person identifiers consisting of a single capital letter followed by a dot (e.g., 'T.', 'F.', 'S.'), ensuring the dot is included.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\b",
+        "priority": 15,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:29.378403",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "a3f99de3",
+        "name": "Initials with dots and spaces (e.g., T. D.)",
+        "description": "Captures sequences of initial-dot-space-initial-dot patterns.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.[ ]+[A-Z]\\.)\\b",
+        "priority": 8,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.824003",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "0599e43e",
+        "name": "Names after 'Herr'",
+        "description": "Captures names immediately following the title 'Herr' (including 'Herrn').",
+        "format": "regex",
+        "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.823824",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "4993cd07",
+        "name": "Names after 'Angeklagte' or 'Kl\u00e4gerin'",
+        "description": "Captures names following legal role indicators like 'Angeklagte' or 'Kl\u00e4gerin'.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4gerin|Kl\u00e4ger|Zeugin|Zeuge|Gesch\u00e4digte|Gutachter|Gutachterin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:17.824138",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "4f43c0ca",
+        "name": "Names after 'Richter' or 'Vorsitzender'",
+        "description": "Captures names following judicial titles like 'Richter', 'Vorsitzender', 'Richterin', 'Vorsitzende Richterin', ensuring the name is captured even if preceded by 'Dr.' or 'Prof.'.",
+        "format": "regex",
+        "content": "\\b(?:Richter|Vorsitzender|Richterin|Vorsitzende Richterin|Vorsitzenden Richters)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+|Dipl\\.-[A-Za-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:29.379556",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6e133f27",
+        "name": "Names after 'Dr.' or 'Prof.'",
+        "description": "Captures names following titles like Dr. or Prof., handling both full names and initials.",
+        "format": "regex",
+        "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|[A-Z]\\.[ ]+[A-Z]\\.|[A-Z]\\.)\\b",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:01:57.254521",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6e0b7cc1",
+        "name": "Names after 'Rechtsanw\u00e4ltin' or 'Rechtsanwalt'",
+        "description": "Captures names following legal profession titles.",
+        "format": "regex",
+        "content": "\\b(?:Rechtsanw\u00e4ltin|Rechtsanwalt)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:11.569621",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "6a893240",
+        "name": "Names with dots in middle (e.g., B1 \u2026)",
+        "description": "Captures anonymized names with dots and ellipses or spaces (e.g., 'B1 \u2026', 'K \u2026', 'K1 \u2026').",
+        "format": "regex",
+        "content": "\\b([A-Z]\\d?\\s+\u2026+)\\b",
+        "priority": 7,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:02:30.348163",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "88d3e859",
+        "name": "Names after 'Dr.' or 'Prof.' (standalone)",
+        "description": "Captures names following titles like Dr. or Prof. when not part of a longer title sequence, handling both full names and initials.",
+        "format": "regex",
+        "content": "\\b(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|\\w+\\.?)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.298169",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "daa8797d",
+        "name": "Anonymized names with ellipses",
+        "description": "Captures anonymized names with ellipses like 'K \u2026', 'B1 \u2026', 'T. D.', 'L. \u2026', 'Ch. \u2026' ensuring no trailing spaces are included.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026|T\\.\\s+D\\.|B1\\s+\u2026|K1\\s+\u2026|H\\.\\s+\u2026|L\\.\\s+\u2026|Ch\\.\\s+\u2026|T\\.)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725154",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "12d202b6",
+        "name": "Names after 'Herr' or 'Herrn'",
+        "description": "Captures names immediately following the title 'Herr' or 'Herrn', including single initials.",
+        "format": "regex",
+        "content": "\\b(?:Herr|Herrn)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*|([A-Z])\\.)",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:05:14.298723",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "97b86ba2",
+        "name": "Hyphenated surnames",
+        "description": "Captures hyphenated surnames like 'Schmidt-R\u00e4ntsch' only when preceded by a title or in a list of names to avoid matching court names.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Richter\\s+|Vorsitzender\\s+|und\\s+|sowie\\s+|der\\s+|die\\s+|des\\s+)([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:-[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)+)",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725880",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "ae91774f",
+        "name": "Anonymized initials with dots (multi-initial)",
+        "description": "Captures multi-initial anonymized names like 'A. S.' or 'R. C.' as a single entity.",
+        "format": "regex",
+        "content": "(?:[A-Z]\\.)\\s+(?:[A-Z]\\.)",
+        "priority": 9,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725844",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "549dd13e",
+        "name": "Surnames after 'Generalanwalt' or 'Generalanw\u00e4ltin'",
+        "description": "Captures names following 'Generalanwalt' or 'Generalanw\u00e4ltin' titles.",
+        "format": "regex",
+        "content": "\\b(?:Generalanwalt|Generalanw\u00e4ltin)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725487",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "68df845b",
+        "name": "Surnames after 'Richter' or 'Vorsitzender' (refined)",
+        "description": "Captures names following judicial titles, ensuring the name is captured correctly even if preceded by 'Dipl.' or 'Prof.'.",
+        "format": "regex",
+        "content": "\\b(?:Richter|Vorsitzender)\\s+(?:Dipl\\.-[a-z]+\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725602",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "e91ec092",
+        "name": "Surnames after 'Rechtsanwalt' or 'Rechtsanw\u00e4ltin' (refined)",
+        "description": "Captures names following legal profession titles, handling potential titles like 'Dr.' or 'Prof.' before the name.",
+        "format": "regex",
+        "content": "\\b(?:Rechtsanwalt|Rechtsanw\u00e4ltin)\\s+(?:Dr\\.?\\s+|Prof\\.?\\s+)?([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 6,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:04:56.725712",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "2eb9f1cc",
+        "name": "Anonymized initials with ellipses after roles",
+        "description": "Captures anonymized names with ellipses (e.g., 'K \u2026', 'B1 \u2026') following legal roles or titles.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Patentanwalt|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+([A-Z]\\s+\u2026|[A-Z]\\d+\\s+\u2026)",
+        "priority": 14,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.409226",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "2980bda7",
+        "name": "Known surnames after legal roles",
+        "description": "Captures specific known surnames (e.g., 'Knoll', 'Kriener', 'Schmid') when they follow legal role indicators, ensuring they are treated as PER.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Kl\u00e4ger|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Rechtsanwalt|Rechtsanw\u00e4ltin|Vorsitzender|Richter|Richterin|Herr|Herrn)\\s+(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1)\\b",
+        "priority": 13,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.297356",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "5ae5e583",
+        "name": "Initials with dots (standalone context)",
+        "description": "Captures single initials with dots (e.g., 'A.', 'S.') when they appear in contexts suggesting a name, such as after 'Dr.', 'Prof.', 'Herr', or at the start of a sentence followed by a verb.",
+        "format": "regex",
+        "content": "(?:Dr\\.?\\s+|Prof\\.?\\s+|Professor\\s+|Herr\\s+|Herrn\\s+|^|\\b)([A-Z]\\.)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410426",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "266c1518",
+        "name": "Full names with initials (e.g., K. Schmidt)",
+        "description": "Captures full names consisting of an initial and a surname (e.g., 'K. Schmidt', 'M. Rennpferdt').",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\s+([A-Z][a-z\u00e4\u00f6\u00fc\u00df]+(?:\\s+[A-Z][a-z\u00e4\u00f6\u00fc\u00df]+)*)\\b",
+        "priority": 11,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410538",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "76281285",
+        "name": "Multi-initial anonymized names",
+        "description": "Captures multi-initial anonymized names like 'M. D.' or 'A. S.'.",
+        "format": "regex",
+        "content": "\\b([A-Z]\\.)\\s+([A-Z]\\.)\\b",
+        "priority": 10,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:07:53.410643",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "381264c3",
+        "name": "Anonymized initials after legal roles",
+        "description": "Captures single-letter anonymized names (e.g., 'M.', 'F.', 'R', 'A') immediately following legal role indicators like 'Angeklagte', 'Kl\u00e4ger', 'Zeuge', etc., including those with or without dots.",
+        "format": "regex",
+        "content": "\\b(?:Angeklagte|Angeklagten|Mitangeklagte|Mitangeklagten|Kl\u00e4ger|Kl\u00e4gerin|Kl\u00e4gers|Kl\u00e4gerin|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digten|Beteiligte|Beteiligten|Antragsteller|Antragstellerin|Antragstellers|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndigen|Herr|Herrn)\\s+([A-Z]\\.?)\\b",
+        "priority": 15,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296128",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "a8cfecf8",
+        "name": "Isolated anonymized initials",
+        "description": "Captures single-letter anonymized names (e.g., 'A', 'K', 'E', 'S') appearing in legal contexts such as after prepositions ('von', 'zu', 'in'), after 'der/die/das', or at the start of a sentence, with or without dots.",
+        "format": "regex",
+        "content": "(?:\\b(?:von|zu|in|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem|ohne|ohne\\s+dass|solange|sobald|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines|mein|dein|sein|ihr|unser|euer|ihr|mein|dein|sein|ihr|unser|euer|ihr|der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|\\b(?:Kl\u00e4ger|Angeklagter|Angeklagte|Zeuge|Zeugin|Gesch\u00e4digte|Gesch\u00e4digter|Beteiligte|Beteiligter|Antragsteller|Antragstellerin|Vorsitzender|Richter|Richterin|Rechtsanwalt|Rechtsanw\u00e4ltin|Gutachter|Gutachterin|Sachverst\u00e4ndige|Sachverst\u00e4ndiger|Herr|Frau)\\s+|\\b(?:in|zu|von|an|auf|bei|nach|vor|mit|ohne|f\u00fcr|gegen|durch|\u00fcber|unter|neben|zwischen|hinter|vor|nach|um|bis|seit|w\u00e4hrend|trotz|wegen|statt|au\u00dfer|neben|gegen\u00fcber|entlang|laut|gem\u00e4\u00df|inklusive|exklusive|sowie|wie|als|obwohl|wenn|falls|da|denn|dass|ob|obwohl|obgleich|indem)\\s+|\\b(?:der|die|das|den|dem|des|ein|eine|einem|einen|einer|eines)\\s+|^)([A-Z]\\.?)\\b",
+        "priority": 12,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.296140",
+        "output_template": {
+          "text": "$1",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      },
+      {
+        "id": "295b59c5",
+        "name": "Isolated known surnames",
+        "description": "Captures specific known surnames (e.g., 'Knoll', 'Kriener', 'Schmid') appearing in isolation or at the start of a sentence, treating them as PER.",
+        "format": "regex",
+        "content": "\\b(?:Sch\u00e4fer|Br\u00fcckner|Volz|Treber|Knoll|Kriener|Nielsen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Fiamingo|Kelvin|Schilling|Zimmermann|D\u00f6lp|Wollensak|Heinkel|Wemheuer|Sost-Scheible|Kirchhof|Paul Kirchhof|Koch|Brune|Gr\u00fcneberg|Hayen|Lipphaus|Merkel|Eylert|Krumbiegel|Kayser|J\u00e4ger|Merzbach|Hacker|Meiser|Becker|Zeng|Merk|Beji Caid Essebsi|Gericke|Franke|Busch|Bender|Augat|Tiemann|L\u00f6ffler|Schl\u00fcnder|Schmidt|Schmalz|Melzacks|Edda Redeker|Rosen|Kortbein|Schmid|S\u00f6chtig|Kortge|Jacobi|Sch\u00f6del|Linck|Schultz|Bellay|Leitz|Fieback|Rachor|Cosima|Hoch|Appl|Berger|Quentin|Roloff|Lohmann|Raum|Spinner|St|Br\\.|B1|S3|S4|Kara\u00e7ay|Schramm|Egerer|K\u00e4tker|Wismeth|Freudenreich|Schwitzer|Enerji Yapi-Yol Sen|Schwabe|Paffrath|Derstadt|Gallner|Herrmann|Shah|Krassh\u00f6fer|Limperg|Mosbacher|Schneider|Niemann|Zwanziger|Brenneisen|Hausmann|Kazele|Hohoff|Roggenbuck|Hamdorf|Grabinski|Krehl|Kosziol|Sunder|Mayen|Seiters|Schlewing|Spaniol|Kirchhoff|Fritz|Vogelsang|Lauer|Mutzbauer|Cierniak|M\u00fcller|Ahrendt|D\u00f6.|Widuch|Menezes|Sander|Fischermeier|Hoffmann|Kleinschmidt|Kirschneck|Matter|Kapels|Jostes|Da.|Maksymiw|Schell|M\u00fcnzberg|D7|Peter Lorsbach|Lorsbach|D1)\\b",
+        "priority": 14,
+        "confidence": 0.5,
+        "times_applied": 0,
+        "successes": 0,
+        "failures": 0,
+        "created_at": "2026-06-23T07:08:59.297369",
+        "output_template": {
+          "text": "$0",
+          "start": "$start",
+          "end": "$end",
+          "type": "PER"
+        },
+        "output_key": "entities"
+      }
+    ]
+  }
+}
