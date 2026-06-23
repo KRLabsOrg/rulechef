@@ -93,6 +93,7 @@ def run_benchmark(args):
         name=args.train_name,
         train_dir=args.train_dir,
         test_dir=args.test_dir,
+        val_dir=getattr(args, "val_dir", None),
         classes=args.classes,
     )
     if not getattr(args, "dataset_name", None):
@@ -169,7 +170,6 @@ def run_benchmark(args):
             steps.append(FeedbackStep(feedback_path=args.feedback))
         if args.max_iterations > 0:
             steps.append(_refinement_step(args, use_feedback=bool(args.feedback)))
-
         steps.append(EvaluationStep())
 
         plot_suffix = "_refined" if (args.rules_json or args.feedback) else ""
@@ -340,6 +340,7 @@ def main():
 
     # ── Phase 1 dataset ───────────────────────────────────────
     parser.add_argument("--train-dir", type=str)
+    parser.add_argument("--val-dir", type=str, default=None)
     parser.add_argument("--test-dir", type=str)
     parser.add_argument("--dataset-name", type=str, default=None)
     parser.add_argument("--train-name", type=str, default="findok")
