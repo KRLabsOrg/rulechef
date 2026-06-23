@@ -31,6 +31,7 @@ def fit_batched(
     audit_interval=0,
     seed_rules=None,
     start_batch=0,
+    prev_examples=0,
 ):
     """Learn rules incrementally over batches, refining against eval_dataset.
 
@@ -52,9 +53,9 @@ def fit_batched(
         )
         # current batch should see its own examples but also some previous ones for the full picture
         if chef.dataset.rules:
-            MAX_EXAMPLES = 200
-            if len(chef.dataset.examples) > MAX_EXAMPLES:
-                chef.dataset.examples = chef.dataset.examples[-MAX_EXAMPLES:]
+            keep = prev_examples if prev_examples else len(batch)
+            if len(chef.dataset.examples) > keep:
+                chef.dataset.examples = chef.dataset.examples[-keep:]
         else:
             # no rules yet — full synthesis path, must stay within token budget
             chef.dataset.examples.clear()
@@ -217,6 +218,7 @@ class SynthesisStep(Step):
             audit_interval=self.audit_interval,
             seed_rules=ctx.rules or None,
             start_batch=self.start_batch,
+            prev_examples=200,
         )
         if fit_result is None:
             return replace(
