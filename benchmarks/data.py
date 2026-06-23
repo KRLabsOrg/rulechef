@@ -42,6 +42,7 @@ def prepare_split(
     name: str,
     train_dir: str,
     test_dir: str | None = None,
+    val_dir: str | None = None,
     classes: str | None = None,
     fallback_dev: list | None = None,
 ) -> DataSplit:
@@ -66,10 +67,31 @@ def prepare_split(
         num_classes=args.num_classes,
         classes=class_list,
         pool_size=args.pool_size,
-        train_ratio=args.train_ratio,
+        train_ratio=1.0 if val_dir else args.train_ratio,
         negative_classes=args.negative_classes,
         num_negative_examples=args.num_negative_examples,
     )
+
+    if val_dir:
+        val_all = load_ner_dataset_from_conll(val_dir)
+        eval_ = [
+            {
+                "text": sent.text,
+                "entities": sorted(
+                    [l for l in sent.labels if l["type"] in selected_classes],
+                    key=lambda x: x["start"],
+                ),
+            }
+            for s in val_all.samples
+            for sent in s.sentences
+            if sent.labels
+            # for l in sent.labels
+            # if any(l["type"] in selected_classes for l in sent.labels)
+        ]
+        n_eval_docs = len(val_all.samples)
+        eval_label = f"val ({n_eval_docs} source docs)"
+    else:
+        eval_label = f"sampled ({n_eval_docs} source docs)"
 
     if dev_all:
         dev = [
@@ -92,7 +114,7 @@ def prepare_split(
         raise ValueError(f"prepare_split({name!r}): provide test_dir or fallback_dev")
 
     print(f"{'─' * 70}")
-    print(f"Source docs — train: {len(train_all.samples)}, dev: {dev_label}")
+    print(f"Source docs — train: {len(train_all.samples)}, eval: {eval_label}, dev: {dev_label}")
     print(f"Sampled     — train docs: {n_train_docs}, eval docs: {n_eval_docs}")
     print(f"Sentences   — train: {len(train)}, eval: {len(eval_)}, dev: {len(dev)}")
     print_distribution(train, "TRAIN", fn=label_distribution_sent)
