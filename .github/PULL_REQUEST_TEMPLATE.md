@@ -12,6 +12,5 @@
 ## Rights & sign-off (required)
 
 - [ ] I certify that I have the right to submit this code and that it may be
-      distributed under the repository's Apache-2.0 license (see
-      [CONTRIBUTING – DCO](../CONTRIBUTING.md#developer-certificate-of-origin)).
-      My commits are signed off (`git commit -s`).
+      distributed under the repository's Apache-2.0 license
+      (see [CONTRIBUTING](../CONTRIBUTING.md#contribution-rights)).

@@ -46,19 +46,14 @@ CI runs these checks on every pull request. Make sure they pass before submittin
 4. Ensure `ruff check .`, `mypy rulechef/`, and `pytest` all pass
 5. Open a pull request against `main`
 
-## Developer Certificate of Origin
+## Contribution rights
 
-By contributing you certify the [Developer Certificate of Origin](https://developercertificate.org/):
-that you wrote the contribution (or have the right to submit it) and that it may
-be distributed under this repository's Apache-2.0 license. You confirm this by
-signing off each commit:
-
-```bash
-git commit -s -m "your message"
-```
-
-which adds a `Signed-off-by: Your Name <you@example.com>` line. PRs with
-unsigned commits will be asked to rebase with sign-off.
+By submitting a pull request you confirm that you wrote the contribution (or
+have the right to submit it) and that it may be distributed under this
+repository's Apache-2.0 license (this is the license's own contribution term,
+Apache-2.0 §5, and the checkbox in the PR template). Optionally you can also
+sign off commits with `git commit -s` ([DCO](https://developercertificate.org/));
+appreciated, not required.
 
 ## Contributor tasks
 
