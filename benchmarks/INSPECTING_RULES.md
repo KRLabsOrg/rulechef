@@ -64,3 +64,19 @@ The generated `*.html` is git-ignored, so producing one won't dirty the repo.
 
 > Note: the report recomputes precision live with same-type span-overlap
 > matching, which is slightly more lenient than the benchmark's exact scorer.
+
+## Savings report (branded)
+
+Replay a ruleset over observed LLM traffic and get a print-ready, KR Labs-branded
+report of how many calls the rules could take over:
+
+```bash
+python benchmarks/savings_report.py \
+  --rules benchmarks/results/results_banking77_new.json \
+  --traffic benchmarks/results/sample_traffic_banking77.jsonl \
+  --cost-per-call 0.002 --out savings.html
+```
+
+Traffic JSONL: one call per line, `{"text": ..., "llm_label": ..., "gold_label": (optional)}`.
+Print to PDF from the browser, or:
+`chrome --headless --print-to-pdf=savings.pdf savings.html`

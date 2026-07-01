@@ -231,3 +231,6 @@ benchmarks/results/*.ckpt_gliner2.json
 # Generated rule-inspection reports
 rule_report.html
 rules_*.html
+
+savings_report.html
+savings*.html
