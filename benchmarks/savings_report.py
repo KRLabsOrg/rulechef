@@ -103,9 +103,9 @@ def main():
         fid = s["agree"] / s["taken"] if s["taken"] else 0
         ex = "".join(
             f'<div class="ex"><span class="mono">{html.escape(t)}</span>'
-            f' <span class="arrow">&rarr;</span> <span class="mono lbl">{html.escape(str(l))}</span>'
+            f' <span class="arrow">&rarr;</span> <span class="mono lbl">{html.escape(str(lbl))}</span>'
             f'{"" if ok else " <span class=miss>&ne; LLM</span>"}</div>'
-            for t, l, ok in s["examples"]
+            for t, lbl, ok in s["examples"]
         )
         rule_rows.append(
             f"""<tr><td class="mono rn">{html.escape(name)}</td>
