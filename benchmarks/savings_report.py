@@ -57,7 +57,7 @@ def main():
         text_field="text",
     )
     chef = RuleChef(task=task, client=MagicMock(), dataset_name="savings", storage_path=tempfile.mkdtemp())
-    rules = chef.load_rules(args.rules)
+    chef.load_rules(args.rules)
 
     n = len(rows)
     answered = 0
