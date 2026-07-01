@@ -34,6 +34,18 @@ RuleChef learns regex, Python code, and spaCy patterns from labeled examples usi
 - **Inspectability**: You can read, edit, and debug every rule.
 - **No drift**: Rules don't change unless you change them.
 
+## Results
+
+On the [Text Anonymization Benchmark](https://aclanthology.org/2022.cl-4.19/) (real court decisions, PII extraction), rules learned by RuleChef beat both prompting the same LLM and a dedicated neural extractor on format-structured entity types — at a fraction of the cost:
+
+| | Format-type F1 | ms/doc |
+|---|---|---|
+| **RuleChef (rules only)** | **78.7** | **0.6** |
+| LLM prompting (same model) | 74.8 | ~1500 |
+| GLiNER2 (schema) | 74.4 | 190 |
+
+The LLM stays ahead on purely semantic types — rules are the high-precision tier, not a full replacement. In **observation mode**, rules learned from watching just **50 LLM calls replace 48% of subsequent calls at 96% precision**. Details and per-type numbers: [`benchmarks/results/`](benchmarks/results/).
+
 ## Installation
 
 ```bash
@@ -241,6 +253,27 @@ metrics = chef.get_rule_metrics()
 chef.delete_rule("rule_id")
 ```
 
+## Inspect Your Rules
+
+The rules are the model — so you can read them. Generate a browsable report of any ruleset against labeled data: per-rule precision, and every true/false positive highlighted in context.
+
+```bash
+python benchmarks/rule_report.py --rules my_rules.json --data gold.jsonl --out report.html
+```
+
+<p align="center">
+  <img src="https://github.com/KRLabsOrg/rulechef/blob/main/assets/rule_report.png?raw=true" alt="Rule report" width="720"/>
+</p>
+
+Load a saved ruleset back any time — from a dataset file, a benchmark result, or a bare list of rule dicts:
+
+```python
+chef.load_rules("benchmarks/results/results_extract_tab.ckpt_rulechef.json")
+chef.extract({"text": "filed under no. 36244/06 in 2006"})   # runs rules, no LLM
+```
+
+See [`benchmarks/INSPECTING_RULES.md`](benchmarks/INSPECTING_RULES.md).
+
 ## Advanced Features
 
 ### Synthesis Strategy
@@ -366,19 +399,14 @@ DATA EVIDENCE FROM TRAINING:
 
 Install with `pip install rulechef[grex]`. Disable with `use_grex=False`.
 
-## Benchmark: Banking77
+## Benchmarks
 
-On the [Banking77](https://huggingface.co/datasets/legacy-datasets/banking77) intent classification dataset (5-class subset, 5-shot per class, regex-only):
+All numbers, harnesses, and learned rulesets are committed under [`benchmarks/`](benchmarks/) — every reported result traces to a script and a results JSON. Highlights:
 
-| Metric | Value |
-|--------|-------|
-| Accuracy | 60.5% |
-| Micro Precision | 100% |
-| Macro F1 | 71.7% |
-| Rules learned | 108 |
-| Per-query latency | 0.19ms |
-
-With agentic coordinator guiding 15 refinement iterations against a dev set. Zero false positives — rules never give a wrong answer, they just abstain when unsure. Full results and learned rules: [`benchmarks/results_banking77.json`](benchmarks/results_banking77.json). Reproduce: `python benchmarks/benchmark_banking77.py --classes beneficiary_not_allowed,card_arrival,disposable_card_limits,exchange_rate,pending_cash_withdrawal --shots 5 --max-iterations 15 --agentic`.
+- **TAB anonymization** (real court decisions): format-type F1 78.7 vs 74.8 (LLM prompting) vs 74.4 (GLiNER2); on the official test split the rules recover 83% of direct identifiers at 5 ms per document on CPU.
+- **Ablation**: one-shot rule prompting gets 7.4 F1 on semantic types; the refinement loop with holdout acceptance reaches 44.4 — the pipeline, not the prompt, does the work.
+- **Feedback repair**: three sentences of plain-English rule feedback lift a broken rule family from 5.7 to 35.6 F1 in one incremental round.
+- **Banking77** (5-class, 5-shot): 97.6% precision at 61% recall (75.1 micro-F1, 0.17 ms/query) — rules answer or abstain, never guess.
 
 ## CLI
 
