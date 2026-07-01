@@ -1,0 +1,23 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest code/command that shows the problem.
+      render: python
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes:
+      label: rulechef version + Python version
+      placeholder: "rulechef 0.2.0, Python 3.11, macOS"
+    validations: {required: true}

@@ -1,0 +1,15 @@
+name: Feature request
+description: Propose an improvement or new capability
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today? Concrete use case beats abstract capability.
+    validations: {required: true}
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Rough API/behavior sketch. Alternatives you considered.
