@@ -258,7 +258,7 @@ chef.delete_rule("rule_id")
 The rules are the model — so you can read them. Generate a browsable report of any ruleset against labeled data: per-rule precision, and every true/false positive highlighted in context.
 
 ```bash
-python benchmarks/rule_report.py --rules my_rules.json --data gold.jsonl --out report.html
+rulechef-report --rules my_rules.json --data gold.jsonl --out report.html
 ```
 
 <p align="center">

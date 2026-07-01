@@ -13,10 +13,8 @@ self-contained, print-ready HTML report:
 Traffic format (JSONL, one call per line):
     {"text": "...", "llm_label": "...", "gold_label": "..."(optional)}
 
-Usage:
-    python benchmarks/savings_report.py \
-        --rules benchmarks/results/results_banking77_new.json \
-        --traffic benchmarks/cache_obs_banking77_5class.baseline.jsonl \
+Installed as the ``rulechef-savings`` command:
+    rulechef-savings --rules rules.json --traffic traffic.jsonl \
         --cost-per-call 0.002 --out savings.html
 
 Print to PDF: open in a browser and print, or
@@ -29,7 +27,6 @@ import json
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from unittest.mock import MagicMock
 
 KR = "#fb2a55"  # KR Labs coral
 
@@ -56,7 +53,7 @@ def main():
         type=TaskType.CLASSIFICATION,
         text_field="text",
     )
-    chef = RuleChef(task=task, client=MagicMock(), dataset_name="savings", storage_path=tempfile.mkdtemp())
+    chef = RuleChef(task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp())
     chef.load_rules(args.rules)
 
     n = len(rows)
