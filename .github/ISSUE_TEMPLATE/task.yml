@@ -1,6 +1,6 @@
 name: Contributor task
 description: A scoped piece of work (used by maintainers to invite contributions)
-labels: ["type:task"]
+type: Task
 body:
   - type: textarea
     id: body
