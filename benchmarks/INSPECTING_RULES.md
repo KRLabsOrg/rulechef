@@ -71,7 +71,7 @@ Replay a ruleset over observed LLM traffic and get a print-ready, KR Labs-brande
 report of how many calls the rules could take over:
 
 ```bash
-python benchmarks/savings_report.py \
+rulechef-savings \
   --rules benchmarks/results/results_banking77_new.json \
   --traffic benchmarks/results/sample_traffic_banking77.jsonl \
   --cost-per-call 0.002 --out savings.html
