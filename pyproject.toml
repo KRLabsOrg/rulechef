@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rulechef"
-version = "0.2.1"
+version = "0.2.2"
 description = "Learn rule-based models from examples and LLM interactions"
 requires-python = ">=3.10"
 readme = {file = "README.md", content-type = "text/markdown"}
@@ -83,6 +83,10 @@ Repository = "https://github.com/KRLabsOrg/rulechef"
 rulechef = "rulechef.cli:main"
 rulechef-report = "rulechef.report:main"
 rulechef-savings = "rulechef.savings:main"
+
+[tool.hatch.build.targets.sdist]
+# Ship only the package and its metadata in the sdist.
+only-include = ["rulechef", "tests", "README.md", "LICENSE", "pyproject.toml"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["rulechef"]
