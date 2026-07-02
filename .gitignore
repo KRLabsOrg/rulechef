@@ -234,3 +234,6 @@ rules_*.html
 
 savings_report.html
 savings*.html
+
+# Local tool configuration
+.claude/
