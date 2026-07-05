@@ -1,6 +1,7 @@
 """Tests for the rulechef-report and rulechef-savings generators."""
 
 import json
+from unittest.mock import MagicMock
 
 from rulechef.report import generate, load_jsonl
 from rulechef.savings import main as savings_main
@@ -66,7 +67,7 @@ def test_export_traffic_classification(tmp_path):
         type=TaskType.CLASSIFICATION,
         text_field="text",
     )
-    chef = RuleChef(task=task)
+    chef = RuleChef(task=task, client=MagicMock())
     chef.add_observation({"text": "hello"}, {"label": "greeting"})
     chef.add_observation({"text": "bye"}, {"label": "farewell"})
 
@@ -85,7 +86,7 @@ def test_export_traffic_no_task_detects_format(tmp_path):
     """export_traffic auto-detects classification format when no task is set."""
     from rulechef import RuleChef
 
-    chef = RuleChef()
+    chef = RuleChef(client=MagicMock())
     chef.add_observation({"text": "hello"}, {"label": "greeting"})
 
     out = tmp_path / "traffic.jsonl"
@@ -109,7 +110,7 @@ def test_export_traffic_roundtrip_savings(tmp_path, monkeypatch):
         type=TaskType.CLASSIFICATION,
         text_field="text",
     )
-    chef = RuleChef(task=task)
+    chef = RuleChef(task=task, client=MagicMock())
     chef.add_observation({"text": "what is the exchange rate"}, {"label": "exchange_rate"})
     chef.add_observation({"text": "card is missing"}, {"label": "card_arrival"})
     chef.add_observation({"text": "transfer money please"}, {"label": "transfer"})
@@ -144,7 +145,7 @@ def test_export_traffic_skips_human_examples(tmp_path):
         type=TaskType.CLASSIFICATION,
         text_field="text",
     )
-    chef = RuleChef(task=task)
+    chef = RuleChef(task=task, client=MagicMock())
     chef.add_observation({"text": "a"}, {"label": "A"})            # LLM
     chef.add_example({"text": "b"}, {"label": "B"})                # human
 
