@@ -3,6 +3,7 @@
 import json
 import re
 import signal
+import string
 import threading
 from typing import Any
 
@@ -17,6 +18,13 @@ except ImportError:
 # can contain infinite loops or exponentially-backtracking patterns; without a
 # bound, one bad rule freezes the whole evaluation loop.
 RULE_TIMEOUT_S = 3.0
+
+# Characters trimmed from the edges of a produced entity span when snapping
+# to word boundaries (see `substitute_template`). Whitespace + standard
+# punctuation, not full Unicode punctuation categories — this only needs to
+# catch the common over-capture cases (trailing comma, wrapping quotes),
+# not act as a general tokenizer.
+_BOUNDARY_TRIM_CHARS = string.whitespace + string.punctuation
 
 
 class _RuleTimeout(Exception):
@@ -182,6 +190,29 @@ def substitute_template(
         if offset >= 0:
             result["start"] = start + offset
             result["end"] = result["start"] + len(result["text"])
+
+    # Snap the span to word boundaries: a regex that over-captures a
+    # trailing/leading punctuation or space mark (e.g. "London," instead of
+    # "London") turns a boundary slip into both a false positive and a false
+    # negative under the default `text` matching mode (see evaluation.py
+    # `_match_entities`). Trim only whitespace/punctuation at the edges —
+    # never touch interior characters — so the produced text lines up with
+    # gold spans without changing what the rule's capture group intended.
+    if (
+        "text" in result
+        and "start" in result
+        and "end" in result
+        and isinstance(result["text"], str)
+        and isinstance(result["start"], int)
+        and isinstance(result["end"], int)
+        and result["text"]
+    ):
+        stripped = result["text"].strip(_BOUNDARY_TRIM_CHARS)
+        if stripped and stripped != result["text"]:
+            lead_trim = len(result["text"]) - len(result["text"].lstrip(_BOUNDARY_TRIM_CHARS))
+            result["start"] += lead_trim
+            result["end"] = result["start"] + len(stripped)
+            result["text"] = stripped
 
     return result
 
