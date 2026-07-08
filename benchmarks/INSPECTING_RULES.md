@@ -80,3 +80,27 @@ rulechef-savings \
 Traffic JSONL: one call per line, `{"text": ..., "llm_label": ..., "gold_label": (optional)}`.
 Print to PDF from the browser, or:
 `chrome --headless --print-to-pdf=savings.pdf savings.html`
+
+### Producing the traffic file from observation mode
+
+If you're already using `chef.start_observing(...)` / `chef.add_observation(...)`
+to capture real LLM calls, you don't need to hand-write the traffic JSONL —
+`export_traffic` writes it directly from the observation buffer:
+
+```python
+chef = RuleChef(client=client)
+wrapped = chef.start_observing(client)
+# ... traffic flows through `wrapped` as usual ...
+
+chef.export_traffic("traffic.jsonl")
+```
+
+```bash
+rulechef-savings --rules rules.json --traffic traffic.jsonl --out savings.html
+```
+
+Only LLM-sourced observations are exported (human-labeled examples aren't
+traffic). Classification output (`{"label": ...}`) is written as `llm_label`;
+NER/extraction output (`{"entities": [...]}` or `{"spans": [...]}`) is written
+as `llm_entities` — note `rulechef-savings` itself currently only scores the
+classification (`llm_label`) shape.

@@ -432,6 +432,42 @@ class RuleChef:
         """
         self._observations.add_raw_observation(messages, response, metadata)
 
+    def export_traffic(self, path: str | Path) -> int:
+        """Export observed LLM traffic as savings-report JSONL.
+
+        Writes one line per LLM-sourced observation (see add_observation /
+        start_observing) in the format ``rulechef-savings`` expects:
+        ``{"text": ..., "llm_label": ...}`` for classification output, or
+        ``{"text": ..., "llm_entities": [...]}`` for NER/extraction output.
+        Human-sourced examples (add_human_example, add_human_correction) are
+        not traffic and are skipped, as are observations missing a "text"
+        input field or a recognized output shape.
+
+        Args:
+            path: Destination JSONL file path.
+
+        Returns:
+            Number of rows written.
+        """
+        rows: list[dict[str, Any]] = []
+        for example in self.buffer.get_all_examples():
+            if example.source != "llm":
+                continue
+            text = example.input.get("text")
+            if text is None:
+                continue
+            if "label" in example.output:
+                rows.append({"text": text, "llm_label": example.output["label"]})
+            elif "entities" in example.output:
+                rows.append({"text": text, "llm_entities": example.output["entities"]})
+            elif "spans" in example.output:
+                rows.append({"text": text, "llm_entities": example.output["spans"]})
+
+        with open(path, "w") as f:
+            for row in rows:
+                f.write(json.dumps(row) + "\n")
+        return len(rows)
+
     # ========================================
     # Learning
     # ========================================

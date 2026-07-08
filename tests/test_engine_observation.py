@@ -276,3 +276,100 @@ class TestRawObservationMerge:
         assert len(chef._pending_raw_observations) == 1
 
         chef.stop_observing()
+
+
+# =========================================================================
+# export_traffic()
+# =========================================================================
+
+
+class TestExportTraffic:
+    def test_writes_classification_jsonl(self, tmp_path):
+        chef = RuleChef(task=_make_task(), client=MagicMock())
+        chef.add_observation({"text": "what is the exchange rate"}, {"label": "exchange_rate"})
+        chef.add_observation({"text": "card is missing"}, {"label": "card_arrival"})
+
+        out = tmp_path / "traffic.jsonl"
+        count = chef.export_traffic(out)
+
+        assert count == 2
+        lines = [json.loads(line) for line in out.read_text().splitlines()]
+        assert lines[0] == {"text": "what is the exchange rate", "llm_label": "exchange_rate"}
+        assert lines[1] == {"text": "card is missing", "llm_label": "card_arrival"}
+
+    def test_writes_ner_jsonl(self, tmp_path):
+        chef = RuleChef(client=MagicMock())
+        entities = [{"text": "Paris", "start": 0, "end": 5, "type": "LOC"}]
+        chef.add_observation({"text": "Paris is nice"}, {"entities": entities})
+
+        out = tmp_path / "traffic.jsonl"
+        count = chef.export_traffic(out)
+
+        assert count == 1
+        row = json.loads(out.read_text().splitlines()[0])
+        assert row == {"text": "Paris is nice", "llm_entities": entities}
+
+    def test_skips_human_examples(self, tmp_path):
+        chef = RuleChef(task=_make_task(), client=MagicMock())
+        chef.add_example({"text": "human labeled"}, {"label": "exchange_rate"})
+        chef.add_observation({"text": "llm labeled"}, {"label": "card_arrival"})
+
+        out = tmp_path / "traffic.jsonl"
+        count = chef.export_traffic(out)
+
+        assert count == 1
+        row = json.loads(out.read_text().splitlines()[0])
+        assert row["text"] == "llm labeled"
+
+    def test_skips_observations_without_text_or_recognized_output(self, tmp_path):
+        chef = RuleChef(client=MagicMock())
+        chef.add_observation({"other_field": "no text here"}, {"label": "x"})
+        chef.add_observation({"text": "unrecognized output shape"}, {"unrecognized_key": "x"})
+
+        out = tmp_path / "traffic.jsonl"
+        count = chef.export_traffic(out)
+
+        assert count == 0
+        assert out.read_text() == ""
+
+    def test_round_trips_through_rulechef_savings(self, tmp_path, monkeypatch):
+        from rulechef.savings import main as savings_main
+
+        chef = RuleChef(task=_make_task(), client=MagicMock())
+        chef.add_observation({"text": "what is the exchange rate"}, {"label": "exchange_rate"})
+        chef.add_observation({"text": "card is missing"}, {"label": "card_arrival"})
+        traffic = tmp_path / "traffic.jsonl"
+        assert chef.export_traffic(traffic) == 2
+
+        rules = {
+            "rules": [
+                {
+                    "name": "rate",
+                    "format": "regex",
+                    "content": r"(?i)exchange rate",
+                    "output_template": {"label": "exchange_rate"},
+                    "output_key": "label",
+                }
+            ]
+        }
+        rules_file = tmp_path / "rules.json"
+        rules_file.write_text(json.dumps(rules))
+        out = tmp_path / "savings.html"
+
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "rulechef-savings",
+                "--rules",
+                str(rules_file),
+                "--traffic",
+                str(traffic),
+                "--out",
+                str(out),
+            ],
+        )
+        savings_main()
+
+        html_doc = out.read_text()
+        assert "replaceable" in html_doc
+        assert "50%" in html_doc  # 1 of 2 calls answered
