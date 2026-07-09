@@ -28,7 +28,7 @@ import tempfile
 from collections import defaultdict
 from pathlib import Path
 
-KR = "#fb2a55"  # KR Labs coral
+KR = "#FF3D5A"  # KR Labs Signal
 
 
 def main():
@@ -171,7 +171,7 @@ footer a{{color:#eee;text-decoration:none}}
 <div class="page">
 <header>
   <div class="logo"><span class="br">[&hairsp;KR&hairsp;]</span> Labs</div>
-  <div class="tag">VERIFIABLE AI</div>
+  <div class="tag">krlabs.eu</div>
 </header>
 
 <div class="label">[rulechef] &middot; {html.escape(args.title)}</div>
