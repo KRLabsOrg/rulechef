@@ -10,8 +10,12 @@ self-contained, print-ready HTML report:
     estimated cost savings (--cost-per-call)
   - top rules ranked by calls taken over, each with agreement and examples
 
-Traffic format (JSONL, one call per line):
+Traffic format (JSONL, one call per line). Classification:
     {"text": "...", "llm_label": "...", "gold_label": "..."(optional)}
+NER/extraction (auto-detected from the first row):
+    {"text": "...", "llm_entities": [{"text","start","end","type"}, ...]}
+For NER traffic, "agreement" is span-set micro-F1 against llm_entities
+(text+type match) rather than exact string comparison.
 
 Installed as the ``rulechef-savings`` command:
     rulechef-savings --rules rules.json --traffic traffic.jsonl \
@@ -34,61 +38,114 @@ KR = "#FF3D5A"  # KR Labs Signal
 def main():
     from rulechef import RuleChef
     from rulechef.core import Task, TaskType
+    from rulechef.evaluation import _match_entities
 
     p = argparse.ArgumentParser(description="Branded LLM-savings report from observed traffic")
     p.add_argument("--rules", required=True)
-    p.add_argument("--traffic", required=True, help="JSONL: {text, llm_label[, gold_label]}")
+    p.add_argument(
+        "--traffic",
+        required=True,
+        help="JSONL: {text, llm_label[, gold_label]} or {text, llm_entities}",
+    )
     p.add_argument("--cost-per-call", type=float, default=None, help="e.g. 0.002 (USD)")
     p.add_argument("--calls-per-month", type=int, default=None, help="volume to project savings on")
     p.add_argument("--title", default="LLM savings report")
     p.add_argument("--out", default="savings_report.html")
     args = p.parse_args()
 
-    rows = [json.loads(line) for line in Path(args.traffic).read_text().splitlines() if line.strip()]
-    task = Task(
-        name="observed traffic",
-        description="Classify observed inputs.",
-        input_schema={"text": "str"},
-        output_schema={"label": "str"},
-        type=TaskType.CLASSIFICATION,
-        text_field="text",
+    rows = [
+        json.loads(line) for line in Path(args.traffic).read_text().splitlines() if line.strip()
+    ]
+    is_ner = bool(rows) and "llm_entities" in rows[0]
+
+    if is_ner:
+        task = Task(
+            name="observed traffic",
+            description="Extract entities from observed inputs.",
+            input_schema={"text": "str"},
+            output_schema={"entities": "list"},
+            type=TaskType.NER,
+            text_field="text",
+        )
+    else:
+        task = Task(
+            name="observed traffic",
+            description="Classify observed inputs.",
+            input_schema={"text": "str"},
+            output_schema={"label": "str"},
+            type=TaskType.CLASSIFICATION,
+            text_field="text",
+        )
+    chef = RuleChef(
+        task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp()
     )
-    chef = RuleChef(task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp())
     chef.load_rules(args.rules)
 
     n = len(rows)
     answered = 0
-    agree = 0
     gold_right = 0
     gold_seen = 0
     per_rule = defaultdict(lambda: {"taken": 0, "agree": 0, "examples": []})
 
-    for r in rows:
-        out = chef.extract({"text": r["text"]}, validate=False)
-        label = (out or {}).get("label") or ""
-        if not label:
-            continue
-        answered += 1
-        rule_name = (out or {}).get("rule_name", "?")
-        ok = str(label).strip().lower() == str(r.get("llm_label", "")).strip().lower()
-        agree += ok
-        if "gold_label" in r:
-            gold_seen += 1
-            gold_right += str(label).strip().lower() == str(r["gold_label"]).strip().lower()
-        s = per_rule[rule_name]
-        s["taken"] += 1
-        s["agree"] += ok
-        if len(s["examples"]) < 3:
-            s["examples"].append((r["text"], label, ok))
+    if is_ner:
+        tp_total = fp_total = fn_total = 0
+        for r in rows:
+            out = chef.extract({"text": r["text"]}, validate=False)
+            predicted = (out or {}).get("entities") or []
+            if not predicted:
+                continue
+            answered += 1
+            gold = r.get("llm_entities", [])
+            matched, fp_list, fn_list = _match_entities(predicted, gold, TaskType.NER, mode="text")
+            tp_total += len(matched)
+            fp_total += len(fp_list)
+            fn_total += len(fn_list)
+            for pred, _gold in matched:
+                name = pred.get("rule_name", "?")
+                s = per_rule[name]
+                s["taken"] += 1
+                s["agree"] += 1
+                if len(s["examples"]) < 3:
+                    label = f"{pred.get('text', '')}/{pred.get('type', '')}"
+                    s["examples"].append((r["text"], label, True))
+            for pred in fp_list:
+                name = pred.get("rule_name", "?")
+                s = per_rule[name]
+                s["taken"] += 1
+                if len(s["examples"]) < 3:
+                    label = f"{pred.get('text', '')}/{pred.get('type', '')}"
+                    s["examples"].append((r["text"], label, False))
+
+        precision = tp_total / (tp_total + fp_total) if (tp_total + fp_total) else 0.0
+        recall = tp_total / (tp_total + fn_total) if (tp_total + fn_total) else 0.0
+        fidelity = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    else:
+        agree = 0
+        for r in rows:
+            out = chef.extract({"text": r["text"]}, validate=False)
+            label = (out or {}).get("label") or ""
+            if not label:
+                continue
+            answered += 1
+            rule_name = (out or {}).get("rule_name", "?")
+            ok = str(label).strip().lower() == str(r.get("llm_label", "")).strip().lower()
+            agree += ok
+            if "gold_label" in r:
+                gold_seen += 1
+                gold_right += str(label).strip().lower() == str(r["gold_label"]).strip().lower()
+            s = per_rule[rule_name]
+            s["taken"] += 1
+            s["agree"] += ok
+            if len(s["examples"]) < 3:
+                s["examples"].append((r["text"], label, ok))
+
+        fidelity = agree / answered if answered else 0.0
 
     coverage = answered / n if n else 0.0
-    fidelity = agree / answered if answered else 0.0
     gold_acc = (gold_right / gold_seen) if gold_seen else None
 
     monthly = args.calls_per_month or n
-    savings = (
-        f"${coverage * monthly * args.cost_per_call:,.0f}" if args.cost_per_call else None
-    )
+    savings = f"${coverage * monthly * args.cost_per_call:,.0f}" if args.cost_per_call else None
 
     top = sorted(per_rule.items(), key=lambda kv: -kv[1]["taken"])
 
@@ -101,12 +158,12 @@ def main():
         ex = "".join(
             f'<div class="ex"><span class="mono">{html.escape(t)}</span>'
             f' <span class="arrow">&rarr;</span> <span class="mono lbl">{html.escape(str(lbl))}</span>'
-            f'{"" if ok else " <span class=miss>&ne; LLM</span>"}</div>'
+            f"{'' if ok else ' <span class=miss>&ne; LLM</span>'}</div>"
             for t, lbl, ok in s["examples"]
         )
         rule_rows.append(
             f"""<tr><td class="mono rn">{html.escape(name)}</td>
-<td class="num">{s['taken']}</td><td class="num">{pct(s['taken'] / n)}</td>
+<td class="num">{s["taken"]}</td><td class="num">{pct(s["taken"] / n)}</td>
 <td class="num">{pct(fid)}</td></tr>
 <tr class="exrow"><td colspan="4">{ex}</td></tr>"""
         )
@@ -175,7 +232,7 @@ footer a{{color:#eee;text-decoration:none}}
 </header>
 
 <div class="label">[rulechef] &middot; {html.escape(args.title)}</div>
-<h1>{pct(coverage)} of your LLM calls<br>are replaceable by <span class="kr">{answered and len([1 for _, s in top if s['taken']])} rules</span>.</h1>
+<h1>{pct(coverage)} of your LLM calls<br>are replaceable by <span class="kr">{answered and len([1 for _, s in top if s["taken"]])} rules</span>.</h1>
 <p class="sub">We replayed {n:,} observed LLM calls against the rules RuleChef learned from your traffic.
 Rules answered {pct(coverage)} of them, agreeing with your LLM on {pct(fidelity)} of the calls they took over.
 Every rule is inspectable: what it matches, what it answered, and where it disagrees.</p>
@@ -185,7 +242,7 @@ Every rule is inspectable: what it matches, what it answered, and where it disag
 <div class="label">Top rules by calls taken over</div>
 <table>
 <tr><th>rule</th><th class="num">calls</th><th class="num">share</th><th class="num">agreement</th></tr>
-{''.join(rule_rows)}
+{"".join(rule_rows)}
 </table>
 
 <p class="note">Fidelity is agreement with the observed LLM outputs on calls the rules answered; the rules
