@@ -1,6 +1,7 @@
 """Tests for the rulechef-report and rulechef-savings generators."""
 
 import json
+from unittest.mock import MagicMock
 
 from rulechef.report import generate, load_jsonl
 from rulechef.savings import main as savings_main
@@ -51,3 +52,104 @@ def test_savings_cli(tmp_path, monkeypatch, capsys):
     html_doc = out.read_text()
     assert "KR" in html_doc and "replaceable" in html_doc
     assert "50%" in html_doc  # 1 of 2 calls answered
+
+
+def test_export_traffic_classification(tmp_path):
+    """Test export_traffic writes classification observations as savings-report JSONL."""
+    from rulechef import RuleChef
+    from rulechef.core import Task, TaskType
+
+    task = Task(
+        name="test_classify",
+        description="Classify text",
+        input_schema={"text": "str"},
+        output_schema={"label": "str"},
+        type=TaskType.CLASSIFICATION,
+        text_field="text",
+    )
+    chef = RuleChef(task=task, client=MagicMock())
+    chef.add_observation({"text": "hello"}, {"label": "greeting"})
+    chef.add_observation({"text": "bye"}, {"label": "farewell"})
+
+    out = tmp_path / "traffic.jsonl"
+    n = chef.export_traffic(str(out))
+
+    assert n == 2
+    assert out.exists()
+    lines = out.read_text().strip().splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0]) == {"text": "hello", "llm_label": "greeting"}
+    assert json.loads(lines[1]) == {"text": "bye", "llm_label": "farewell"}
+
+
+def test_export_traffic_no_task_detects_format(tmp_path):
+    """export_traffic auto-detects classification format when no task is set."""
+    from rulechef import RuleChef
+
+    chef = RuleChef(client=MagicMock())
+    chef.add_observation({"text": "hello"}, {"label": "greeting"})
+
+    out = tmp_path / "traffic.jsonl"
+    n = chef.export_traffic(str(out))
+
+    assert n == 1
+    record = json.loads(out.read_text().strip())
+    assert record == {"text": "hello", "llm_label": "greeting"}
+
+
+def test_export_traffic_roundtrip_savings(tmp_path, monkeypatch):
+    """Export observations, then replay through rulechef-savings CLI."""
+    from rulechef import RuleChef
+    from rulechef.core import Task, TaskType
+
+    task = Task(
+        name="banking",
+        description="Classify banking intents",
+        input_schema={"text": "str"},
+        output_schema={"label": "str"},
+        type=TaskType.CLASSIFICATION,
+        text_field="text",
+    )
+    chef = RuleChef(task=task, client=MagicMock())
+    chef.add_observation({"text": "what is the exchange rate"}, {"label": "exchange_rate"})
+    chef.add_observation({"text": "card is missing"}, {"label": "card_arrival"})
+    chef.add_observation({"text": "transfer money please"}, {"label": "transfer"})
+
+    traffic_path = tmp_path / "traffic.jsonl"
+    chef.export_traffic(str(traffic_path))
+
+    rules = {"rules": [{"name": "rate", "format": "regex", "content": r"(?i)exchange rate", "output_template": {"label": "exchange_rate"}, "output_key": "label"}]}
+    rf = tmp_path / "rules.json"
+    rf.write_text(json.dumps(rules))
+
+    out = tmp_path / "s.html"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["rulechef-savings", "--rules", str(rf), "--traffic", str(traffic_path), "--out", str(out)],
+    )
+    savings_main()
+    html_doc = out.read_text()
+    assert "KR" in html_doc and "replaceable" in html_doc
+
+
+def test_export_traffic_skips_human_examples(tmp_path):
+    """export_traffic only exports LLM observations, not human examples."""
+    from rulechef import RuleChef
+    from rulechef.core import Task, TaskType
+
+    task = Task(
+        name="test_classify",
+        description="Classify text",
+        input_schema={"text": "str"},
+        output_schema={"label": "str"},
+        type=TaskType.CLASSIFICATION,
+        text_field="text",
+    )
+    chef = RuleChef(task=task, client=MagicMock())
+    chef.add_observation({"text": "a"}, {"label": "A"})            # LLM
+    chef.add_example({"text": "b"}, {"label": "B"})                # human
+
+    out = tmp_path / "traffic.jsonl"
+    n = chef.export_traffic(str(out))
+    assert n == 1
+    assert json.loads(out.read_text().strip()) == {"text": "a", "llm_label": "A"}

@@ -78,5 +78,40 @@ rulechef-savings \
 ```
 
 Traffic JSONL: one call per line, `{"text": ..., "llm_label": ..., "gold_label": (optional)}`.
+For NER tasks, use `{"text": ..., "llm_entities": [...]}`.
 Print to PDF from the browser, or:
 `chrome --headless --print-to-pdf=savings.pdf savings.html`
+
+### Produce a traffic file from observations
+
+When you capture LLM calls with :meth:`RuleChef.add_observation` or
+:meth:`RuleChef.start_observing`, export them directly as a traffic file
+with one call:
+
+```python
+chef.export_traffic("observed_traffic.jsonl")
+```
+
+This writes each observation in the format ``rulechef-savings`` expects,
+using ``llm_label`` for classification tasks and ``llm_entities`` for NER.
+
+The full loop (observe → export → savings report) is:
+
+```python
+from rulechef import RuleChef
+from rulechef.core import Task, TaskType
+
+task = Task(
+    name="banking77", description="classify banking intents",
+    input_schema={"text": "str"}, output_schema={"label": "str"},
+    type=TaskType.CLASSIFICATION, text_field="text",
+)
+chef = RuleChef(task=task)
+
+chef.add_observation({"text": "what is the exchange rate"}, {"label": "exchange_rate"})
+chef.add_observation({"text": "card is missing"},         {"label": "card_arrival"})
+
+chef.export_traffic("traffic.jsonl")
+
+# shell: rulechef-savings --rules rules.json --traffic traffic.jsonl --out savings.html
+```

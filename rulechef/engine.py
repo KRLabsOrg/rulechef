@@ -747,6 +747,56 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         """Get statistics about buffered examples and observations."""
         return self._observations.get_buffer_stats()
 
+    def export_traffic(self, path: str | Path) -> int:
+        """Export observed input-output pairs as savings-report JSONL.
+
+        Writes each LLM observation as a JSON line in the traffic format
+        expected by :command:`rulechef-savings`:
+
+        * Classification: ``{"text": "...", "llm_label": "..."}``
+        * NER: ``{"text": "...", "llm_entities": [...]}``
+
+        Args:
+            path: Output file path (``.jsonl``).
+
+        Returns:
+            Number of exported records.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        examples = self.buffer.get_all_examples()
+
+        text_field = (self.task.text_field if self.task else None) or "text"
+        task_type = self.task.type if self.task else None
+
+        records = []
+        for ex in examples:
+            if ex.source != "llm":
+                continue
+
+            text = ex.input.get(text_field)
+            if not text:
+                continue
+
+            if task_type == TaskType.CLASSIFICATION:
+                records.append({"text": text, "llm_label": ex.output.get("label", "")})
+            elif task_type == TaskType.NER:
+                records.append({"text": text, "llm_entities": ex.output.get("entities", [])})
+            elif "label" in ex.output:
+                records.append({"text": text, "llm_label": ex.output["label"]})
+            elif "entities" in ex.output:
+                records.append({"text": text, "llm_entities": ex.output["entities"]})
+            else:
+                continue
+
+        with open(path, "w") as f:
+            for record in records:
+                f.write(json.dumps(record) + "\n")
+
+        print(f"✓ Exported {len(records)} observations to {path}")
+        return len(records)
+
     # ========================================
     # Analysis
     # ========================================
