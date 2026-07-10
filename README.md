@@ -23,6 +23,9 @@
 
 ---
 
+See the [public roadmap](PUBLIC_ROADMAP.md) for current correctness work and
+collaborator-friendly RuleIR, semantic/vector, and spaCy research directions.
+
 ## What is RuleChef?
 
 RuleChef learns regex, Python code, and spaCy patterns from labeled examples using LLM-powered synthesis. You provide examples, RuleChef generates rules, and those rules run locally without any LLM at inference time.
