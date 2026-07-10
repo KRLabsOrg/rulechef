@@ -49,6 +49,33 @@ class TestSubstituteTemplate:
         result = substitute_template(tpl, "full_match", 0, 10, groups=())
         assert result == {"match": "full_match"}
 
+    def test_trailing_punctuation_snapped_from_span(self):
+        tpl = {"text": "$0", "start": "$start", "end": "$end"}
+        # "London," at offset 10-17 in some larger text; the rule over-captured
+        # the trailing comma.
+        result = substitute_template(tpl, "London,", 10, 17)
+        assert result == {"text": "London", "start": 10, "end": 16}
+
+    def test_leading_and_trailing_whitespace_snapped_from_span(self):
+        tpl = {"text": "$0", "start": "$start", "end": "$end"}
+        result = substitute_template(tpl, " Paris ", 5, 12)
+        assert result == {"text": "Paris", "start": 6, "end": 11}
+
+    def test_wrapping_quotes_snapped_from_span(self):
+        tpl = {"text": "$0", "start": "$start", "end": "$end"}
+        result = substitute_template(tpl, '"Berlin"', 0, 8)
+        assert result == {"text": "Berlin", "start": 1, "end": 7}
+
+    def test_no_snap_needed_leaves_span_unchanged(self):
+        tpl = {"text": "$0", "start": "$start", "end": "$end"}
+        result = substitute_template(tpl, "Tokyo", 0, 5)
+        assert result == {"text": "Tokyo", "start": 0, "end": 5}
+
+    def test_all_punctuation_text_is_not_snapped_to_empty(self):
+        tpl = {"text": "$0", "start": "$start", "end": "$end"}
+        result = substitute_template(tpl, "---", 0, 3)
+        assert result == {"text": "---", "start": 0, "end": 3}
+
 
 # =========================================================================
 # RuleExecutor._execute_regex_rule
@@ -121,6 +148,26 @@ class TestExecuteRegexRule:
         )
         results = self.executor._execute_regex_rule(rule, {"text": "nothing here"})
         assert results == []
+
+    def test_over_captured_trailing_punctuation_is_snapped(self):
+        # A rule that (deliberately, as a stand-in for a real over-broad
+        # LLM-written pattern) captures a trailing comma along with the city
+        # name. Under the default `text` matching mode this boundary slip
+        # would count as both a false positive and a false negative against
+        # a gold span of just "London" (rulechef/evaluation.py:_match_entities).
+        rule = Rule(
+            id="r5",
+            name="city",
+            description="Match a city mention followed by optional punctuation",
+            format=RuleFormat.REGEX,
+            content=r"London,?",
+            output_template={"text": "$0", "start": "$start", "end": "$end"},
+        )
+        text = "She lives in London, near the river."
+        results = self.executor._execute_regex_rule(rule, {"text": text})
+        assert len(results) == 1
+        assert results[0]["text"] == "London"
+        assert text[results[0]["start"] : results[0]["end"]] == "London"
 
 
 # =========================================================================
