@@ -77,6 +77,12 @@ Existing spaCy work is grouped into the same research milestone:
 Contributions that produce reproducible comparisons, failure analyses, or small
 design notes are valuable even when the result is negative.
 
+Join the open discussions:
+
+- [roadmap feedback and maintainer announcement](https://github.com/KRLabsOrg/rulechef/discussions/39);
+- [what a RuleChef rule should be beyond regex](https://github.com/KRLabsOrg/rulechef/discussions/40);
+- [which workloads should test regex, spaCy, vector rules, and compact models](https://github.com/KRLabsOrg/rulechef/discussions/41).
+
 ## Later, if validated
 
 Depending on benchmarks and user feedback, later work may include:
