@@ -148,3 +148,22 @@ class TestPruneHarmfulRules:
         kept, dropped = prune_harmful_rules(rules, report)
         assert len(kept) == 1
         assert not dropped
+
+    def test_prunes_zero_support_rule(self):
+        rules = [
+            _rule("exchange", "exchange_rate", r"exchange rate"),
+            # Never matches anything in _dataset(): zero marginal F1 impact,
+            # but it's dead weight and should be pruned by min_support.
+            _rule("dead", "card_arrival", r"this pattern never matches"),
+        ]
+        report = rank_rules(rules, _dataset(), _apply_rules_fn(), compute_marginal=True)
+        kept, dropped = prune_harmful_rules(rules, report, min_support=1)
+        assert [r.id for r in dropped] == ["dead"]
+        assert {r.id for r in kept} == {"exchange"}
+
+    def test_min_support_zero_keeps_zero_support_rule(self):
+        rules = [_rule("dead", "card_arrival", r"this pattern never matches")]
+        report = rank_rules(rules, _dataset(), _apply_rules_fn(), compute_marginal=False)
+        kept, dropped = prune_harmful_rules(rules, report, min_support=0)
+        assert len(kept) == 1
+        assert not dropped

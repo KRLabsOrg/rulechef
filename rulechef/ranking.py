@@ -185,12 +185,16 @@ def prune_harmful_rules(
     rules: list[Rule],
     report: RankingReport,
     min_marginal_f1: float = 0.0,
+    min_support: int = 1,
 ) -> tuple[list[Rule], list[Rule]]:
-    """Split rules into (kept, dropped) based on marginal contribution.
+    """Split rules into (kept, dropped) based on marginal contribution and support.
 
     A rule is dropped when its marginal F1 is known and below
-    min_marginal_f1 — i.e. the ensemble measurably does better without it.
-    Rules without ablation data are always kept.
+    min_marginal_f1 — i.e. the ensemble measurably does better without it —
+    or when its validated_support is below min_support. A zero-support rule
+    never matches anything on the dev split, so removing it leaves ensemble
+    F1 unchanged (marginal F1 of exactly 0.0, which is not < min_marginal_f1)
+    and it would otherwise survive as dead weight.
 
     Returns:
         Tuple of (kept_rules, dropped_rules).
@@ -200,8 +204,10 @@ def prune_harmful_rules(
         for r in report.rankings
         if r.marginal_f1 is not None and r.marginal_f1 < min_marginal_f1
     }
-    kept = [r for r in rules if r.id not in harmful_ids]
-    dropped = [r for r in rules if r.id in harmful_ids]
+    zero_support_ids = {r.id for r in rules if r.validated_support < min_support}
+    dropped_ids = harmful_ids | zero_support_ids
+    kept = [r for r in rules if r.id not in dropped_ids]
+    dropped = [r for r in rules if r.id in dropped_ids]
     return kept, dropped
 
 
