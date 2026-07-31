@@ -148,3 +148,20 @@ class TestPruneHarmfulRules:
         kept, dropped = prune_harmful_rules(rules, report)
         assert len(kept) == 1
         assert not dropped
+
+    def test_prunes_dead_zero_support_rule(self):
+        rules = [
+            _rule("exchange", "exchange_rate", r"exchange rate"),
+            _rule("dead", "card_arrival", r"zebra unicorn"),  # never fires on _dataset()
+        ]
+        report = rank_rules(rules, _dataset(), _apply_rules_fn(), compute_marginal=True)
+        kept, dropped = prune_harmful_rules(rules, report)
+        assert [r.id for r in dropped] == ["dead"]
+        assert {r.id for r in kept} == {"exchange"}
+
+    def test_min_support_zero_keeps_dead_rule(self):
+        rules = [_rule("dead", "card_arrival", r"zebra unicorn")]
+        report = rank_rules(rules, _dataset(), _apply_rules_fn(), compute_marginal=False)
+        kept, dropped = prune_harmful_rules(rules, report, min_support=0)
+        assert len(kept) == 1
+        assert not dropped
