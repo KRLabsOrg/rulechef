@@ -1,0 +1,161 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Banking77 intent traffic — example savings report — KR Labs</title>
+<style>
+:root{--kr:#FF3D5A;--ink:#111;--mut:#666;--bd:#e6e6e6}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:#fff;
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.page{max-width:860px;margin:0 auto;padding:2.2rem 1.4rem 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.6rem}
+.logo{font-weight:800;font-size:22px;letter-spacing:.01em}
+.logo .br{color:var(--kr);font-family:ui-monospace,monospace;font-weight:700}
+.tag{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.22em;color:var(--mut)}
+.label{font-family:ui-monospace,monospace;font-size:11.5px;letter-spacing:.2em;color:var(--kr);
+  text-transform:uppercase;margin:2.4rem 0 .7rem}
+h1{font-size:40px;line-height:1.12;font-weight:800;letter-spacing:-.015em;margin:.2rem 0 1rem}
+h1 .kr{color:var(--kr)}
+.sub{color:#333;max-width:640px;margin:0 0 1.8rem}
+.cards{display:flex;flex-wrap:wrap;gap:.8rem;margin:1.2rem 0 .4rem}
+.card{flex:1 1 140px;border:1px solid var(--bd);padding:.9rem 1rem}
+.card .k{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.card .l{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mut);margin-top:.2rem}
+table{width:100%;border-collapse:collapse;margin:.6rem 0 1.6rem}
+th{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--mut);text-align:left;padding:.45rem .5rem;border-bottom:2px solid var(--ink)}
+td{padding:.5rem;border-bottom:1px solid var(--bd);vertical-align:top}
+td.num,th.num{text-align:right}
+.rn{color:var(--kr);font-weight:600;font-size:13px}
+.exrow td{border-bottom:1px solid var(--bd);padding:.15rem .5rem .6rem;background:#fafafa}
+.ex{font-size:12px;color:#444;margin:.15rem 0}
+.ex .lbl{color:var(--kr)}
+.ex .arrow{color:#999}
+.miss{color:#b45309;font-size:11px;font-family:ui-monospace,monospace}
+.note{font-size:12.5px;color:var(--mut);max-width:640px}
+footer{background:#111;color:#bbb;margin-top:2.6rem}
+footer .page{padding:1.1rem 1.4rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer .mono{font-size:11px;letter-spacing:.08em}
+footer a{color:#eee;text-decoration:none}
+@media print{.page{padding-top:1.2rem} footer{position:fixed;bottom:0;left:0;right:0}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+<div class="page">
+<header>
+  <div class="logo"><span class="br">[&hairsp;KR&hairsp;]</span> Labs</div>
+  <div class="tag">krlabs.eu</div>
+</header>
+
+<div class="label">[rulechef] &middot; Banking77 intent traffic — example savings report</div>
+<h1>62% of your LLM calls<br>are replaceable by <span class="kr">30 rules</span>.</h1>
+<p class="sub">We replayed 200 observed LLM calls against the rules RuleChef learned from your traffic.
+Rules answered 62% of them, agreeing with your LLM on 98% of the calls they took over.
+Every rule is inspectable: what it matches, what it answered, and where it disagrees.</p>
+
+<div class="cards"><div class="card"><div class="k">200</div><div class="l">calls observed</div></div><div class="card"><div class="k">62%</div><div class="l">replaceable by rules</div></div><div class="card"><div class="k">98%</div><div class="l">fidelity to your LLM</div></div><div class="card"><div class="k">98%</div><div class="l">accuracy vs. gold</div></div><div class="card"><div class="k">$125</div><div class="l">est. savings / 100,000 calls</div></div></div>
+
+<div class="label">Top rules by calls taken over</div>
+<table>
+<tr><th>rule</th><th class="num">calls</th><th class="num">share</th><th class="num">agreement</th></tr>
+<tr><td class="mono rn">pending_cash_withdrawal_relaxed</td>
+<td class="num">22</td><td class="num">11%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">My cash in the ATM is still pending</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div><div class="ex"><span class="mono">My transaction is still showing that is pending from my cash withdrawal.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div><div class="ex"><span class="mono">Why does it say pending cash withdrawal on my statement?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">exchange_rates_priority</td>
+<td class="num">20</td><td class="num">10%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What are your international exchange rates?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div><div class="ex"><span class="mono">what are exchange rates based on</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div><div class="ex"><span class="mono">How often do your exchange rates change</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div></td></tr><tr><td class="mono rn">exchange_rate_explicit</td>
+<td class="num">18</td><td class="num">9%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What foreign exchange rate will you use?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div><div class="ex"><span class="mono">The exchange rate would be?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div><div class="ex"><span class="mono">Can you tell me the foreign exchange rate?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">exchange_rate</span></div></td></tr><tr><td class="mono rn">pending_card_payment_relaxed</td>
+<td class="num">10</td><td class="num">5%</td>
+<td class="num">90%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I bought some stuff this morning but the payment shows as pending</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">I have waited 15 days, but my payment still hasn&#x27;t cleared.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">I bought some things this morning but the payment shows that it is pending</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">card_payment_pending_explicit</td>
+<td class="num">7</td><td class="num">4%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">When will my card payment be done pending?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">Why is my card payment showing as pending?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">My card payment is pending.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">pending_card_payment_loose</td>
+<td class="num">7</td><td class="num">4%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I have a pending payment from stuff I bought this morning.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">Why would I have a pending payment?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">Why is my payment pending?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">transfer_blocked</td>
+<td class="num">4</td><td class="num">2%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Why did I receive an error message saying that my transfer was not possible?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div><div class="ex"><span class="mono">Why did I get a message saying that my transfer is not possible?  I have done this before no problem.  Please fix.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div><div class="ex"><span class="mono">I&#x27;ve transferred money before without issue but now I am encountering an error stating that it isn&#x27;t possible. Why is that?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div></td></tr><tr><td class="mono rn">need_multiple_disposable_cards</td>
+<td class="num">4</td><td class="num">2%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">If I have more than one disposable card, can I make five payments on each of them?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">Can I have more than one disposable card?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">What if I need multiple disposable cards?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">transactions_on_disposable</td>
+<td class="num">3</td><td class="num">2%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Is there a limit to how many transactions I can make on one disposable card?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">Tell me how many transactions I can do with a disposable card.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">How many transactions can I do with one disposable card?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">disposable_card_limits_synonyms</td>
+<td class="num">3</td><td class="num">2%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What are the limits for disposable virtual cards?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">What is the limit to disposable cards you can have?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">What are the limits to using disposable virtual cards?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">transfer_refusal_broad</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I want to transfer money to a beneficiery. Why can&#x27;t I?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div><div class="ex"><span class="mono">I had a transfer blocked</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div></td></tr><tr><td class="mono rn">disposable_card_usage_count</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">How many times can I use a disposable card?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">How many times can I use the disposable virtual card I have?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">cash_withdrawal_status</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Are you sure when the withdrawal will show?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div><div class="ex"><span class="mono">I am still waiting for a cash withdrawal to show</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">pending_cash_withdrawal_progress</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Hi! I was wondering if you can help me. I used the city centre ATM to get some cash, but the machine declined my card. My account shows that transaction is still pending. I didn&#x27;t receive the money, so please cancel that transaction.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div><div class="ex"><span class="mono">Hi,I tried to get some money out but the machine was not working .The transaction still seems in progress! Can you please check what&#x27;s going on.I don&#x27;t want to be charged for money that I did not received.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">disposable_card_limits_relaxed</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">what is the disposable cards limit?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div><div class="ex"><span class="mono">How many disposable cards is the limit?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">payment_pending_general</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Why are my payments showing pending?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div><div class="ex"><span class="mono">I recently made a payment, and it is showing up in my account as &quot;pending&quot;. What does that mean?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">transfer_refusal_relaxed</td>
+<td class="num">2</td><td class="num">1%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">A transfer to an account was not allowed</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div><div class="ex"><span class="mono">Why was a transfer to an account not allowed?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div></td></tr><tr><td class="mono rn">pending_cash_withdrawal_generic</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I received cash from the ATM earlier, but this shows up as pending in the app.  I&#x27;ve got the cash already.  How can this be still pending?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">pending_payment_meaning</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">0%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What&#x27;s a pending transaction? My card was declined at an ATM, but my account says it&#x27;s still pending. Can I cancel the payment?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span> <span class=miss>&ne; LLM</span></div></td></tr><tr><td class="mono rn">beneficiary_not_allowed</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">My beneficiary is not allowed, please may I have answer as to why this is?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div></td></tr><tr><td class="mono rn">disposable_card_stipulations</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Do you know what the restriction of the disposable cards are?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">pending_card_payment_go_through</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">How long does it take for a payment to go thru? I made one a few days ago and it has not been cleared yet.</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">disposable_card_limits_broad</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I need to use my disposable card multiple times a day, is there a cutoff limit?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">disposable_card_transaction_limit</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What is the limit to number of transactions I can do with a disposable card?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">disposable_card_limits</span></div></td></tr><tr><td class="mono rn">pending_cash_withdrawal_ATM</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">I tried taking money from the ATM but no money came out, but the transaction is still pending? How is this possible?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">pending_payment_not_gone_thru</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">Why has my payment not gone through?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">pending_payment_meaning_general</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What does a pending transaction mean?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">pending_cash_withdrawal_withdrawals</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">My withdrawl is still pending.  Why?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_cash_withdrawal</span></div></td></tr><tr><td class="mono rn">pending_card_payment_processed</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">My payment still hasn&#x27;t processed!</span> <span class="arrow">&rarr;</span> <span class="mono lbl">pending_card_payment</span></div></td></tr><tr><td class="mono rn">beneficiary_rules_on</td>
+<td class="num">1</td><td class="num">0%</td>
+<td class="num">100%</td></tr>
+<tr class="exrow"><td colspan="4"><div class="ex"><span class="mono">What are the rules for transferring to a beneficiary?</span> <span class="arrow">&rarr;</span> <span class="mono lbl">beneficiary_not_allowed</span></div></td></tr>
+</table>
+
+<p class="note">Fidelity is agreement with the observed LLM outputs on calls the rules answered; the rules
+inherit the LLM's own error rate on those calls. Rules abstain on everything else, which continues to
+flow to the LLM. Generated by <span class="mono">rulechef</span> &middot; github.com/KRLabsOrg/rulechef.</p>
+</div>
+<footer><div class="page">
+  <span class="mono">krlabs.eu &middot; contact@krlabs.eu</span>
+  <span class="mono"><a href="https://github.com/KRLabsOrg">github.com/KRLabsOrg</a> &middot; KR Labs GmbH, Vienna</span>
+</div></footer></html>
