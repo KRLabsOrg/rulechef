@@ -10,8 +10,12 @@ self-contained, print-ready HTML report:
     estimated cost savings (--cost-per-call)
   - top rules ranked by calls taken over, each with agreement and examples
 
-Traffic format (JSONL, one call per line):
+Traffic format (JSONL, one call per line). Classification:
     {"text": "...", "llm_label": "...", "gold_label": "..."(optional)}
+NER/extraction (detected from the first row):
+    {"text": "...", "llm_entities": [{"text", "start", "end", "type"}, ...]}
+For NER traffic, fidelity is span micro-F1 against llm_entities
+(text+type match) instead of exact label agreement.
 
 Installed as the ``rulechef-savings`` command:
     rulechef-savings --rules rules.json --traffic traffic.jsonl \
@@ -45,44 +49,88 @@ def main():
     args = p.parse_args()
 
     rows = [json.loads(line) for line in Path(args.traffic).read_text().splitlines() if line.strip()]
-    task = Task(
-        name="observed traffic",
-        description="Classify observed inputs.",
-        input_schema={"text": "str"},
-        output_schema={"label": "str"},
-        type=TaskType.CLASSIFICATION,
-        text_field="text",
-    )
+    ner = bool(rows) and "llm_entities" in rows[0]
+    mixed = sum(1 for r in rows if ("llm_entities" in r) != ner)
+    if mixed:
+        print(f"⚠ {mixed} traffic rows don't match the detected {'NER' if ner else 'classification'} shape and will score as unanswered")
+
+    if ner:
+        task = Task(
+            name="observed traffic",
+            description="Extract entities from observed inputs.",
+            input_schema={"text": "str"},
+            output_schema={"entities": "list"},
+            type=TaskType.NER,
+            text_field="text",
+        )
+    else:
+        task = Task(
+            name="observed traffic",
+            description="Classify observed inputs.",
+            input_schema={"text": "str"},
+            output_schema={"label": "str"},
+            type=TaskType.CLASSIFICATION,
+            text_field="text",
+        )
     chef = RuleChef(task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp())
     chef.load_rules(args.rules)
 
     n = len(rows)
     answered = 0
-    agree = 0
     gold_right = 0
     gold_seen = 0
     per_rule = defaultdict(lambda: {"taken": 0, "agree": 0, "examples": []})
 
-    for r in rows:
-        out = chef.extract({"text": r["text"]}, validate=False)
-        label = (out or {}).get("label") or ""
-        if not label:
-            continue
-        answered += 1
-        rule_name = (out or {}).get("rule_name", "?")
-        ok = str(label).strip().lower() == str(r.get("llm_label", "")).strip().lower()
-        agree += ok
-        if "gold_label" in r:
-            gold_seen += 1
-            gold_right += str(label).strip().lower() == str(r["gold_label"]).strip().lower()
-        s = per_rule[rule_name]
-        s["taken"] += 1
-        s["agree"] += ok
-        if len(s["examples"]) < 3:
-            s["examples"].append((r["text"], label, ok))
+    if ner:
+        # Fidelity for span traffic is micro-F1 of the rules' entities against
+        # the LLM's entities (text+type match), not an exact-string comparison.
+        from rulechef.evaluation import _match_entities
+
+        tp = fp = fn = 0
+        for r in rows:
+            out = chef.extract({"text": r["text"]}, validate=False)
+            predicted = (out or {}).get("entities") or []
+            if not predicted:
+                continue
+            answered += 1
+            matched, false_pos, false_neg = _match_entities(
+                predicted, r.get("llm_entities", []), TaskType.NER, mode="text"
+            )
+            tp += len(matched)
+            fp += len(false_pos)
+            fn += len(false_neg)
+            for ent, ok in [(p, True) for p, _ in matched] + [(p, False) for p in false_pos]:
+                s = per_rule[ent.get("rule_name", "?")]
+                s["taken"] += 1
+                s["agree"] += ok
+                if len(s["examples"]) < 3:
+                    s["examples"].append((r["text"], f"{ent.get('text', '')}/{ent.get('type', '')}", ok))
+
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        fidelity = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    else:
+        agree = 0
+        for r in rows:
+            out = chef.extract({"text": r["text"]}, validate=False)
+            label = (out or {}).get("label") or ""
+            if not label:
+                continue
+            answered += 1
+            rule_name = (out or {}).get("rule_name", "?")
+            ok = str(label).strip().lower() == str(r.get("llm_label", "")).strip().lower()
+            agree += ok
+            if "gold_label" in r:
+                gold_seen += 1
+                gold_right += str(label).strip().lower() == str(r["gold_label"]).strip().lower()
+            s = per_rule[rule_name]
+            s["taken"] += 1
+            s["agree"] += ok
+            if len(s["examples"]) < 3:
+                s["examples"].append((r["text"], label, ok))
+        fidelity = agree / answered if answered else 0.0
 
     coverage = answered / n if n else 0.0
-    fidelity = agree / answered if answered else 0.0
     gold_acc = (gold_right / gold_seen) if gold_seen else None
 
     monthly = args.calls_per_month or n

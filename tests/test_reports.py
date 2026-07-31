@@ -153,3 +153,38 @@ def test_export_traffic_skips_human_examples(tmp_path):
     n = chef.export_traffic(str(out))
     assert n == 1
     assert json.loads(out.read_text().strip()) == {"text": "a", "llm_label": "A"}
+
+
+def test_savings_cli_ner_traffic(tmp_path, monkeypatch):
+    """NER traffic scores fidelity as span micro-F1 against llm_entities."""
+    rules = {
+        "rules": [
+            {
+                "name": "year",
+                "format": "regex",
+                "content": r"\b(19|20)\d{2}\b",
+                "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "DATETIME"},
+                "output_key": "entities",
+            }
+        ]
+    }
+    rf = tmp_path / "rules.json"
+    rf.write_text(json.dumps(rules))
+    traffic = [
+        # rule agrees with the LLM -> TP
+        {"text": "ruling issued in 2006", "llm_entities": [{"text": "2006", "start": 17, "end": 21, "type": "DATETIME"}]},
+        # rule fires where the LLM found nothing -> FP
+        {"text": "flight 2024 boarding", "llm_entities": []},
+    ]
+    tf = tmp_path / "traffic.jsonl"
+    tf.write_text("\n".join(json.dumps(r) for r in traffic) + "\n")
+
+    out = tmp_path / "savings.html"
+    monkeypatch.setattr(
+        "sys.argv",
+        ["rulechef-savings", "--rules", str(rf), "--traffic", str(tf), "--out", str(out)],
+    )
+    savings_main()
+    html_doc = out.read_text()
+    assert "100%" in html_doc  # coverage: the rule answered both rows
+    assert "67%" in html_doc  # micro-F1: TP=1 FP=1 FN=0 -> P=0.5 R=1.0 F1=0.667
