@@ -50,6 +50,7 @@ class RuleChef:
         model: str = "gpt-4o-mini",
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
+        spacy_model: str = "en_core_web_sm",
         use_grex: bool = True,
         max_rules: int = 10,
         max_samples: int = 50,
@@ -106,6 +107,8 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
 
         # Save constructor args for lazy initialization (when task=None)
         self._dataset_name = dataset_name
@@ -198,6 +201,7 @@ class RuleChef:
             sampling_strategy=self.sampling_strategy,
             model=self.model,
             use_spacy_ner=self.use_spacy_ner,
+            spacy_model=self.spacy_model,
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
@@ -402,6 +406,7 @@ class RuleChef:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
+        run_audit: bool = True,
     ):
         """Learn rules from all collected data.
 
@@ -419,6 +424,7 @@ class RuleChef:
                 Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
             incremental_only: If True and rules already exist, only generate
                 patch rules for current failures instead of full re-synthesis.
+            run_audit: Whether to run the coordinator's post-learn rule audit
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
@@ -431,6 +437,7 @@ class RuleChef:
             max_refinement_iterations=max_refinement_iterations,
             sampling_strategy=sampling_strategy,
             incremental_only=incremental_only,
+            run_audit=run_audit,
         )
 
     # ========================================

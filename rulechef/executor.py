@@ -144,7 +144,7 @@ def substitute_template(
 class RuleExecutor:
     """Executes rules against input data"""
 
-    def __init__(self, use_spacy_ner: bool = False):
+    def __init__(self, use_spacy_ner: bool = False, spacy_model: str = "en_core_web_sm"):
         """Initialize the rule executor.
 
         Args:
@@ -153,6 +153,7 @@ class RuleExecutor:
         """
         self._nlp = None  # Lazy-loaded spaCy model
         self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
 
     def apply_rules(
         self,
@@ -390,13 +391,13 @@ class RuleExecutor:
             # Lazy load spaCy model
             if self._nlp is None:
                 try:
-                    self._nlp = spacy.load("en_core_web_sm")
+                    self._nlp = spacy.load(self.spacy_model)
                 except OSError:
-                    print("   ⚠ spaCy model not found, downloading en_core_web_sm...")
+                    print(f"   ⚠ spaCy model not found, downloading {self.spacy_model}...")
                     from spacy.cli import download
 
-                    download("en_core_web_sm")
-                    self._nlp = spacy.load("en_core_web_sm")
+                    download(self.spacy_model)
+                    self._nlp = spacy.load(self.spacy_model)
 
             # content may be stored as string or list
             if isinstance(rule.content, str):

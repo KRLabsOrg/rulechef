@@ -25,8 +25,11 @@ class LearningPipeline:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
+        run_audit: bool = True,
     ):
         """Run the full learning pipeline.
+        Args:
+            run_audit: Whether to run the coordinator's post-learn rule audit
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
@@ -101,7 +104,8 @@ class LearningPipeline:
             chef._store.save(chef.dataset)
 
             # Step 8: Audit rules
-            rules, eval_result = self._audit_rules(rules, eval_result)
+            if run_audit:
+                rules, eval_result = self._audit_rules(rules, eval_result)
 
             elapsed = time.time() - start_time
             self._print_summary(rules, eval_result, elapsed)
@@ -272,7 +276,11 @@ class LearningPipeline:
     def _audit_rules(self, rules: list[Rule], eval_result) -> tuple:
         """Run coordinator audit and apply actions with F1 safety net."""
         chef = self._chef
+        if eval_result is None:
+            eval_result = chef.evaluate(verbose=False)
         audit = chef.coordinator.audit_rules(rules, chef.get_rule_metrics(verbose=False))
+        if audit.analysis:
+            print(f"🔍 Audit: {audit.analysis}")
         if audit.actions:
             rules = self._apply_audit(audit, eval_result)
             eval_result = chef.evaluate(verbose=False) if eval_result else None
@@ -314,6 +322,7 @@ class LearningPipeline:
                 )
 
                 # Remove sources, add merged
+                print(f"  🔀 merge {[s.name for s in sources]} → '{merged.name}': {action.reason}")
                 chef.dataset.rules = [r for r in chef.dataset.rules if r.id not in action.rule_ids]
                 chef.dataset.rules.append(merged)
                 rules_by_id = {r.id: r for r in chef.dataset.rules}
@@ -322,6 +331,7 @@ class LearningPipeline:
             elif action.action == "remove":
                 for rid in action.rule_ids:
                     if rid in rules_by_id:
+                        print(f"  🗑️ remove '{rules_by_id[rid].name}': {action.reason}")
                         chef.dataset.rules = [r for r in chef.dataset.rules if r.id != rid]
                         del rules_by_id[rid]
                         changed = True
