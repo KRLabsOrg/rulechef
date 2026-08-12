@@ -64,7 +64,14 @@ justify them.
 asks whether positive exemplars, hard negatives, similarity, and class margins
 can selectively handle regions that regex misses. It starts benchmark-local and
 compares against regex, TF-IDF, embedding-classifier, and fallback baselines
-before proposing a public API.
+before proposing a public API. A first benchmark-local result is recorded on
+the issue; the full 77-class run is the gate before any core implementation.
+
+Building on it,
+[span confirmation](https://github.com/KRLabsOrg/rulechef/issues/47)
+explores extraction: regex rules propose candidate spans with exact offsets,
+and contextual span exemplars confirm or reject each candidate — aimed at the
+semantic entity classes where surface patterns alone fall short.
 
 ### spaCy
 
