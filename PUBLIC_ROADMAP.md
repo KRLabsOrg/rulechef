@@ -26,7 +26,7 @@ contains correctness work that is useful regardless of later experiments:
 - [fail closed on schema-invalid local output](https://github.com/KRLabsOrg/rulechef/issues/33);
 - [evaluate scalar transformation fields](https://github.com/KRLabsOrg/rulechef/issues/34);
 - [separate routed, agreeing, and correctly routed coverage](https://github.com/KRLabsOrg/rulechef/issues/35);
-- [align package, API, and module versions](https://github.com/KRLabsOrg/rulechef/issues/36).
+- ~~[align package, API, and module versions](https://github.com/KRLabsOrg/rulechef/issues/36)~~ shipped.
 
 The milestone is intentionally about measurement and routing foundations, not a
 new rule language.
