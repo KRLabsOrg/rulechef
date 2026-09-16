@@ -842,6 +842,7 @@ class RuleLearner:
                 class_metrics=class_metrics,
                 fp_examples=fp_examples,
             )
+            #print(f"  [debug] failures_to_use={len(failures_to_use)}  prompt_chars={len(prompt)}")
 
             try:
                 response = self.llm.chat.completions.create(
@@ -861,10 +862,12 @@ class RuleLearner:
 
                 if finish_reason == "length":
                     new_max = max(1, max_failures // 2)
+
                     print(
                         f"  Output truncated on attempt {attempt + 1} "
                         f"({max_failures} failures → retrying with {new_max})"
                     )
+                    time.sleep(1.5)
                     max_failures = new_max
                     continue
 
@@ -904,6 +907,7 @@ class RuleLearner:
                     kw in err_str for kw in ("token", "context", "length", "too long", "maximum")
                 ):
                     new_max = max(1, max_failures // 2)
+                    # new_max = self._shrink_for_token_error(err_str, max_failures)
                     print(
                         f"  Token limit error on attempt {attempt + 1}: {e} "
                         f"— retrying with {new_max} failures"
@@ -1336,6 +1340,19 @@ Instructions:
                     break
 
         return sampled[:max_samples]
+
+    @staticmethod
+    def _shrink_for_token_error(err_str: str, max_failures: int) -> int:
+        passed_match = re.search(r"passed (\d+) input tokens", err_str)
+        max_match = re.search(r"maximum input length of (\d+) tokens", err_str)
+        if passed_match and max_match:
+            passed = int(passed_match.group(1))
+            allowed = int(max_match.group(1))
+            if passed > 0 and allowed > 0:
+                new_max = (max_failures * allowed * 97) // (passed * 100)
+                new_max = min(new_max, max_failures - 1)
+                return max(1, new_max)
+        return max(1, max_failures // 2)
 
     def _get_classes(self, dataset: Dataset) -> list[str]:
         """Discover classes from dataset based on task type.
