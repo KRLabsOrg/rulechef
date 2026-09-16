@@ -223,7 +223,13 @@ def _get_entities(output: Dict, task_type: TaskType) -> List[Dict]:
         return items
     elif task_type == TaskType.CLASSIFICATION:
         label = str(output.get("label", "")).strip()
-        return [{"label": label}] if label else []
+        if not label:
+            return []
+        entity = {"label": label}
+        if "rule_id" in output:
+            entity["rule_id"] = output["rule_id"]
+            entity["rule_name"] = output.get("rule_name", "")
+        return [entity]
     return []
 
 
