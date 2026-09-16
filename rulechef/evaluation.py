@@ -491,8 +491,6 @@ def evaluate_dataset(
         # Accumulate per-class FN
         for gold in fn_list:
             cls = _entity_type(gold)
-            if cls not in entities_found_by_rule:
-                continue
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].fn += 1

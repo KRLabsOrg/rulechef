@@ -1291,6 +1291,9 @@ INSTRUCTIONS:
 
         failure_snippets = []
         for f in failures[:failure_limit]:
+            raw_input = f.get("input")
+            expected = f.get("expected")
+            input_text = raw_input.get("text") if isinstance(raw_input, dict) else raw_input
             failure_snippets.append(
                 {
                     "input": self._truncate_failure_input(
@@ -1667,37 +1670,40 @@ Instructions:
                     print("Attempting salvage with substring between { and }...")
                     return json.loads(candidate)
                 except Exception:
-                    try:
-                        print("Salvage attempt I failed, trying json_repair library...")
-                        from json_repair import repair_json
-
-                        repaired = repair_json(text, return_objects=True)
-                        if isinstance(repaired, dict):
-                            print(f"json_repair  worked!")
-                            return repaired
-                        if not isinstance(repaired, dict):
-                            if (
-                                isinstance(repaired, list)
-                                and repaired
-                                and isinstance(repaired[0], dict)
-                            ):
-                                repaired = repaired[0]
-                                print(f"json_repair  worked!")
-                            else:
-                                repaired = {}
-                                print(f"json_repair  did not work!")
-
-                    except Exception as e2:
-                        print(f"json_repair failed: {e2}")
-
+                    pass
             # Response truncated mid-stream (hit output token limit): recover
             # as many complete rule objects as possible instead of losing all.
             recovered = self._recover_truncated_rules(text)
             if recovered is not None:
                 print(f"   ↻ Recovered {len(recovered.get('rules', []))} rules from truncated JSON")
                 return recovered
+            try:
+                print("Salvage attempt I failed, trying json_repair library...")
+                from json_repair import repair_json
+
+                repaired = repair_json(text, return_objects=True)
+                if isinstance(repaired, dict):
+                    print(f"json_repair  worked!")
+                    return repaired
+                if not isinstance(repaired, dict):
+                    if (
+                        isinstance(repaired, list)
+                        and repaired
+                        and isinstance(repaired[0], dict)
+                    ):
+                        repaired = repaired[0]
+                        print(f"json_repair  worked!")
+                        return repaired
+                        
+                    else:
+                        repaired = {}
+                        print(f"json_repair  did not work!")
+
+            except Exception as e2:
+                print(f"json_repair failed: {e2}")
             raise
 
+            
     @staticmethod
     def _recover_truncated_rules(text: str) -> dict | None:
         """Extract complete rule objects from a truncated ``"rules": [...]`` array.
