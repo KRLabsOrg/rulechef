@@ -184,7 +184,7 @@ document.querySelectorAll('.rule').forEach(r=>r.style.display=r.dataset.name.inc
 <title>Rule report</title><style>{css}</style>
 <h1>{title}</h1>
 <div class="bar"><input id=q placeholder="filter rules by name…"></div>
-{''.join(parts)}<script>{js}</script>"""
+{"".join(parts)}<script>{js}</script>"""
     Path(out_path).write_text(doc)
     print(f"Wrote {out_path} ({len(doc) // 1024} KB) — open it in a browser")
     return doc

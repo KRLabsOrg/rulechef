@@ -130,7 +130,12 @@ class TestLoadRules:
                     "name": "year",
                     "format": "regex",
                     "content": r"\b\d{4}\b",
-                    "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "DATETIME"},
+                    "output_template": {
+                        "text": "$0",
+                        "start": "$start",
+                        "end": "$end",
+                        "type": "DATETIME",
+                    },
                     "output_key": "entities",
                 }
             ]

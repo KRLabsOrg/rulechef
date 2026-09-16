@@ -78,7 +78,11 @@ def main():
     print("Loading gold corpus (spacy tokenization)...")
     gold = tab_eval.GoldCorpus(args.test_json)
 
-    results = {"num_rules": len(rules), "spans": total_spans, "ms_per_doc": 1000 * elapsed / len(docs)}
+    results = {
+        "num_rules": len(rules),
+        "spans": total_spans,
+        "ms_per_doc": 1000 * elapsed / len(docs),
+    }
     for include_direct, include_quasi, label in (
         (True, True, "all"),
         (True, False, "direct"),

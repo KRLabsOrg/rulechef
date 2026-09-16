@@ -149,7 +149,9 @@ def main():
         timeout=240.0,
         max_retries=1,
     )
-    out_path = Path(args.output or f"benchmarks/results/results_ablation_extract_{args.dataset}.json")
+    out_path = Path(
+        args.output or f"benchmarks/results/results_ablation_extract_{args.dataset}.json"
+    )
 
     cells = [
         ("oneshot_prompting", False, False, 0),  # single synthesis call, no refinement

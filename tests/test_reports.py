@@ -18,7 +18,10 @@ def test_report_generate(tmp_path):
         }
     ]
     gold = [
-        {"text": "filed in 2006", "entities": [{"text": "2006", "start": 9, "end": 13, "type": "DATETIME"}]},
+        {
+            "text": "filed in 2006",
+            "entities": [{"text": "2006", "start": 9, "end": 13, "type": "DATETIME"}],
+        },
         {"text": "code 1234 here", "entities": []},  # 1234 matches -> FP
     ]
     out = tmp_path / "r.html"
@@ -35,7 +38,17 @@ def test_load_jsonl(tmp_path):
 
 
 def test_savings_cli(tmp_path, monkeypatch, capsys):
-    rules = {"rules": [{"name": "rate", "format": "regex", "content": r"(?i)exchange rate", "output_template": {"label": "exchange_rate"}, "output_key": "label"}]}
+    rules = {
+        "rules": [
+            {
+                "name": "rate",
+                "format": "regex",
+                "content": r"(?i)exchange rate",
+                "output_template": {"label": "exchange_rate"},
+                "output_key": "label",
+            }
+        ]
+    }
     rf = tmp_path / "rules.json"
     rf.write_text(json.dumps(rules))
     tf = tmp_path / "traffic.jsonl"
@@ -118,7 +131,17 @@ def test_export_traffic_roundtrip_savings(tmp_path, monkeypatch):
     traffic_path = tmp_path / "traffic.jsonl"
     chef.export_traffic(str(traffic_path))
 
-    rules = {"rules": [{"name": "rate", "format": "regex", "content": r"(?i)exchange rate", "output_template": {"label": "exchange_rate"}, "output_key": "label"}]}
+    rules = {
+        "rules": [
+            {
+                "name": "rate",
+                "format": "regex",
+                "content": r"(?i)exchange rate",
+                "output_template": {"label": "exchange_rate"},
+                "output_key": "label",
+            }
+        ]
+    }
     rf = tmp_path / "rules.json"
     rf.write_text(json.dumps(rules))
 
@@ -146,8 +169,8 @@ def test_export_traffic_skips_human_examples(tmp_path):
         text_field="text",
     )
     chef = RuleChef(task=task, client=MagicMock())
-    chef.add_observation({"text": "a"}, {"label": "A"})            # LLM
-    chef.add_example({"text": "b"}, {"label": "B"})                # human
+    chef.add_observation({"text": "a"}, {"label": "A"})  # LLM
+    chef.add_example({"text": "b"}, {"label": "B"})  # human
 
     out = tmp_path / "traffic.jsonl"
     n = chef.export_traffic(str(out))
@@ -163,7 +186,12 @@ def test_savings_cli_ner_traffic(tmp_path, monkeypatch):
                 "name": "year",
                 "format": "regex",
                 "content": r"\b(19|20)\d{2}\b",
-                "output_template": {"text": "$0", "start": "$start", "end": "$end", "type": "DATETIME"},
+                "output_template": {
+                    "text": "$0",
+                    "start": "$start",
+                    "end": "$end",
+                    "type": "DATETIME",
+                },
                 "output_key": "entities",
             }
         ]
@@ -172,7 +200,10 @@ def test_savings_cli_ner_traffic(tmp_path, monkeypatch):
     rf.write_text(json.dumps(rules))
     traffic = [
         # rule agrees with the LLM -> TP
-        {"text": "ruling issued in 2006", "llm_entities": [{"text": "2006", "start": 17, "end": 21, "type": "DATETIME"}]},
+        {
+            "text": "ruling issued in 2006",
+            "llm_entities": [{"text": "2006", "start": 17, "end": 21, "type": "DATETIME"}],
+        },
         # rule fires where the LLM found nothing -> FP
         {"text": "flight 2024 boarding", "llm_entities": []},
     ]

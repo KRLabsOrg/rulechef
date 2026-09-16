@@ -48,11 +48,15 @@ def main():
     p.add_argument("--out", default="savings_report.html")
     args = p.parse_args()
 
-    rows = [json.loads(line) for line in Path(args.traffic).read_text().splitlines() if line.strip()]
+    rows = [
+        json.loads(line) for line in Path(args.traffic).read_text().splitlines() if line.strip()
+    ]
     ner = bool(rows) and "llm_entities" in rows[0]
     mixed = sum(1 for r in rows if ("llm_entities" in r) != ner)
     if mixed:
-        print(f"⚠ {mixed} traffic rows don't match the detected {'NER' if ner else 'classification'} shape and will score as unanswered")
+        print(
+            f"⚠ {mixed} traffic rows don't match the detected {'NER' if ner else 'classification'} shape and will score as unanswered"
+        )
 
     if ner:
         task = Task(
@@ -72,7 +76,9 @@ def main():
             type=TaskType.CLASSIFICATION,
             text_field="text",
         )
-    chef = RuleChef(task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp())
+    chef = RuleChef(
+        task=task, client=object(), dataset_name="savings", storage_path=tempfile.mkdtemp()
+    )
     chef.load_rules(args.rules)
 
     n = len(rows)
@@ -104,7 +110,9 @@ def main():
                 s["taken"] += 1
                 s["agree"] += ok
                 if len(s["examples"]) < 3:
-                    s["examples"].append((r["text"], f"{ent.get('text', '')}/{ent.get('type', '')}", ok))
+                    s["examples"].append(
+                        (r["text"], f"{ent.get('text', '')}/{ent.get('type', '')}", ok)
+                    )
 
         precision = tp / (tp + fp) if tp + fp else 0.0
         recall = tp / (tp + fn) if tp + fn else 0.0
@@ -134,9 +142,7 @@ def main():
     gold_acc = (gold_right / gold_seen) if gold_seen else None
 
     monthly = args.calls_per_month or n
-    savings = (
-        f"${coverage * monthly * args.cost_per_call:,.0f}" if args.cost_per_call else None
-    )
+    savings = f"${coverage * monthly * args.cost_per_call:,.0f}" if args.cost_per_call else None
 
     top = sorted(per_rule.items(), key=lambda kv: -kv[1]["taken"])
 
@@ -149,12 +155,12 @@ def main():
         ex = "".join(
             f'<div class="ex"><span class="mono">{html.escape(t)}</span>'
             f' <span class="arrow">&rarr;</span> <span class="mono lbl">{html.escape(str(lbl))}</span>'
-            f'{"" if ok else " <span class=miss>&ne; LLM</span>"}</div>'
+            f"{'' if ok else ' <span class=miss>&ne; LLM</span>'}</div>"
             for t, lbl, ok in s["examples"]
         )
         rule_rows.append(
             f"""<tr><td class="mono rn">{html.escape(name)}</td>
-<td class="num">{s['taken']}</td><td class="num">{pct(s['taken'] / n)}</td>
+<td class="num">{s["taken"]}</td><td class="num">{pct(s["taken"] / n)}</td>
 <td class="num">{pct(fid)}</td></tr>
 <tr class="exrow"><td colspan="4">{ex}</td></tr>"""
         )
@@ -223,7 +229,7 @@ footer a{{color:#eee;text-decoration:none}}
 </header>
 
 <div class="label">[rulechef] &middot; {html.escape(args.title)}</div>
-<h1>{pct(coverage)} of your LLM calls<br>are replaceable by <span class="kr">{answered and len([1 for _, s in top if s['taken']])} rules</span>.</h1>
+<h1>{pct(coverage)} of your LLM calls<br>are replaceable by <span class="kr">{answered and len([1 for _, s in top if s["taken"]])} rules</span>.</h1>
 <p class="sub">We replayed {n:,} observed LLM calls against the rules RuleChef learned from your traffic.
 Rules answered {pct(coverage)} of them, agreeing with your LLM on {pct(fidelity)} of the calls they took over.
 Every rule is inspectable: what it matches, what it answered, and where it disagrees.</p>
@@ -233,7 +239,7 @@ Every rule is inspectable: what it matches, what it answered, and where it disag
 <div class="label">Top rules by calls taken over</div>
 <table>
 <tr><th>rule</th><th class="num">calls</th><th class="num">share</th><th class="num">agreement</th></tr>
-{''.join(rule_rows)}
+{"".join(rule_rows)}
 </table>
 
 <p class="note">Fidelity is agreement with the observed LLM outputs on calls the rules answered; the rules
