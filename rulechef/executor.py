@@ -200,6 +200,8 @@ class RuleExecutor:
                     label = self._normalize_label(results)
                     if label is not None and "label" not in output:
                         output["label"] = label
+                        output["rule_id"] = rule.id
+                        output["rule_name"] = rule.name
                     continue
 
                 # For list results, aggregate into output_key
