@@ -1,0 +1,23 @@
+{
+  "num_rules": 22,
+  "spans": 4668,
+  "ms_per_doc": 5.012574158315584,
+  "mention_recall_all": 0.7187786707769093,
+  "entity_recall_all": 0.6562356717102247,
+  "mention_recall_direct": 0.8302169035153328,
+  "entity_recall_direct": 0.8547968885047537,
+  "mention_recall_quasi": 0.7099253273119813,
+  "entity_recall_quasi": 0.6421336934503714,
+  "mention_recall_per_type": {
+    "CODE": 0.9333129397369226,
+    "PERSON": 0.8044491339136551,
+    "DATETIME": 0.8647320743129127,
+    "ORG": 0.3470950557682704,
+    "LOC": 0.5631115459882583,
+    "DEM": 0.362962962962963,
+    "MISC": 0.2044665012406948,
+    "QUANTITY": 0.08018154311649017
+  },
+  "token_precision_uniform": 0.7037409989930272,
+  "token_precision_bert_weighted": 0.7381920398139352
+}

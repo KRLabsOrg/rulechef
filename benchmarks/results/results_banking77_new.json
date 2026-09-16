@@ -1,0 +1,1953 @@
+{
+  "config": {
+    "shots": 5,
+    "model": "moonshotai/kimi-k2-instruct-0905",
+    "format": "regex",
+    "max_rules": 100,
+    "max_samples": 200,
+    "max_iterations": 15,
+    "seed": 42,
+    "train_size": 25,
+    "test_size": 200,
+    "use_grex": true,
+    "agentic": true
+  },
+  "results": {
+    "accuracy": 0.61,
+    "coverage": 0.625,
+    "micro_precision": 0.976,
+    "micro_recall": 0.61,
+    "micro_f1": 0.7507692307692309,
+    "macro_f1": 0.720032461388055,
+    "num_rules": 126,
+    "learning_time_s": 175.1,
+    "eval_time_s": 0.034,
+    "per_query_ms": 0.17
+  },
+  "per_class": [
+    {
+      "label": "beneficiary_not_allowed",
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tp": 10,
+      "fp": 0,
+      "fn": 30
+    },
+    {
+      "label": "disposable_card_limits",
+      "precision": 1.0,
+      "recall": 0.425,
+      "f1": 0.5964912280701754,
+      "tp": 17,
+      "fp": 0,
+      "fn": 23
+    },
+    {
+      "label": "exchange_rate",
+      "precision": 1.0,
+      "recall": 0.95,
+      "f1": 0.9743589743589743,
+      "tp": 38,
+      "fp": 0,
+      "fn": 2
+    },
+    {
+      "label": "pending_card_payment",
+      "precision": 0.9032258064516129,
+      "recall": 0.7,
+      "f1": 0.7887323943661972,
+      "tp": 28,
+      "fp": 3,
+      "fn": 12
+    },
+    {
+      "label": "pending_cash_withdrawal",
+      "precision": 1.0,
+      "recall": 0.725,
+      "f1": 0.8405797101449275,
+      "tp": 29,
+      "fp": 0,
+      "fn": 11
+    }
+  ],
+  "iteration_metrics": [
+    {
+      "iteration": 1,
+      "num_rules": 21,
+      "exact_match": 0.2807807807807808,
+      "micro_precision": 1.0,
+      "micro_recall": 0.2807807807807808,
+      "micro_f1": 0.4384525205158265,
+      "macro_f1": 0.4152495300898959,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.21301775147928995,
+          "precision": 1.0,
+          "recall": 0.11920529801324503
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.11382113821138212,
+          "precision": 1.0,
+          "recall": 0.0603448275862069
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.6455696202531646,
+          "precision": 1.0,
+          "recall": 0.4766355140186916
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.5048543689320388,
+          "precision": 1.0,
+          "recall": 0.33766233766233766
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.5989847715736041,
+          "precision": 1.0,
+          "recall": 0.427536231884058
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "num_rules": 27,
+      "exact_match": 0.3588588588588589,
+      "micro_precision": 1.0,
+      "micro_recall": 0.3588588588588589,
+      "micro_f1": 0.5281767955801105,
+      "macro_f1": 0.4900162827322271,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.24418604651162787,
+          "precision": 1.0,
+          "recall": 0.1390728476821192
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.144,
+          "precision": 1.0,
+          "recall": 0.07758620689655173
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.9509803921568627,
+          "precision": 1.0,
+          "recall": 0.9065420560747663
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.5048543689320388,
+          "precision": 1.0,
+          "recall": 0.33766233766233766
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.6060606060606061,
+          "precision": 1.0,
+          "recall": 0.43478260869565216
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "num_rules": 37,
+      "exact_match": 0.45795795795795796,
+      "micro_precision": 1.0,
+      "micro_recall": 0.45795795795795796,
+      "micro_f1": 0.6282183316168898,
+      "macro_f1": 0.5863438383956647,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.2543352601156069,
+          "precision": 1.0,
+          "recall": 0.1456953642384106
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.2814814814814815,
+          "precision": 1.0,
+          "recall": 0.16379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.966183574879227,
+          "precision": 1.0,
+          "recall": 0.9345794392523364
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.7630522088353413,
+          "precision": 1.0,
+          "recall": 0.6168831168831169
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.6666666666666666,
+          "precision": 1.0,
+          "recall": 0.5
+        }
+      ]
+    },
+    {
+      "iteration": 4,
+      "num_rules": 46,
+      "exact_match": 0.49099099099099097,
+      "micro_precision": 1.0,
+      "micro_recall": 0.49099099099099097,
+      "micro_f1": 0.6586102719033232,
+      "macro_f1": 0.608878091749734,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.264367816091954,
+          "precision": 1.0,
+          "recall": 0.152317880794702
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.2814814814814815,
+          "precision": 1.0,
+          "recall": 0.16379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.985781990521327,
+          "precision": 1.0,
+          "recall": 0.9719626168224299
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8333333333333333,
+          "precision": 1.0,
+          "recall": 0.7142857142857143
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.679425837320574,
+          "precision": 1.0,
+          "recall": 0.5144927536231884
+        }
+      ]
+    },
+    {
+      "iteration": 5,
+      "num_rules": 50,
+      "exact_match": 0.5105105105105106,
+      "micro_precision": 1.0,
+      "micro_recall": 0.5105105105105106,
+      "micro_f1": 0.6759443339960239,
+      "macro_f1": 0.6243442756369705,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.264367816091954,
+          "precision": 1.0,
+          "recall": 0.152317880794702
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.2814814814814815,
+          "precision": 1.0,
+          "recall": 0.16379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.985781990521327,
+          "precision": 1.0,
+          "recall": 0.9719626168224299
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8333333333333333,
+          "precision": 1.0,
+          "recall": 0.7142857142857143
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.7567567567567568,
+          "precision": 1.0,
+          "recall": 0.6086956521739131
+        }
+      ]
+    },
+    {
+      "iteration": 6,
+      "num_rules": 65,
+      "exact_match": 0.5330330330330331,
+      "micro_precision": 1.0,
+      "micro_recall": 0.5330330330330331,
+      "micro_f1": 0.6953966699314398,
+      "macro_f1": 0.6505467909049617,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.264367816091954,
+          "precision": 1.0,
+          "recall": 0.152317880794702
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.3776223776223776,
+          "precision": 1.0,
+          "recall": 0.23275862068965517
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 0.9953051643192489,
+          "precision": 1.0,
+          "recall": 0.9906542056074766
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8421052631578948,
+          "precision": 1.0,
+          "recall": 0.7272727272727273
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.7733333333333333,
+          "precision": 1.0,
+          "recall": 0.6304347826086957
+        }
+      ]
+    },
+    {
+      "iteration": 7,
+      "num_rules": 83,
+      "exact_match": 0.56006006006006,
+      "micro_precision": 1.0,
+      "micro_recall": 0.56006006006006,
+      "micro_f1": 0.7179980750721848,
+      "macro_f1": 0.6758045305807606,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.2937853107344633,
+          "precision": 1.0,
+          "recall": 0.17218543046357615
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.42176870748299317,
+          "precision": 1.0,
+          "recall": 0.2672413793103448
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8634686346863468,
+          "precision": 1.0,
+          "recall": 0.7597402597402597
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.8,
+          "precision": 1.0,
+          "recall": 0.6666666666666666
+        }
+      ]
+    },
+    {
+      "iteration": 8,
+      "num_rules": 92,
+      "exact_match": 0.581081081081081,
+      "micro_precision": 1.0,
+      "micro_recall": 0.581081081081081,
+      "micro_f1": 0.735042735042735,
+      "macro_f1": 0.6974538970568972,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.3222222222222222,
+          "precision": 1.0,
+          "recall": 0.19205298013245034
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.4736842105263158,
+          "precision": 1.0,
+          "recall": 0.3103448275862069
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8759124087591241,
+          "precision": 1.0,
+          "recall": 0.7792207792207793
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.815450643776824,
+          "precision": 1.0,
+          "recall": 0.6884057971014492
+        }
+      ]
+    },
+    {
+      "iteration": 9,
+      "num_rules": 100,
+      "exact_match": 0.5975975975975976,
+      "micro_precision": 1.0,
+      "micro_recall": 0.5975975975975976,
+      "micro_f1": 0.7481203007518796,
+      "macro_f1": 0.7104027701840714,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.3222222222222222,
+          "precision": 1.0,
+          "recall": 0.19205298013245034
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5032258064516129,
+          "precision": 1.0,
+          "recall": 0.33620689655172414
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.8960573476702508,
+          "precision": 1.0,
+          "recall": 0.8116883116883117
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.8305084745762712,
+          "precision": 1.0,
+          "recall": 0.7101449275362319
+        }
+      ]
+    },
+    {
+      "iteration": 10,
+      "num_rules": 116,
+      "exact_match": 0.6186186186186187,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6186186186186187,
+      "micro_f1": 0.764378478664193,
+      "macro_f1": 0.7294912682009851,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.34972677595628415,
+          "precision": 1.0,
+          "recall": 0.2119205298013245
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5408805031446542,
+          "precision": 1.0,
+          "recall": 0.3706896551724138
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.911660777385159,
+          "precision": 1.0,
+          "recall": 0.8376623376623377
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.8451882845188284,
+          "precision": 1.0,
+          "recall": 0.7318840579710145
+        }
+      ]
+    },
+    {
+      "iteration": 11,
+      "num_rules": 124,
+      "exact_match": 0.6411411411411412,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6411411411411412,
+      "micro_f1": 0.7813357731015553,
+      "macro_f1": 0.7468910539606666,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.358695652173913,
+          "precision": 1.0,
+          "recall": 0.2185430463576159
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5853658536585366,
+          "precision": 1.0,
+          "recall": 0.41379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.9452054794520548,
+          "precision": 1.0,
+          "recall": 0.8961038961038961
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.8451882845188284,
+          "precision": 1.0,
+          "recall": 0.7318840579710145
+        }
+      ]
+    },
+    {
+      "iteration": 12,
+      "num_rules": 125,
+      "exact_match": 0.6531531531531531,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6531531531531531,
+      "micro_f1": 0.7901907356948229,
+      "macro_f1": 0.7541831494142215,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.358695652173913,
+          "precision": 1.0,
+          "recall": 0.2185430463576159
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5853658536585366,
+          "precision": 1.0,
+          "recall": 0.41379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.9488054607508533,
+          "precision": 1.0,
+          "recall": 0.9025974025974026
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.878048780487805,
+          "precision": 1.0,
+          "recall": 0.782608695652174
+        }
+      ]
+    },
+    {
+      "iteration": 13,
+      "num_rules": 125,
+      "exact_match": 0.6531531531531531,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6531531531531531,
+      "micro_f1": 0.7901907356948229,
+      "macro_f1": 0.7541831494142215,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.358695652173913,
+          "precision": 1.0,
+          "recall": 0.2185430463576159
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5853658536585366,
+          "precision": 1.0,
+          "recall": 0.41379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.9488054607508533,
+          "precision": 1.0,
+          "recall": 0.9025974025974026
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.878048780487805,
+          "precision": 1.0,
+          "recall": 0.782608695652174
+        }
+      ]
+    },
+    {
+      "iteration": 14,
+      "num_rules": 126,
+      "exact_match": 0.6531531531531531,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6531531531531531,
+      "micro_f1": 0.7901907356948229,
+      "macro_f1": 0.7541831494142215,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.358695652173913,
+          "precision": 1.0,
+          "recall": 0.2185430463576159
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5853658536585366,
+          "precision": 1.0,
+          "recall": 0.41379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.9488054607508533,
+          "precision": 1.0,
+          "recall": 0.9025974025974026
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.878048780487805,
+          "precision": 1.0,
+          "recall": 0.782608695652174
+        }
+      ]
+    },
+    {
+      "iteration": 15,
+      "num_rules": 126,
+      "exact_match": 0.6576576576576577,
+      "micro_precision": 1.0,
+      "micro_recall": 0.6576576576576577,
+      "micro_f1": 0.7934782608695653,
+      "macro_f1": 0.7565169604679378,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "f1": 0.358695652173913,
+          "precision": 1.0,
+          "recall": 0.2185430463576159
+        },
+        {
+          "label": "disposable_card_limits",
+          "f1": 0.5853658536585366,
+          "precision": 1.0,
+          "recall": 0.41379310344827586
+        },
+        {
+          "label": "exchange_rate",
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "label": "pending_card_payment",
+          "f1": 0.9559322033898304,
+          "precision": 1.0,
+          "recall": 0.9155844155844156
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "f1": 0.8825910931174089,
+          "precision": 1.0,
+          "recall": 0.7898550724637681
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "name": "beneficiary_not_allowed",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\s+(?:is\\s+)?not\\s+allowed\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_blocked",
+      "format": "regex",
+      "content": "(?i)\\btransfer.*(?:not\\s+(?:cleared|possible)|won't\\s+let\\s+me|isn't\\s+possible)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "unable_to_transfer",
+      "format": "regex",
+      "content": "(?i)\\bunable\\s+to\\s+transfer\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_keywords",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+card\\b.*\\b(?:limit|transaction|how\\s+many|stipulations?|guidelines?|restrictions?)\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "virtual_card_limits",
+      "format": "regex",
+      "content": "(?i)\\bvirtual\\s+card\\b.*\\b(?:limit|limited|restrictions?)\\b",
+      "priority": 4,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "where_use_disposable",
+      "format": "regex",
+      "content": "(?i)\\bWhere\\s+can\\s+I\\s+use\\s+a\\s+disposable\\s+card\\b",
+      "priority": 3,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "how_limited_virtual",
+      "format": "regex",
+      "content": "(?i)\\bHow\\s+limited\\s+is\\s+a\\s+virtual\\s+card\\b",
+      "priority": 2,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_limits_fallback",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?card\\b.*\\b(?:limits?|restrictions?)\\b",
+      "priority": 1,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_explicit",
+      "format": "regex",
+      "content": "(?i)\\bexchange\\s+rate\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "travel_abroad_money",
+      "format": "regex",
+      "content": "(?i)\\btravel\\s+abroad.*\\bmoney\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_where_from",
+      "format": "regex",
+      "content": "(?i)\\bwhere\\s+do\\s+you\\s+get\\s+those\\s+exchange\\s+rates\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_payment_pending_explicit",
+      "format": "regex",
+      "content": "(?i)\\bcard\\s+payment\\b.*\\bpending\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_explicit",
+      "format": "regex",
+      "content": "(?i)\\b(?<!cash\\s)(?<!withdrawal\\s)(?:pending\\s+payment|payment\\s+(?:is\\s+)?pending)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "payment_pending_with_purchase_context",
+      "format": "regex",
+      "content": "(?i)\\bpayment\\s+showing\\s+as\\s+pending.*\\b(?:bought|purchase|morning)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "why_pending_payment",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+(?:is\\s+it\\s+)?(?:saying\\s+)?(?:I\\s+have\\s+)?(?:a\\s+)?pending\\s+payment\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_quote",
+      "format": "regex",
+      "content": "(?i)\"pending payment\"",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_ATM",
+      "format": "regex",
+      "content": "(?i)\\b(?:atm|cash withdrawal|cash at some atm)\\b.*\\bpending\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_machine",
+      "format": "regex",
+      "content": "(?i)\\bmachine(?:\\s+\\w+)*\\s+(?:declined|not working|did not work).*\\bpending\\b",
+      "priority": 4,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_tried_get_money",
+      "format": "regex",
+      "content": "(?i)\\btried to (?:get|access) money\\b.*\\bpending\\b",
+      "priority": 3,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_short",
+      "format": "regex",
+      "content": "(?i)\\bcash withdrawal says pending\\b",
+      "priority": 2,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_literal",
+      "format": "regex",
+      "content": "My cash withdrawal says pending, why\\?",
+      "priority": 1,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_refusal_broad",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\b.*\\b(?:not allowed|can't|cannot|won't|refused|rejected|blocked)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_virtual_cards_plural",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?cards?\\b.*\\b(?:maximum|how\\s+many|limit|number\\s+of)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "virtual_card_usage_failure",
+      "format": "regex",
+      "content": "(?i)\\bvirtual\\s+card\\b.*\\b(?:didn\\'t\\s+work|declined|failed|hotel|transaction)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_loose",
+      "format": "regex",
+      "content": "(?i)\\b(?:card|payment)\\s*(?:is\\s+)?\\bpending\\b|\\bpending\\s+(?:card|payment)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_spacing",
+      "format": "regex",
+      "content": "(?i)\\batm\\s+(?:withdraw|withdrawal)\\s*(?:is\\s+)?still\\s*pending\\b|\\bstill\\s*pending.*\\batm\\s+(?:withdraw|withdrawal)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rates_priority",
+      "format": "regex",
+      "content": "(?i)\\bexchange\\s+rates?\\b|\\bcurrency\\s+exchanges?\\b|\\bforeign\\s+exchange\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_transfer_allowed",
+      "format": "regex",
+      "content": "(?i)\\btransfer.*\\bbeneficiary\\b.*\\ballowed\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_not_approved",
+      "format": "regex",
+      "content": "(?i)\\btransfer.*\\bnot\\s+approved\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_maximum",
+      "format": "regex",
+      "content": "(?i)\\bmaximum.*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transactions_on_disposable",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+many\\s+transactions.*\\bdisposable\\s+card\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "payment_pending_general",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\bpending\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_meaning",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\bpending.*\\bpayment\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cash_withdrawal_status",
+      "format": "regex",
+      "content": "(?i)\\bwithdrawal.*\\b(?:show|see|has\\s+taken\\s+place)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_looking_like",
+      "format": "regex",
+      "content": "(?i)\\bexchange.*\\blooking\\s+like\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchanging_rates",
+      "format": "regex",
+      "content": "(?i)\\bexchanging.*\\brates?\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "money_worth_other_countries",
+      "format": "regex",
+      "content": "(?i)\\bmoney.*\\bworth.*\\bother\\s+countries\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_not_allowed_broad",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\b.*\\b(?:can\\'t|cannot|couldn\\'t|not\\s+approved|rejected)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_times_limit",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?card\\b.*\\b(?:times|number\\s+of\\s+times)\\b.*\\b(?:limit|can\\s+I|how\\s+many)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_stuck",
+      "format": "regex",
+      "content": "(?i)\\bpayment\\b.*\\b(?:stuck|hasn\\'t\\s+(?:changed|gone\\s+through|moved))\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_general",
+      "format": "regex",
+      "content": "(?i)\\b(?:haven\\'t\\s+gotten|why\\s+hasn\\'t|go\\s+thru).*\\bpayment\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_cash_withdraw",
+      "format": "regex",
+      "content": "(?i)\\bcash\\s+withdraw\\b.*\\bpending\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_status",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash|withdrawal).*\\bpending\\s+status\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_of_exchange",
+      "format": "regex",
+      "content": "(?i)\\brates?\\s+of\\s+exchange\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_exchanges_alone",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+do\\s+you\\s+do\\s+exchanges\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_currency_value",
+      "format": "regex",
+      "content": "(?i)\\bvalue.*\\bmy\\s+currency\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_refusal_broad_v2",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\b.*\\b(?:can\\'t|cannot|couldn\\'t|not\\s+approved|rejected|blocked|not\\s+allowed)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_broad",
+      "format": "regex",
+      "content": "(?i)\\b(?:disposable|virtual)\\s+card\\b.*\\b(?:limit|transaction|how\\s+many|number\\s+of\\s+times)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_generic",
+      "format": "regex",
+      "content": "(?i)\\b(?:payment\\s+pending|pending\\s+payment)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_generic",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash|withdrawal)\\b.*\\bpending\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_to_account_blocked",
+      "format": "regex",
+      "content": "(?i)\\btransfer\\s+(?:to\\s+an?\\s+)?account\\b.*\\b(?:can\\'t|cannot|couldn\\'t|not\\s+approved|rejected|blocked|won\\'t|isn\\'t\\s+possible)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_transaction_limit",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:disposable|virtual)\\s+)?card\\b.*\\btransaction.*\\blimit\\b|\\blimit.*\\bnumber.*\\btransactions.*\\b(?:disposable|virtual)\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_usage_count",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:how\\s+many|number\\s+of)\\s+times|times.*\\bcan\\s+I\\s+use).*\\b(?:disposable|virtual)\\s+card\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "need_multiple_disposable_cards",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:need|want|require).*)?(?:more\\s+than\\s+one|a\\s+number\\s+of|multiple).*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_havent_gotten",
+      "format": "regex",
+      "content": "(?i)\\b(?:haven\\'t\\s+gotten|didn\\'t\\s+get|haven\\'t\\s+received).*\\bmy\\s+payment\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_meaning_general",
+      "format": "regex",
+      "content": "(?i)\\bwhat\\s+does\\s+(?:a\\s+)?(?:pending\\s+(?:payment|transaction)|payment\\s+pending)\\s+(?:mean|imply)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_status_quote",
+      "format": "regex",
+      "content": "(?i)\\b(?:payment|transaction)\\b.*\\bpending\\s+status\\b|\\bpending\\s+status.*\\b(?:payment|transaction)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_not_out_of_account",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash\\s+)?withdrawal\\b.*\\b(?:(?:has|have)\\s+not\\s+(?:come\\s+out|left|been\\s+deducted)|still\\s+in\\s+my\\s+account)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_generic_pending_meaning",
+      "format": "regex",
+      "content": "(?i)\\bwhat\\s+does\\s+pending\\s+(?:mean|imply).*\\b(?:cash\\s+)?withdrawal\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_foreign_transfer",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash\\s+)?foreign\\s+transfers?\\b.*\\bhow\\s+(?:does|do).*\\bwork\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_travel_worth_equal_value",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:when|if)\\s+I\\s+)?travel\\s+abroad.*\\b(?:will\\s+my\\s+money\\s+be\\s+(?:of\\s+)?equal\\s+value|money.*\\bworth)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_process_exchanges",
+      "format": "regex",
+      "content": "(?i)\\bprocess\\s+(?:for\\s+)?exchanges?\\b|\\bhow\\s+(?:do|does).*\\bexchanges?\\s+(?:work|function)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_rules_about",
+      "format": "regex",
+      "content": "(?i)\\bwhat\\s+are\\s+(?:the\\s+)?rules.*\\bbeneficiar(?:y|ies)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_purchase_context",
+      "format": "regex",
+      "content": "(?i)\\bmy\\s+(?:purchase|payment)\\b.*\\bshowing\\s+as\\s+pending\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_long_time_pending",
+      "format": "regex",
+      "content": "(?i)\\bso\\s+much\\s+time.*\\bpending\\s+status.*\\bshouldn\\'t.*still.*be\\s+there\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_refusal_broad",
+      "format": "regex",
+      "content": "(?i)\\btransfer(?:\\s+to\\s+(?:an?\\s+)?account)?\\b.*\\b(?:can\\'t|cannot|couldn\\'t|not\\s+approved|rejected|blocked|won\\'t|isn\\'t\\s+possible|explain\\s+why\\s+I\\s+can\\'t|wasn\\'t\\s+approved|was\\s+not\\s+approved)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_how_much",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+much.*\\btransactions?.*\\b(?:disposable|virtual)\\s+card\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_more_than",
+      "format": "regex",
+      "content": "(?i)\\bcan\\s+I\\s+have\\s+more\\s+than\\s+\\d+.*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_details_limitations",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\bdetails.*\\b(?:disposable|virtual)\\s+card.*\\blimitations?\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_cards_daily_multiple",
+      "format": "regex",
+      "content": "(?i)\\bhelp\\s+me\\s+create\\s+several\\s+temp\\s+cards.*\\bevery\\s+day\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_haven_t_gotten",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+haven\\'t\\s+I\\s+gotten\\s+my\\s+payment\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_taking_long",
+      "format": "regex",
+      "content": "(?i)\\bmy\\s+payment\\s+is\\s+taking\\s+a\\s+long\\s+time\\s+to\\s+go\\s+through\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_not_approved",
+      "format": "regex",
+      "content": "(?i)\\bI\\s+have\\s+a\\s+payment.*\\bnot\\s+been\\s+approved\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_don_t_know_meaning",
+      "format": "regex",
+      "content": "(?i)\\bI\\s+don\\'t\\s+know\\s+what\\s+pending\\s+(?:transaction|payment)\\s+means\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_purchase_today",
+      "format": "regex",
+      "content": "(?i)\\bI\\s+made\\s+a\\s+(?:purchase|payment).*\\bstill\\s+listed\\s+as\\s+pending\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_verify_time",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+does\\s+it\\s+take\\s+to\\s+verify\\s+a\\s+cash\\s+withdraw\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_atm_clear",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long.*\\bpending\\s+ATM\\s+withdrawal.*\\bclear\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_still_in_account",
+      "format": "regex",
+      "content": "(?i)\\bthe\\s+cash\\s+I\\s+got\\s+at\\s+the\\s+ATM\\s+is\\s+still\\s+in\\s+my\\s+account\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_machine_broken",
+      "format": "regex",
+      "content": "(?i)\\btried\\s+to\\s+withdraw.*\\bATM.*\\bmachine.*\\bbroken.*\\btransaction.*\\bin\\s+progress\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_explain_transactions",
+      "format": "regex",
+      "content": "(?i)\\bexplain\\s+pending\\s+(?:transactions?|payments?)\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "exchange_rate_travel_equal_value",
+      "format": "regex",
+      "content": "(?i)\\bwill\\s+my\\s+money\\s+be\\s+of\\s+equal\\s+value.*\\btravel\\s+abroad\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "exchange_rate"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_rules_on",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\brules.*\\bbeneficiar(?:y|ies)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_not_allowed_cryptocurrency",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+am\\s+I\\s+not\\s+allowed\\s+to\\s+transfer.*\\bcryptocurrency\\s+exchange\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "crypto_purchase_blocked",
+      "format": "regex",
+      "content": "(?i)\\bpurchase(?:\\s+\\w+)*\\s+crypto(?:\\s+\\w+)*\\b.*\\b(?:not\\s+going\\s+through|blocked|can\\'t|won\\'t|what\\s+am\\s+I\\s+doing\\s+wrong)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_restrictions",
+      "format": "regex",
+      "content": "(?i)\\bwhat\\s+(?:are|is).*\\b(?:some\\s+of\\s+the\\s+)?\\b(?:restrictions?|stipulations?|limitations?)\\b.*\\b(?:disposable|virtual)\\s+cards?\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_cards_per_person",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+many.*\\bdisposable\\s+(?:virtual\\s+)?cards?.*\\bper\\s+(?:person|customer|user)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_not_gone_thru",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\bnot\\s+(?:gone\\s+thru|gone\\s+through|cleared|completed|approved)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_taking_long_to_go_through",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:what\\'s|why).*\\btaking\\s+so\\s+long|taking\\s+a\\s+long\\s+time).*\\b(?:for\\s+this\\s+)?\\bpayment\\b.*\\bgo\\s+through\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_still_not_complete",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\bstill\\s+(?:not\\s+(?:complete|completed)|incomplete)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_still_have",
+      "format": "regex",
+      "content": "(?i)\\bwhy\\s+do\\s+I\\s+still\\s+have\\s+a\\s+pending\\s+(?:cash\\s+)?withdrawal\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_how_long_until_see",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+(?:until|before|to)\\s+I\\s+(?:see|spot|notice)\\s+a\\s+(?:cash\\s+)?withdrawal\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_not_showing",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash\\s+)?withdrawal.*\\bstill\\s+not\\s+(?:showing|appearing|visible)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_not_allowed_to_account",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:I|you)\\s+)?(?:was|am|were)\\s+not\\s+allowed\\s+(?:to\\s+)?transfer\\b.*\\baccount\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_synonyms",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\b(?:are|is).*\\bthe.*\\b(?:guidelines?|stipulations?|restrictions?|limits?)\\b.*\\b(?:disposable|virtual)\\s+card",
+      "priority": 4,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_process",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\b(?:to\\s+process|processing|to\\s+be\\s+applied|applied\\s+to\\s+my\\s+account)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_complete",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\b(?:not\\s+yet\\s+complete|still\\s+not\\s+complete|incomplete)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_purchase",
+      "format": "regex",
+      "content": "(?i)\\bthe\\s+purchase\\s+I\\s+made\\s+is\\s+still\\s+pending\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_progress",
+      "format": "regex",
+      "content": "(?i)\\b(?:tried\\s+to\\s+(?:get|withdraw)|machine.*(?:not\\s+work|broken|declined)).*\\b(?:still\\s+(?:in\\s+progress|pending)|not\\s+received|haven\\'t\\s+received)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_expecting",
+      "format": "regex",
+      "content": "(?i)\\bexpecting\\s+to\\s+see\\s+a\\s+(?:cash\\s+)?withdrawal.*\\bbut.*\\bstill\\s+waiting\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_long_time",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long\\s+does\\s+it\\s+take\\s+for\\s+a\\s+pending\\s+(?:cash\\s+)?withdrawal\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_refusal_relaxed",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\b[\\s\\w]*\\b(?:can['\u2019]t|cannot|couldn['\u2019]t|not\\s+approved|rejected|blocked|not\\s+allowed)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_transaction_limit_relaxed",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?card\\b.*\\b(?:transaction\\s+limit|limit.*transaction|how\\s+many.*transactions?)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_stipulations",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\b(?:stipulations?|restrictions?|guidelines?)\\b.*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_more_than_transactions",
+      "format": "regex",
+      "content": "(?i)\\bcan\\s+I\\s+do\\s+more\\s+than\\s+\\d+.*\\btransactions?.*\\bdisposable\\s+(?:virtual\\s+)?card\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_withdrawals",
+      "format": "regex",
+      "content": "(?i)\\b(?:with\\s*-*\\s*drawls?|withdrawals?|cash\\s+withdraw)\\b.*\\b(?:still\\s+(?:in\\s+progress|pending)|not\\s+(?:completed|done)|didn\\'t\\s+work)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_not_completed",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash\\s+)?withdrawal\\b.*\\b(?:still\\s+showing\\s+as\\s+not\\s+completed|not\\s+completed|hasn\\'t\\s+posted)\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_processed",
+      "format": "regex",
+      "content": "(?i)\\bpayment.*\\b(?:has\\s+not\\s+processed|not\\s+processed|hasn\\'t\\s+processed|still\\s+waiting)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_waiting",
+      "format": "regex",
+      "content": "(?i)\\b(?:still\\s+waiting\\s+on|waiting\\s+on).*\\bpayment\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_go_through",
+      "format": "regex",
+      "content": "(?i)\\bhow\\s+long.*\\bpayment.*\\bgo\\s+(?:through|thru)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_refusal_app",
+      "format": "regex",
+      "content": "(?i)\\bthe\\s+app\\b.*\\b(?:won\\'t\\s+let\\s+me|not\\s+allowing|blocking)\\b.*\\btransfer\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_not_accepting",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:you|the\\s+app|system)\\s+)?(?:aren\\'t|not)\\s+accepting\\s+my\\s+transfer\\b",
+      "priority": 8,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_feature",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\b(?:would\\s+I\\s+have\\s+to\\s+do|need\\s+to\\s+do).*\\b(?:get|access|enable).*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_pending_message",
+      "format": "regex",
+      "content": "(?i)\\bwhy.*\\bpending\\s+message.*\\bwithdraw\\b.*\\balready\\s+been\\s+done\\b",
+      "priority": 6,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_length",
+      "format": "regex",
+      "content": "(?i)\\bwhat.*\\bpending\\s+length.*\\bcredit.*\\btransactions?\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_move_processed",
+      "format": "regex",
+      "content": "(?i)\\bwon\\'t\\s+move\\s+to\\s+processed\\b",
+      "priority": 4,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_posted",
+      "format": "regex",
+      "content": "(?i)\\bwhy.*\\bwithdrawal.*\\bnot\\s+(?:posted|posted\\s+yet)\\b",
+      "priority": 5,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "transfer_refusal_relaxed",
+      "format": "regex",
+      "content": "(?i)\\btransfer(?:\\s+to\\s+(?:an?\\s+)?account)?\\b[\\s\\w]*\\b(?:can[''']t|cannot|couldn[''']t|not\\s+approved|rejected|blocked|won[''']t|isn[''']t\\s+possible|explain\\s+why\\s+i\\s+can[''']t|wasn[''']t\\s+approved|was\\s+not\\s+approved|not\\s+allowed)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_relaxed",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?cards?\\b[\\s\\w]*\\b(?:limit|transaction|how\\s+many|restrictions?|stipulations?|guidelines?)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_cash_withdrawal_relaxed",
+      "format": "regex",
+      "content": "(?i)\\b(?:cash|atm|withdraw(?:al|ing)?)\\b[\\s\\w]*?\\bpending\\b|\\bpending\\b[\\s\\w]*?\\b(?:cash|atm|withdraw)|\\bwithdrew\\s+some\\s+cash.*\\b(?:show|appear|post|completed|done)\\b|\\btransaction.*\\b(?:still\\s+(?:not\\s+completed|in\\s+progress)|is\\s+pending)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_card_payment_relaxed",
+      "format": "regex",
+      "content": "(?i)\\b(?:card|purchase|payment)\\b[\\s\\w]*?\\bpending\\b|\\bpending\\b[\\s\\w]*?\\b(?:card|purchase|payment)|\\bpayment.*\\b(?:hasn[''']t\\s+(?:gone\\s+(?:thru|through)|went\\s+through|cleared|completed)|not\\s+going\\s+through|funds.*not.*available)|\\bwaiting.*\\bpayment.*\\bprocessed\\b|\\bthings?\\s+I\\s+bought.*\\bstill\\s+showing\\s+as\\s+pending\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "beneficiary_not_working",
+      "format": "regex",
+      "content": "(?i)\\bbeneficiary\\b[\\s\\w]*\\bnot\\s+(?:working|functioning|responding)\\b",
+      "priority": 9,
+      "output_template": {
+        "label": "beneficiary_not_allowed"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_feature_relaxed",
+      "format": "regex",
+      "content": "(?i)\\bwhat[\\s\\w]*\\b(?:(?:would\\s+i|do\\s+i|to))?[\\s\\w]*\\b(?:get|access|enable)[\\s\\w]*\\bdisposable\\s+(?:virtual\\s+)?cards?\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "cash_withdrawal_show_time",
+      "format": "regex",
+      "content": "(?i)\\b(?:(?:when|how\\s+long)[\\s\\w]*\\b)?(?:cash\\s+)?withdraw[\\s\\w]*\\b(?:show|appear|post|clear|be\\s+(?:visible|done))\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_cash_withdrawal"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "card_payment_clear_time",
+      "format": "regex",
+      "content": "(?i)\\bwhen[\\s\\w]*\\bpayment[\\s\\w]*\\b(?:clear|go\\s+(?:through|thru)|be\\s+done)\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "disposable_card_limits_synonyms_relaxed",
+      "format": "regex",
+      "content": "(?i)\\bdisposable\\s+(?:virtual\\s+)?cards?\\b[\\s\\w]*?\\b(?:limit|transaction|how\\s+many|restrictions?|stipulations?|guidelines?)\\b",
+      "priority": 10,
+      "output_template": {
+        "label": "disposable_card_limits"
+      },
+      "output_key": "label"
+    },
+    {
+      "name": "pending_payment_generic_meaning",
+      "format": "regex",
+      "content": "(?i)\\bwhat[\\s\\w]*\\bpending[\\s\\w]*\\b(?:transaction|payment)[\\s\\w]*\\bmean\\b",
+      "priority": 7,
+      "output_template": {
+        "label": "pending_card_payment"
+      },
+      "output_key": "label"
+    }
+  ]
+}

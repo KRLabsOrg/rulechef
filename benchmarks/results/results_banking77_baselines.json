@@ -1,0 +1,12 @@
+{
+  "setfit_logreg": {
+    "accuracy": 0.95,
+    "coverage": 1.0,
+    "train_s": 6.3
+  },
+  "zeroshot_nli": {
+    "accuracy": 0.965,
+    "coverage": 1.0,
+    "infer_s": 42.7
+  }
+}

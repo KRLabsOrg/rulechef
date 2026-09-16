@@ -1,0 +1,200 @@
+{"text": "How long does the cash withdrawal take to pend?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What are your international exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "My cash in the ATM is still pending", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "When will my card payment be done pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I want to transfer money to a beneficiery. Why can't I?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "My transaction is still showing that is pending from my cash withdrawal.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How many disposable cards can I own?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "what are exchange rates based on", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How often do your exchange rates change", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why does it say pending cash withdrawal on my statement?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How many disposable cards per day am I allowed to have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why is my card payment showing as pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What foreign exchange rate will you use?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I was double charged, and the second charge is showing as \"pending\". How long will it be before I get my money back once the second charge has been refunded?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I received cash from the ATM earlier, but this shows up as pending in the app.  I've got the cash already.  How can this be still pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Can you explain the virtual cards limit?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "What's the most disposable cards I can have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Is there a limit to how many transactions I can make on one disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why did I receive an error message saying that my transfer was not possible?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I bought some stuff this morning but the payment shows as pending", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "How many disposable cards can I make in a single day?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I have a pending payment from stuff I bought this morning.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "How many times can I use a disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Are you sure when the withdrawal will show?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How many disposable cards can I have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How long with my cash withdrawal stay pending for?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What are the most current exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "What's a pending transaction? My card was declined at an ATM, but my account says it's still pending. Can I cancel the payment?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "If I have more than one disposable card, can I make five payments on each of them?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I made a purchase and it says it's pending. What does that mean?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Hi! I was wondering if you can help me. I used the city centre ATM to get some cash, but the machine declined my card. My account shows that transaction is still pending. I didn't receive the money, so please cancel that transaction.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I tried to transfer money but it said it wasn't possible? I've done this before and it worked why isn't it working now?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "The exchange rate would be?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I have waited 15 days, but my payment still hasn't cleared.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "My beneficiary is not allowed, please may I have answer as to why this is?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What is the amount of disposable cards I can have each day?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why wasn't I able to transfer to another account?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Why couldn't I do a transfer to a beneficiary?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Can I have more than one disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Can you tell me the foreign exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Do you know what the restriction of the disposable cards are?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How long does it take to authorise a payment?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Will I get a curreng foreign exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I made a cash withdrawal but the pending status is taking forever.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I'm trying to figure out the current exchange rate.", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why is my withdrawal still pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I have a pending cash withdrawal", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What is the maximum number of transactions I can make with one card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "my atm cash out is still pending", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Is my pending cash withdrawal processed?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Where do you guys acquire your exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How do I do a successful transfer to an account?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Why is it taking so long for my cash withdrawal to no longer show as pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "what is the disposable cards limit?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Can you help with a transfer to an account", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "My card payment is pending.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Hey, my card was declined at an ATM in the city centre theatre. My account says the transaction is pending, though. I didn't get the money, though, so what does that mean?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Are you able to explain the restrictions of the disposable cards?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I bought some things this morning but the payment shows that it is pending", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What is my foreign exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "What exchange rates do you offer?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why is my cash withdrawal from the ATM still not yet showing as confirmed in my account?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How do I find the exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why would I have a pending payment?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "How are you determining your exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Do you have a list of exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why is my ATM cash withdrawal showing up as a pending transaction?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "My cash withdrawal is still showing as pending.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Why are my payments showing pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Are there any limits to how many disposable cards I can use?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why is a transaction showing as pending when I recieved cash from an ATM?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Why is my payment pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What can I use a virtual disposable card for?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How long does it take for a payment to go thru? I made one a few days ago and it has not been cleared yet.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What is the exchange rate like?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why did I get a message saying that my transfer is not possible?  I have done this before no problem.  Please fix.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I would like to know any restrictions for the disposable cards.", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "My card payment is still on hold, why is it so?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What exchange rate do you use?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Cash withdrawal still pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Why do I have a pending cash withdrawal?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I need to use my disposable card multiple times a day, is there a cutoff limit?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why is a payment showing up on my card as pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "My card payment is showing pending.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I want to buy cryptocurrency, but your app doesn't let me. Why?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What is the limit to number of transactions I can do with a disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I am seeing pending from the card payment I made.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "what are exchange rates", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I tried to take money from my card, but it didn't work. Later I saw that the transaction is still in progress. What's goign on?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How many card payments can I use on a disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Please advise what is the exchange rate", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Where did your guys exchange rates come from?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I have a pending payment in my account that I paid a while back ago and it still hasnt gone through. Why would it show pending for so long?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I tried taking money from the ATM but no money came out, but the transaction is still pending? How is this possible?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I have a cryptocurrency exchange that won't go through. Please help me process it.", "gold_label": "beneficiary_not_allowed", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I am waiting for a payment to go through.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "My beneficiary has been denied, is this normal?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I couldn't make a transfer to a beneficiary!", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "My account was charged for a withdraw I tried to make that was decline.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Why has my payment not gone through?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What does a pending transaction mean?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I have to have several disposable cards per day.", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Explain why I can't do a transfer to a beneficiary.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What is the base of the exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I am trying to exchange crypto and it's not working. Tell me how to fix this.", "gold_label": "beneficiary_not_allowed", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I got some cash of an ATM earlier but this shows up as pending in the app. How can this be still pending, I've got the cash already?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Where do you get your exchange rates from?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How much will I get with the exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "how long does it take to post atm with drawl", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What are the limits for disposable virtual cards?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Can I make many disposable cards per day?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How many disposable virtual cards can I have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "when does the rate get determined", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Hey I want to buy some crypto but the app doesn't allow me to! What's the issue, I really want to exchange this", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What does it mean by pending payment?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Is it a good time to exchange?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I have paid by my card but payment is still its coming as pending. I think there is some issue please check and let me know when the status will complete.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "The exchange rates are?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why is there a pending transaction on my card?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "The account transfer I was trying to do failed.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "From where are you getting your exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How do i finalize a card payment", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What is the limit to disposable cards you can have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "My card is still pending, I've been waiting a while.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "My card payment is still pending.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I need to know your exchange rates.", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "A transfer to an account was not allowed", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I couldn't do a transfer to an account", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "How many virtual cards do I get?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Where's accounting for my cash withdrawal?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How long will this card payment stay pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Do these virtual cards have any caps on using them?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "What's the deal with no cryptocurrency on your app?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "what is the exchange rate?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How did you come up with your exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "I'm not quite understanding why my cash withdrawal is showing as pending.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How long does an item I bought show as pending?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "How many times can I use the disposable virtual card I have?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "My transfer to beneficiary didn't go through", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Tell me how many transactions I can do with a disposable card.", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why was a transfer to an account not allowed?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I need to create several disposable cards per day.", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "My withdrawl is still pending.  Why?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What is the current exchange rate for me?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How do your exchange rates work?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Can you explain your exchange rate policy to me?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "What do you base your exchange rates on?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Please help me to know the status of my card payment as its pending since a while.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I made this payment days ago so why hasn't it gone through yet?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I've tried numerous times to submit a transfer of funds. Why isn't it going through?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "How come I'm not allowed to transfer funds right now? I just keep getting an error message.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What if I need multiple disposable cards?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Why isn't my transfer not going through? I keep getting an error message.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Why would i not be able to do a transfer to a beneficiary?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Are there any hindrances to using a disposable virtual card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Explain what the pending payment means?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I've transferred money before without issue but now I am encountering an error stating that it isn't possible. Why is that?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I would like to know why my purchases from this morning are still pending.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "what does pending mean?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Is my cash withdrawal pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "why do your exchange rates change", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Why am I unable to take money from my card but the statement says the transaction is still pending?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What kind of foreign exchange rate will I get when I exchange my money?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "What are the limits to using disposable virtual cards?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I had a transfer blocked", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "How can I create many temporary cards daily?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "I recently made a payment, and it is showing up in my account as \"pending\". What does that mean?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Why can't I transfer to a beneficiary?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "why isnt my account allowing transfers", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "My payment still hasn't processed!", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I am still waiting for a cash withdrawal to show", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Can you tell me where you get your exchange rates?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "i tried to make a transfer to a beneficiary and it didn't go through", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Is it possible to make several disposable cards in a day?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How can i get multiple disposble cards.", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How are exchange rates calculated?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Hi,I tried to get some money out but the machine was not working .The transaction still seems in progress! Can you please check what's going on.I don't want to be charged for money that I did not received.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "What is the exchange rate like on this app?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "How do I make more than one disposable card in a day?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "Can I transfer money to a beneficiery?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "how long til my cash out goes through?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How long do card transactions take to clear?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "I have tried transferring money numerous times.  All I keep getting is an error message.  Can you tell me what is going on and how this van be fixed?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I was unable to make a transfer to another account.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I have a pending transaction in my app. How is it still pending if I pulled the cash out from the ATM earlier?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "How many disposable cards is the limit?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "How many transactions can I do with one disposable card?", "gold_label": "disposable_card_limits", "llm_response": "disposable_card_limits", "llm_label": "disposable_card_limits"}
+{"text": "My card was denied at an ATM earlier today but the transaction is pending. Please cancel it as I did not receive my money.", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I made a withdrawal from my account but it has not posted?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "Why isn't my transfer going through? I get a message saying it's not possible. I've had no issues in the past.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "What is a pending payment?", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "Hey I tried to get some money out earlier but the machine didn't work. Now just saw the transaction still seems in progress! Can you please check what's going there, seems something is broken, I don't want to be charged for money that I haven't actually received!", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I am not able to do a transfer to an account", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "I had a payment that I made and it's been some amount of time and would like to know when it's suppose to go though.", "gold_label": "pending_card_payment", "llm_response": "pending_card_payment", "llm_label": "pending_card_payment"}
+{"text": "What currencies is an exchange rate calculated in?", "gold_label": "exchange_rate", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "Can you please help me with this exchange?  I am trying to get crypto and the app won't let me.", "gold_label": "beneficiary_not_allowed", "llm_response": "exchange_rate", "llm_label": "exchange_rate"}
+{"text": "What are the rules for transferring to a beneficiary?", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "The money would not transfer to a beneficiary.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}
+{"text": "Why does my account have a pending cash withdrawal?", "gold_label": "pending_cash_withdrawal", "llm_response": "pending_cash_withdrawal", "llm_label": "pending_cash_withdrawal"}
+{"text": "I am having problems transferring to a beneficiary.", "gold_label": "beneficiary_not_allowed", "llm_response": "beneficiary_not_allowed", "llm_label": "beneficiary_not_allowed"}

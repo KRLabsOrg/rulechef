@@ -1,0 +1,61 @@
+{
+  "config": {
+    "dataset": "dbpedia",
+    "model": "moonshotai/Kimi-K2.6",
+    "base_url": "https://inference.baseten.co/v1",
+    "train": 1000,
+    "test": 800,
+    "max_rules": 80,
+    "max_samples": 120,
+    "max_iterations": 3,
+    "hybrid_trust": 0.3,
+    "agentic": false,
+    "skip_nli": true,
+    "seed": 42,
+    "output": "benchmarks/results_compare_dbpedia.json"
+  },
+  "classes": [
+    "Company",
+    "EducationalInstitution",
+    "Artist",
+    "Athlete",
+    "OfficeHolder",
+    "MeanOfTransportation",
+    "Building",
+    "NaturalPlace",
+    "Village",
+    "Animal",
+    "Plant",
+    "Album",
+    "Film",
+    "WrittenWork"
+  ],
+  "train": 994,
+  "test": 798,
+  "results": {
+    "llm_zeroshot": {
+      "accuracy": 0.9862155388471178,
+      "coverage": 1.0,
+      "llm_calls_pct": 1.0
+    },
+    "rulechef_rules_only": {
+      "accuracy": 0.5025062656641605,
+      "coverage": 0.5551378446115288,
+      "num_rules": 68,
+      "learn_s": 654.1,
+      "llm_calls_pct": 0.0
+    },
+    "rulechef_hybrid": {
+      "accuracy": 0.968671679197995,
+      "coverage": 1.0,
+      "llm_calls_pct": 0.5113,
+      "rule_coverage_at_bar": 0.4887,
+      "hybrid_trust": 0.3
+    },
+    "logreg_embeddings": {
+      "accuracy": 0.9385964912280702,
+      "coverage": 1.0,
+      "train_s": 19.0
+    }
+  }
+}

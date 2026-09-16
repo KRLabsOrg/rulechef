@@ -1,0 +1,215 @@
+{
+  "config": {
+    "dataset": "banking77",
+    "checkpoints": [
+      10,
+      25,
+      50
+    ],
+    "model": "moonshotai/kimi-k2-instruct-0905",
+    "format": "regex",
+    "num_classes": 5,
+    "test_size": 200,
+    "max_rules": 100,
+    "max_samples": 200,
+    "max_iterations": 3,
+    "seed": 42,
+    "use_grex": true,
+    "agentic": false
+  },
+  "llm_baseline": {
+    "accuracy_vs_gold": 0.98,
+    "micro_f1": 0.98,
+    "macro_f1": 0.98,
+    "total_predictions": 200,
+    "correct_predictions": 196
+  },
+  "checkpoint_metrics": [
+    {
+      "observations": 10,
+      "rules": 14,
+      "coverage": 0.205,
+      "precision_vs_gold": 0.9268,
+      "recall_vs_gold": 0.19,
+      "f1_vs_gold": 0.3154,
+      "precision_vs_llm": 0.9512,
+      "replacement_rate": 0.195,
+      "learning_time_s": 12.1,
+      "per_query_ms": 0.16,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "disposable_card_limits",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 3,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "exchange_rate",
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "pending_card_payment",
+          "precision": 0.85,
+          "recall": 1.0,
+          "f1": 0.9189189189189189,
+          "tp": 17,
+          "fp": 3,
+          "fn": 0
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "precision": 1.0,
+          "recall": 0.8571428571428571,
+          "f1": 0.923076923076923,
+          "tp": 18,
+          "fp": 0,
+          "fn": 3
+        }
+      ]
+    },
+    {
+      "observations": 25,
+      "rules": 24,
+      "coverage": 0.425,
+      "precision_vs_gold": 0.9529,
+      "recall_vs_gold": 0.405,
+      "f1_vs_gold": 0.5684,
+      "precision_vs_llm": 0.9647,
+      "replacement_rate": 0.41,
+      "learning_time_s": 8.3,
+      "per_query_ms": 0.13,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.8571428571428571,
+          "tp": 3,
+          "fp": 1,
+          "fn": 0
+        },
+        {
+          "label": "disposable_card_limits",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 5,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "exchange_rate",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 38,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "pending_card_payment",
+          "precision": 0.85,
+          "recall": 1.0,
+          "f1": 0.9189189189189189,
+          "tp": 17,
+          "fp": 3,
+          "fn": 0
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "precision": 1.0,
+          "recall": 0.8181818181818182,
+          "f1": 0.9,
+          "tp": 18,
+          "fp": 0,
+          "fn": 4
+        }
+      ]
+    },
+    {
+      "observations": 50,
+      "rules": 40,
+      "coverage": 0.495,
+      "precision_vs_gold": 0.9596,
+      "recall_vs_gold": 0.475,
+      "f1_vs_gold": 0.6355,
+      "precision_vs_llm": 0.9697,
+      "replacement_rate": 0.48,
+      "learning_time_s": 20.4,
+      "per_query_ms": 0.17,
+      "per_class": [
+        {
+          "label": "beneficiary_not_allowed",
+          "precision": 0.875,
+          "recall": 1.0,
+          "f1": 0.9333333333333333,
+          "tp": 7,
+          "fp": 1,
+          "fn": 0
+        },
+        {
+          "label": "disposable_card_limits",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 6,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "exchange_rate",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 38,
+          "fp": 0,
+          "fn": 0
+        },
+        {
+          "label": "pending_card_payment",
+          "precision": 0.8888888888888888,
+          "recall": 1.0,
+          "f1": 0.9411764705882353,
+          "tp": 24,
+          "fp": 3,
+          "fn": 0
+        },
+        {
+          "label": "pending_cash_withdrawal",
+          "precision": 1.0,
+          "recall": 0.8333333333333334,
+          "f1": 0.9090909090909091,
+          "tp": 20,
+          "fp": 0,
+          "fn": 4
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "final_coverage": 0.495,
+    "final_precision_vs_gold": 0.9596,
+    "final_precision_vs_llm": 0.9697,
+    "final_replacement_rate": 0.48,
+    "llm_accuracy": 0.98,
+    "total_observations": 50,
+    "total_learning_time_s": 40.8
+  }
+}

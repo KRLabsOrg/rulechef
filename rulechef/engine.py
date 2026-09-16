@@ -3,6 +3,7 @@
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from openai import OpenAI
 
@@ -16,6 +17,7 @@ from rulechef.core import (
     DEFAULT_OUTPUT_KEYS,
     Dataset,
     Feedback,
+    Rule,
     RuleFormat,
     Task,
     TaskType,
@@ -29,6 +31,7 @@ from rulechef.evaluation import (
     print_rule_metrics,
 )
 from rulechef.learner import RuleLearner
+from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
 from rulechef.pipeline import LearningPipeline
 from rulechef.storage import DatasetStore
@@ -59,6 +62,14 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = None,
+        llm_config: LLMCallConfig | dict | None = None,
+        context_window: int | None = None,
+        output_token_param: str | None = "max_completion_tokens",
+        synthesis_output_tokens: int = 16384,
+        patch_output_tokens: int = 8192,
+        default_output_tokens: int | None = None,
+        llm_safety_margin_tokens: int = 512,
+        response_format_json: bool = True,
     ):
         """Initialize a RuleChef instance.
 
@@ -95,6 +106,17 @@ class RuleChef:
                 all LLM calls as training data for model distillation.
             temperature: LLM temperature for rule synthesis calls. Set to 0 for
                 deterministic results. None uses the model's default.
+            llm_config: Optional LLMCallConfig or dict. If provided, overrides
+                the individual LLM budget arguments below.
+            context_window: Optional model context window for local prompt checks.
+                If None, RuleChef does not block prompts by estimated length.
+            output_token_param: Provider-specific output token kwarg name
+                (for example "max_completion_tokens" or "max_tokens"), or None to omit.
+            synthesis_output_tokens: Reserved output tokens for synthesis calls.
+            patch_output_tokens: Reserved output tokens for patch calls.
+            default_output_tokens: Optional fallback reserved output token budget.
+            llm_safety_margin_tokens: Extra margin for local prompt checks.
+            response_format_json: If True, request JSON object output when supported.
         """
         self.task = task
         self.llm = client or OpenAI()
@@ -109,6 +131,20 @@ class RuleChef:
         self.temperature = temperature
         self.use_spacy_ner = use_spacy_ner
         self.spacy_model = spacy_model
+        if llm_config is not None:
+            self.llm_config = (
+                llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
+            )
+        else:
+            self.llm_config = LLMCallConfig(
+                context_window=context_window,
+                output_token_param=output_token_param,
+                synthesis_output_tokens=synthesis_output_tokens,
+                patch_output_tokens=patch_output_tokens,
+                default_output_tokens=default_output_tokens,
+                safety_margin_tokens=llm_safety_margin_tokens,
+                response_format_json=response_format_json,
+            )
 
         # Save constructor args for lazy initialization (when task=None)
         self._dataset_name = dataset_name
@@ -127,6 +163,10 @@ class RuleChef:
                 self.coordinator.training_logger = self.training_logger
             if self.temperature is not None:
                 self.coordinator.temperature = self.temperature
+            self.coordinator.llm_config = self.llm_config
+            self.coordinator.llm_calls = LLMCallManager(
+                self.coordinator.llm, self.coordinator.model, self.llm_config
+            )
 
         # Buffer for observed examples (buffer-first architecture)
         self.buffer = ExampleBuffer()
@@ -209,6 +249,7 @@ class RuleChef:
             max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
             temperature=self.temperature,
+            llm_config=self.llm_config,
         )
 
         # Load existing dataset if on disk
@@ -407,6 +448,8 @@ class RuleChef:
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
         run_audit: bool = True,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
     ):
         """Learn rules from all collected data.
 
@@ -425,11 +468,18 @@ class RuleChef:
             incremental_only: If True and rules already exist, only generate
                 patch rules for current failures instead of full re-synthesis.
             run_audit: Whether to run the coordinator's post-learn rule audit
+            holdout_fraction: Fraction of examples to hold out as a dev set
+                during refinement (0 disables). When set, patch acceptance and
+                best-rule selection are decided on held-out data instead of
+                the data patches were learned from. Recommended (~0.2) for
+                datasets with hundreds of examples or more.
+            split_seed: Random seed for the stratified train/dev split.
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
                 (learned_rules, eval_result) on success. eval_result is None
-                when refinement is disabled. Returns None if not enough data.
+                when refinement is disabled, and is measured on the dev set
+                when holdout_fraction is active. Returns None if not enough data.
         """
         return self._pipeline.run(
             run_evaluation=run_evaluation,
@@ -438,7 +488,67 @@ class RuleChef:
             sampling_strategy=sampling_strategy,
             incremental_only=incremental_only,
             run_audit=run_audit,
+            holdout_fraction=holdout_fraction,
+            split_seed=split_seed,
         )
+
+    def load_rules(self, source: str | Path | list | dict, persist: bool = False) -> list[Rule]:
+        """Load a previously learned ruleset into this RuleChef.
+
+        ``source`` may be a path to a JSON file, an already-parsed object, or a
+        list of rule dicts. The rules list is located whether the JSON is a bare
+        list, a dataset dict with a top-level ``rules`` key, a benchmark
+        checkpoint with ``result.rules``, or a comparison result with
+        ``meta.rulechef.rules``. Partial rule dicts (e.g. those exported by the
+        benchmark harnesses without ``id``/``description``) are accepted.
+
+        The loaded rules replace the current in-memory ruleset, so the chef can
+        immediately ``extract`` with them or evaluate them with ``evaluate`` /
+        ``get_rule_metrics`` / ``rank_rules`` against any data added to it. Set
+        ``persist=True`` to also save them to the dataset file on disk.
+
+        Returns the list of loaded Rule objects.
+        """
+        if isinstance(source, (str, Path)):
+            data: Any = json.loads(Path(source).read_text())
+        else:
+            data = source
+
+        rule_dicts = None
+        if isinstance(data, list):
+            rule_dicts = data
+        elif isinstance(data, dict):
+            # Known shapes: dataset ('rules'), checkpoint ('result.rules'),
+            # comparison result ('meta.rulechef.rules').
+            meta = data.get("meta")
+            rulechef_meta = meta.get("rulechef") if isinstance(meta, dict) else None
+            result = data.get("result")
+            for candidate in (
+                data.get("rules"),
+                result.get("rules") if isinstance(result, dict) else None,
+                rulechef_meta.get("rules") if isinstance(rulechef_meta, dict) else None,
+            ):
+                if isinstance(candidate, list):
+                    rule_dicts = candidate
+                    break
+        if rule_dicts is None:
+            raise ValueError(
+                "Could not find a rules list in the source. Expected a list of "
+                "rule dicts, or a dict with 'rules', 'result.rules', or "
+                "'meta.rulechef.rules'."
+            )
+
+        if self.dataset is None:
+            raise ValueError(
+                "RuleChef has no dataset to load rules into. Construct it with a "
+                "task (or call start_observing) first."
+            )
+
+        rules = [Rule.from_dict(r) for r in rule_dicts]
+        self.dataset.rules = rules
+        if persist:
+            self._store.save(self.dataset)
+        return rules
 
     # ========================================
     # Execution
@@ -644,6 +754,56 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         """Get statistics about buffered examples and observations."""
         return self._observations.get_buffer_stats()
 
+    def export_traffic(self, path: str | Path) -> int:
+        """Export observed input-output pairs as savings-report JSONL.
+
+        Writes each LLM observation as a JSON line in the traffic format
+        expected by :command:`rulechef-savings`:
+
+        * Classification: ``{"text": "...", "llm_label": "..."}``
+        * NER: ``{"text": "...", "llm_entities": [...]}``
+
+        Args:
+            path: Output file path (``.jsonl``).
+
+        Returns:
+            Number of exported records.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        examples = self.buffer.get_all_examples()
+
+        text_field = (self.task.text_field if self.task else None) or "text"
+        task_type = self.task.type if self.task else None
+
+        records = []
+        for ex in examples:
+            if ex.source != "llm":
+                continue
+
+            text = ex.input.get(text_field)
+            if not text:
+                continue
+
+            if task_type == TaskType.CLASSIFICATION:
+                records.append({"text": text, "llm_label": ex.output.get("label", "")})
+            elif task_type == TaskType.NER:
+                records.append({"text": text, "llm_entities": ex.output.get("entities", [])})
+            elif "label" in ex.output:
+                records.append({"text": text, "llm_label": ex.output["label"]})
+            elif "entities" in ex.output:
+                records.append({"text": text, "llm_entities": ex.output["entities"]})
+            else:
+                continue
+
+        with open(path, "w") as f:
+            for record in records:
+                f.write(json.dumps(record) + "\n")
+
+        print(f"✓ Exported {len(records)} observations to {path}")
+        return len(records)
+
     # ========================================
     # Analysis
     # ========================================
@@ -708,6 +868,73 @@ Return ONLY valid JSON matching the output schema, no explanation."""
         if verbose:
             print_rule_metrics(metrics)
         return metrics
+
+    def rank_rules(
+        self,
+        verbose: bool = True,
+        compute_marginal: bool = True,
+        prune: bool = False,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
+    ):
+        """Rank rules by standalone precision and marginal ensemble contribution.
+
+        Evaluates each rule alone (precision/recall) and, when
+        compute_marginal is True, measures how much the ensemble micro F1
+        drops without it. Validated precision is stamped onto each rule, so
+        afterwards the executor resolves conflicts (two rules matching the
+        same input) in favor of the empirically more precise rule.
+
+        Args:
+            verbose: If True, print the ranking table.
+            compute_marginal: Run the leave-one-out ablation pass. One full
+                dataset evaluation per rule — disable for very large setups.
+            prune: If True, drop rules whose marginal contribution is
+                negative (the ensemble measurably does better without them)
+                and persist the pruned rule set.
+            holdout_fraction: If > 0, rank against a stratified held-out
+                slice of the dataset instead of the full training data, so
+                validated precision measures generalization.
+            split_seed: Random seed for the holdout split.
+
+        Returns:
+            RankingReport with ensemble metrics and per-rule rankings.
+        """
+        from rulechef.ranking import print_ranking_report, prune_harmful_rules, rank_rules
+        from rulechef.splitting import split_dataset
+
+        self._require_task("rank_rules")
+        if not self.dataset.rules:
+            print("No rules to rank")
+            from rulechef.ranking import RankingReport
+
+            return RankingReport()
+
+        eval_dataset = self.dataset
+        if holdout_fraction > 0:
+            _, dev = split_dataset(self.dataset, holdout_fraction, seed=split_seed)
+            if dev is not None:
+                eval_dataset = dev
+
+        report = rank_rules(
+            self.dataset.rules,
+            eval_dataset,
+            self.learner._apply_rules,
+            compute_marginal=compute_marginal,
+        )
+
+        if prune and compute_marginal:
+            kept, dropped = prune_harmful_rules(self.dataset.rules, report)
+            if dropped:
+                print(
+                    f"🧹 Pruned {len(dropped)} harmful rules: {', '.join(r.name for r in dropped)}"
+                )
+                self.dataset.rules = kept
+
+        self._store.save(self.dataset)
+        if verbose:
+            print_ranking_report(report)
+        return report
 
     def delete_rule(self, rule_id: str) -> bool:
         """Delete a rule by id.

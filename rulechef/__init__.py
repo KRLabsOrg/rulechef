@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata as _metadata
 from typing import TYPE_CHECKING
 
 from rulechef.coordinator import (
@@ -22,13 +23,18 @@ from rulechef.core import (
     TaskType,
 )
 from rulechef.evaluation import ClassMetrics, EvalResult, RuleMetrics
+from rulechef.ranking import RankingReport, RuleRanking, prune_harmful_rules, rank_rules
+from rulechef.splitting import split_dataset
 
 if TYPE_CHECKING:
     from rulechef.coordinator import AgenticCoordinator as AgenticCoordinator
     from rulechef.engine import RuleChef as RuleChef
     from rulechef.training_logger import TrainingDataLogger as TrainingDataLogger
 
-__version__ = "0.1.0"
+try:
+    __version__ = _metadata.version("rulechef")
+except _metadata.PackageNotFoundError:  # running from a source tree without install
+    __version__ = "0.0.0.dev0"
 __all__ = [
     "RuleChef",
     "Task",
@@ -43,6 +49,11 @@ __all__ = [
     "EvalResult",
     "RuleMetrics",
     "ClassMetrics",
+    "RankingReport",
+    "RuleRanking",
+    "rank_rules",
+    "prune_harmful_rules",
+    "split_dataset",
     "CoordinatorProtocol",
     "SimpleCoordinator",
     "AgenticCoordinator",

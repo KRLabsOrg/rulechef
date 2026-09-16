@@ -18,6 +18,7 @@ from rulechef.evaluation import (
     evaluate_rules_individually,
 )
 from rulechef.executor import RuleExecutor
+from rulechef.llm_calls import LLMCallConfig, LLMCallManager, PromptTooLargeError, PromptVariant
 from rulechef.prompts import RULE_QUALITY_GUIDE, PromptBuilder
 
 
@@ -39,6 +40,7 @@ class RuleLearner:
         max_counter_examples: int = 10,
         training_logger=None,
         temperature: float | None = None,
+        llm_config: LLMCallConfig | None = None,
     ):
         """Initialize the rule learner.
 
@@ -71,6 +73,8 @@ class RuleLearner:
         self.training_logger = training_logger
         self.temperature = temperature
         self.counter_examples_pool: list = []
+        self.llm_config = llm_config or LLMCallConfig()
+        self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner, spacy_model=spacy_model)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
@@ -441,12 +445,20 @@ class RuleLearner:
         coordinator=None,
         iteration_callback=None,
         audit_interval: int = 3,
+        holdout_fraction: float = 0.0,
+        split_seed: int = 42,
     ) -> tuple:
         """Evaluate rules and refine through patch-based loop.
 
         Each iteration generates patch rules for failures and merges them
         into the existing set, keeping working rules intact. Stops early
         if exact match reaches 90% or the coordinator signals to stop.
+
+        With holdout_fraction > 0, a stratified dev set is held out of the
+        dataset before refinement: failures are still collected from the
+        train portion (so patches learn from it), but patch acceptance,
+        best-rules tracking, and early stopping are decided on dev metrics.
+        This prevents accepting rules that memorize the training data.
 
         Args:
             rules: Initial set of rules to refine.
@@ -457,21 +469,39 @@ class RuleLearner:
                 guidance on which classes to focus and when to stop.
             iteration_callback: Optional callable(iteration: int, rules: List[Rule],
                 eval_result: EvalResult) called after each evaluation. Useful for
-                logging per-iteration metrics in benchmarks.
+                logging per-iteration metrics in benchmarks. Receives the dev
+                eval when a holdout is active, train eval otherwise.
             audit_interval: Run LLM audit every N iterations to prune duplicates
                 and weak rules. Only runs if coordinator supports audit. 0 to disable.
                 Overridden by coordinator.audit_interval if set.
+            holdout_fraction: Fraction of examples to hold out as a dev set
+                (0 disables, keeping the historical evaluate-on-train behavior).
+                Corrections always stay in train. The split is skipped when the
+                resulting dev set would be too small (see splitting.split_dataset).
+            split_seed: Random seed for the stratified split.
 
         Returns:
-            Tuple of (best_rules, best_eval_result) where best_rules is
-            the rule set with the highest micro F1 seen across iterations.
+            Tuple of (best_rules, best_eval_result) where best_rules is the
+            rule set with the highest micro F1 seen across iterations. When a
+            holdout is active, best_eval_result is measured on the dev set.
         """
+        from rulechef.splitting import split_dataset
+
         # Read intervals from coordinator if available
         if coordinator and hasattr(coordinator, "audit_interval"):
             audit_interval = coordinator.audit_interval
         critic_interval = getattr(coordinator, "critic_interval", 0) if coordinator else 0
 
-        print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
+        train_ds, dev_ds = split_dataset(dataset, holdout_fraction, seed=split_seed)
+        if holdout_fraction > 0 and dev_ds is None:
+            print("⚠ Dataset too small for a dev holdout, refining on training data only")
+        if dev_ds is not None:
+            print(
+                f"\n🔄 Refinement loop (max {max_iterations} iterations, "
+                f"train={len(train_ds.get_all_training_data())}, dev={len(dev_ds.examples)})"
+            )
+        else:
+            print(f"\n🔄 Refinement loop (max {max_iterations} iterations)")
 
         best_rules = rules
         best_f1 = 0.0
@@ -482,20 +512,29 @@ class RuleLearner:
             iter_num = iteration + 1
             print(f"[{iter_num}/{max_iterations}] Evaluating rules...")
 
-            eval_result = self._evaluate_rules(rules, dataset)
-            exact = eval_result.exact_match
-            correct = int(exact * eval_result.total_docs)
+            eval_result = self._evaluate_rules(rules, train_ds)
+            # Selection metrics come from dev when a holdout is active
+            select_eval = self._evaluate_rules(rules, dev_ds) if dev_ds is not None else eval_result
+            exact = select_eval.exact_match
+            correct = int(exact * select_eval.total_docs)
 
-            print(
-                f"[{iter_num}/{max_iterations}] Exact match: {exact:.1%} "
-                f"({correct}/{eval_result.total_docs}), "
-                f"micro F1: {eval_result.micro_f1:.1%}"
-            )
+            if dev_ds is not None:
+                print(
+                    f"[{iter_num}/{max_iterations}] Train F1: {eval_result.micro_f1:.1%} | "
+                    f"Dev exact: {exact:.1%} ({correct}/{select_eval.total_docs}), "
+                    f"dev F1: {select_eval.micro_f1:.1%}"
+                )
+            else:
+                print(
+                    f"[{iter_num}/{max_iterations}] Exact match: {exact:.1%} "
+                    f"({correct}/{select_eval.total_docs}), "
+                    f"micro F1: {select_eval.micro_f1:.1%}"
+                )
 
-            if eval_result.micro_f1 > best_f1:
+            if select_eval.micro_f1 > best_f1:
                 best_rules = rules
-                best_f1 = eval_result.micro_f1
-                best_eval = eval_result
+                best_f1 = select_eval.micro_f1
+                best_eval = select_eval
                 no_improvement_count = 0
             else:
                 no_improvement_count += 1
@@ -512,10 +551,10 @@ class RuleLearner:
                 and coordinator
                 and hasattr(coordinator, "critique_rules")
             ):
-                self._run_critic(rules, dataset, coordinator, eval_result)
+                self._run_critic(rules, train_ds, coordinator, eval_result)
 
             if iteration_callback:
-                iteration_callback(iter_num, rules, eval_result)
+                iteration_callback(iter_num, rules, select_eval)
 
             # if exact >= 0.90:
             #   print("✓ Achieved 90%+ exact match!")
@@ -531,12 +570,15 @@ class RuleLearner:
                 and coordinator.prune_after_learn
             ):
                 rules = self._run_mid_refinement_audit(
-                    rules, dataset, coordinator, eval_result, iter_num
+                    rules, train_ds, coordinator, eval_result, iter_num
                 )
-                if eval_result.micro_f1 > best_f1:
+                post_audit = (
+                    self._evaluate_rules(rules, dev_ds) if dev_ds is not None else eval_result
+                )
+                if post_audit.micro_f1 > best_f1:
                     best_rules = rules
-                    best_f1 = eval_result.micro_f1
-                    best_eval = eval_result
+                    best_f1 = post_audit.micro_f1
+                    best_eval = post_audit
 
             # Ask coordinator for guidance (if provided)
             guidance = ""
@@ -550,7 +592,9 @@ class RuleLearner:
 
             if eval_result.failures:
                 print(
-                    f"[{iter_num}/{max_iterations}] Patching {len(eval_result.failures)} failures..."
+                    f"[{iter_num}/{max_iterations}] Patching "
+                    f"({len(eval_result.failures)} failures total; "
+                    f"sampling ≤{self.max_samples}, ≤20 shown in prompt + mode summary)..."
                 )
                 rules_hash = hashlib.md5(
                     json.dumps(
@@ -568,7 +612,7 @@ class RuleLearner:
                     rules,
                     eval_result.failures,
                     max_rules=patch_max,
-                    dataset=dataset,
+                    dataset=train_ds,
                     guidance=guidance,
                     class_metrics=eval_result.per_class,
                     fp_examples=eval_result.fp_examples,
@@ -578,9 +622,12 @@ class RuleLearner:
                     print("⚠ Patch synthesis returned nothing, keeping best rules")
                 else:
                     candidate = self._merge_patch(rules, patch, deleted_names)
-                    candidate_eval = self._evaluate_rules(candidate, dataset)
-                    prev_f1 = eval_result.micro_f1
-                    prev_p = eval_result.micro_precision
+                    if dev_ds is not None:
+                        candidate_eval = self._evaluate_rules(candidate, dev_ds)
+                    else:
+                        candidate_eval = self._evaluate_rules(candidate, train_ds)
+                    prev_f1 = select_eval.micro_f1
+                    prev_p = select_eval.micro_precision
                     cand_f1 = candidate_eval.micro_f1
                     cand_p = candidate_eval.micro_precision
 
@@ -588,12 +635,25 @@ class RuleLearner:
                     # - F1 doesn't drop more than 0.5%, OR
                     # - Precision improved (higher precision at cost of some
                     #   recall is a net win for rule quality)
+                    # Measured on dev when a holdout is active, so patches
+                    # that merely memorize train failures get rejected.
                     accepted = cand_f1 >= prev_f1 - 0.005 or cand_p > prev_p
+                    self._log_patch_decision(
+                        iter_num,
+                        patch,
+                        deleted_names,
+                        select_eval,
+                        candidate_eval,
+                        accepted,
+                        on_dev=dev_ds is not None,
+                        dataset=dataset,
+                    )
+                    metric_label = "dev " if dev_ds is not None else ""
                     if accepted:
                         rules = candidate
                         print(
                             f"[{iter_num}/{max_iterations}] Patched → {len(rules)} rules, "
-                            f"F1 {prev_f1:.1%} → {cand_f1:.1%}, "
+                            f"{metric_label}F1 {prev_f1:.1%} → {cand_f1:.1%}, "
                             f"P {prev_p:.1%} → {cand_p:.1%} ({elapsed:.1f}s)"
                         )
                         if candidate_eval.micro_f1 > best_f1:
@@ -603,14 +663,75 @@ class RuleLearner:
                     else:
                         print(
                             f"[{iter_num}/{max_iterations}] Patch rejected "
-                            f"(F1 {prev_f1:.1%} → {cand_f1:.1%}, "
+                            f"({metric_label}F1 {prev_f1:.1%} → {cand_f1:.1%}, "
                             f"P {prev_p:.1%} → {cand_p:.1%}), keeping previous"
                         )
             else:
                 print("✓ No failures to fix!")
                 break
 
+        # Stamp validated per-rule stats so the executor can resolve
+        # conflicts by measured precision (dev when available, else train).
+        self._stamp_validated_stats(best_rules, dev_ds or train_ds)
+
         return best_rules, best_eval
+
+    def _stamp_validated_stats(self, rules: list[Rule], dataset: Dataset) -> None:
+        """Measure each rule's solo precision and store it on the rule."""
+        if not rules:
+            return
+        try:
+            metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        except Exception as e:
+            print(f"⚠ Skipping validated-stat stamping: {e}")
+            return
+        by_id = {m.rule_id: m for m in metrics}
+        for rule in rules:
+            m = by_id.get(rule.id)
+            if m:
+                rule.validated_precision = m.precision
+                rule.validated_support = m.true_positives + m.false_positives
+
+    def _log_patch_decision(
+        self,
+        iteration: int,
+        patch: list[Rule],
+        deleted_names: set[str],
+        prev_eval: EvalResult,
+        candidate_eval: EvalResult,
+        accepted: bool,
+        on_dev: bool,
+        dataset: Dataset | None,
+    ) -> None:
+        """Log an accept/reject decision as a trajectory record.
+
+        These records pair candidate rules with their measured quality delta —
+        training data for a future small rule-ranker/rule-writer model.
+        """
+        if not self.training_logger:
+            return
+        self.training_logger.log(
+            "patch_decision",
+            [],
+            json.dumps(
+                {
+                    "patch_rules": [r.to_dict() for r in patch],
+                    "deleted_rules": sorted(deleted_names),
+                }
+            ),
+            {
+                "task_name": dataset.task.name if dataset and dataset.task else None,
+                "task_type": dataset.task.type.value if dataset and dataset.task else None,
+                "iteration": iteration,
+                "accepted": accepted,
+                "decided_on_dev": on_dev,
+                "prev_micro_f1": round(prev_eval.micro_f1, 4),
+                "prev_micro_precision": round(prev_eval.micro_precision, 4),
+                "candidate_micro_f1": round(candidate_eval.micro_f1, 4),
+                "candidate_micro_precision": round(candidate_eval.micro_precision, 4),
+                "f1_delta": round(candidate_eval.micro_f1 - prev_eval.micro_f1, 4),
+            },
+        )
 
     def _run_mid_refinement_audit(
         self,
@@ -819,107 +940,71 @@ class RuleLearner:
             a set of rule names the LLM wants removed.
         """
         max_rules = max_rules or self.max_rules
+        task_type = dataset.task.type if dataset and dataset.task else None
         sampled_failures = self._sample_failures(
             failures,
             max_samples=self.max_samples,
             class_metrics=class_metrics,
+            task_type=task_type,
+        )
+        failure_summary = self._failure_mode_summary(failures, task_type)
+        variants = self._build_patch_prompt_variants(
+            current_rules,
+            sampled_failures,
+            max_rules,
+            dataset=dataset,
+            guidance=guidance,
+            class_metrics=class_metrics,
+            fp_examples=fp_examples,
+            failure_summary=failure_summary,
         )
 
         print("🩹 Synthesizing patch rules...")
         start = time.time()
 
-        MAX_RETRIES = 5
-        max_failures = len(sampled_failures)
-
-        for attempt in range(MAX_RETRIES + 1):
-            failures_to_use = sampled_failures[:max_failures]
-            prompt = self._build_patch_prompt(
-                current_rules,
-                failures_to_use,
-                max_rules,
-                dataset=dataset,
-                guidance=guidance,
-                class_metrics=class_metrics,
-                fp_examples=fp_examples,
+        try:
+            call_result = self.llm_calls.complete_with_variants(
+                variants,
+                output_tokens=self.llm_config.patch_output_tokens,
+                extra_kwargs=self._temp_kwargs(),
             )
-            # print(f"  [debug] failures_to_use={len(failures_to_use)}  prompt_chars={len(prompt)}")
+            response_text = call_result.response_text
+            result = self._parse_json(response_text)
+            rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
+            deleted_names = set(result.get("deleted_rules", [])) if result else set()
 
-            try:
-                response = self.llm.chat.completions.create(
-                    model=self.model,
-                    # max_completion_tokens=16384,
-                    # max_tokens=16384,
-                    max_completion_tokens=4096,
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"},
-                    temperature=0,
-                    seed=42,
+            if self.training_logger:
+                self.training_logger.log(
+                    "rule_patch",
+                    call_result.messages,
+                    response_text,
+                    {
+                        "task_name": dataset.task.name if dataset and dataset.task else None,
+                        "task_type": dataset.task.type.value if dataset and dataset.task else None,
+                        "num_failures": len(sampled_failures),
+                        "num_existing_rules": len(current_rules),
+                        "num_rules_in_response": len(rules),
+                        "num_deleted": len(deleted_names),
+                        "response_valid": bool(rules),
+                        "guidance": guidance[:200] if guidance else None,
+                        "prompt_variant": call_result.variant.name,
+                        **call_result.variant.metadata,
+                        **call_result.metadata,
+                    },
                 )
 
-                response_text = response.choices[0].message.content
-                finish_reason = response.choices[0].finish_reason
-                print(f"  finish={finish_reason}  len={len(response_text or '')}")
-
-                if finish_reason == "length":
-                    new_max = max(1, max_failures // 2)
-
-                    print(
-                        f"  Output truncated on attempt {attempt + 1} "
-                        f"({max_failures} failures → retrying with {new_max})"
-                    )
-                    time.sleep(1.5)
-                    max_failures = new_max
-                    continue
-
-                result = self._parse_json(response_text)
-                rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)
-                deleted_names = set(result.get("deleted_rules", [])) if result else set()
-
-                if self.training_logger:
-                    self.training_logger.log(
-                        "rule_patch",
-                        [{"role": "user", "content": prompt}],
-                        response_text,
-                        {
-                            "task_name": dataset.task.name if dataset and dataset.task else None,
-                            "task_type": dataset.task.type.value
-                            if dataset and dataset.task
-                            else None,
-                            "num_failures": len(failures_to_use),
-                            "num_existing_rules": len(current_rules),
-                            "num_rules_in_response": len(rules),
-                            "num_deleted": len(deleted_names),
-                            "response_valid": bool(rules),
-                            "guidance": guidance[:200] if guidance else None,
-                        },
-                    )
-
-                elapsed = time.time() - start
-                msg = f"✓ Patch synthesis returned {len(rules)} rules"
-                if deleted_names:
-                    msg += f", {len(deleted_names)} deletions"
-                print(f"{msg} ({elapsed:.1f}s)")
-                return rules, deleted_names
-
-            except Exception as e:
-                err_str = str(e).lower()
-                if attempt < MAX_RETRIES and any(
-                    kw in err_str for kw in ("token", "context", "length", "too long", "maximum")
-                ):
-                    new_max = max(1, max_failures // 2)
-                    # new_max = self._shrink_for_token_error(err_str, max_failures)
-                    print(
-                        f"  Token limit error on attempt {attempt + 1}: {e} "
-                        f"— retrying with {new_max} failures"
-                    )
-                    max_failures = new_max
-                    continue
-                print(e)
-                print(f"Error synthesizing patch rules: {e}")
-                return [], set()
-
-        print("  Patch synthesis failed after all retries (token limit).")
-        return [], set()
+            elapsed = time.time() - start
+            msg = f"✓ Patch synthesis returned {len(rules)} rules"
+            if deleted_names:
+                msg += f", {len(deleted_names)} deletions"
+            print(f"{msg} ({elapsed:.1f}s)")
+            return rules, deleted_names
+        except PromptTooLargeError as e:
+            print(f"⚠ Patch prompt too large: {e}")
+            return [], set()
+        except Exception as e:
+            print(f"Error synthesizing patch rules: {e}")
+            return [], set()
 
     # ========================================
     # Prompt Building
@@ -1046,26 +1131,126 @@ INSTRUCTIONS:
                 return snippet
         return text[: window * 2] if len(text) > window * 2 else text
 
-    # old
-    """
-    def _truncate_failure_input(self, text: str, expected: dict, window: int = 50) -> str:
-        if not text:
-            return text
-        entities = (expected or {}).get("entities", [])
-        for ent in entities:
-            ent_text = ent.get("text", "") if isinstance(ent, dict) else ""
-            pos = text.find(ent_text) if ent_text else -1
-            if pos != -1:
-                start = max(0, pos - window)
-                end = min(len(text), pos + len(ent_text) + window)
-                snippet = text[start:end]
-                if start > 0:
-                    snippet = "..." + snippet
-                if end < len(text):
-                    snippet = snippet + "..."
-                return snippet
-        return text[: window * 2] if len(text) > window * 2 else text
-    """
+    def _build_patch_prompt_variants(
+        self,
+        current_rules: list[Rule],
+        failures: list[dict],
+        max_rules: int,
+        dataset: Dataset | None = None,
+        guidance: str = "",
+        class_metrics: list | None = None,
+        fp_examples: list[dict] | None = None,
+        failure_summary: str = "",
+    ) -> list[PromptVariant]:
+        """Build ordered patch prompt variants from richest to most compact."""
+        specs = [
+            ("full", 20, True, "full"),
+            ("fewer_failures", 10, True, "full"),
+            ("minimal_failures", 5, True, "full"),
+            ("no_data_evidence", 5, False, "full"),
+            ("relevant_rules", 5, False, "relevant"),
+            ("compact_rules", 5, False, "compact"),
+        ]
+
+        variants = []
+        for name, failure_limit, include_data_evidence, rules_mode in specs:
+            prompt = self._build_patch_prompt(
+                current_rules,
+                failures,
+                max_rules,
+                dataset=dataset,
+                guidance=guidance,
+                class_metrics=class_metrics,
+                fp_examples=fp_examples,
+                failure_limit=failure_limit,
+                include_data_evidence=include_data_evidence,
+                rules_mode=rules_mode,
+                failure_summary=failure_summary,
+            )
+            variants.append(
+                PromptVariant(
+                    name=name,
+                    prompt=prompt,
+                    metadata={
+                        "failure_limit": failure_limit,
+                        "include_data_evidence": include_data_evidence,
+                        "rules_mode": rules_mode,
+                    },
+                )
+            )
+        return variants
+
+    def _failure_labels(
+        self, failures: list[dict], fp_examples: list[dict] | None = None
+    ) -> set[str]:
+        labels: set[str] = set()
+
+        def add_from_output(output):
+            if isinstance(output, dict):
+                label = output.get("label") or output.get("type")
+                if isinstance(label, str):
+                    labels.add(label)
+                for key in ("entities", "spans"):
+                    items = output.get(key)
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                item_label = item.get("type") or item.get("label")
+                                if isinstance(item_label, str):
+                                    labels.add(item_label)
+
+        for failure in failures:
+            add_from_output(failure.get("expected"))
+            add_from_output(failure.get("got"))
+
+        for fp in fp_examples or []:
+            for key in ("predicted_type", "correct_type"):
+                value = fp.get(key)
+                if isinstance(value, str):
+                    labels.add(value)
+        return labels
+
+    def _rule_labels(self, rule: Rule) -> set[str]:
+        labels: set[str] = set()
+        if isinstance(rule.output_template, dict):
+            for key in ("label", "type"):
+                value = rule.output_template.get(key)
+                if isinstance(value, str) and not value.startswith("$"):
+                    labels.add(value)
+        return labels
+
+    def _rule_prompt_entry(
+        self,
+        rule: Rule,
+        dataset: Dataset | None = None,
+        *,
+        compact: bool = False,
+        truncate: bool = False,
+    ) -> dict:
+        entry = {
+            "name": rule.name,
+            "format": rule.format.value,
+            "priority": rule.priority,
+        }
+        if rule.output_template:
+            entry["output_template"] = rule.output_template
+        if rule.output_key:
+            entry["output_key"] = rule.output_key
+
+        if compact:
+            labels = sorted(self._rule_labels(rule))
+            if labels:
+                entry["labels"] = labels
+            return entry
+
+        entry["description"] = rule.description[:160] if truncate else rule.description
+        entry["content"] = rule.content[:300] if truncate else rule.content
+
+        if dataset:
+            rule_fb = dataset.get_feedback_for("rule", rule.id)
+            if rule_fb:
+                entry["user_feedback"] = [f.text for f in rule_fb]
+        return entry
 
     def _build_patch_prompt(
         self,
@@ -1076,55 +1261,36 @@ INSTRUCTIONS:
         guidance: str = "",
         class_metrics: list | None = None,
         fp_examples: list[dict] | None = None,
+        failure_limit: int = 20,
+        include_data_evidence: bool = True,
+        rules_mode: str = "full",
+        failure_summary: str = "",
     ) -> str:
         """Build prompt for targeted patch rules."""
+        rules_detail = []
+        compact_rules = []
+        failure_labels = self._failure_labels(failures, fp_examples)
 
-        active_ids: set[str] = set()
-        for f in failures:
-            for ent in (f.get("got") or {}).get("entities", []):
-                if isinstance(ent, dict) and "rule_id" in ent:
-                    active_ids.add(ent["rule_id"])
-        feedback_ids: set[str] = {
-            fb.target_id
-            for fb in (dataset.structured_feedback if dataset else [])
-            if fb.level == "rule" and fb.target_id
-        }
-        relevant_ids = active_ids | feedback_ids
-
-        relevant = []
-        background = []
         for r in current_rules:
-            if r.id in relevant_ids:
-                entry = {
-                    "name": r.name,
-                    "description": r.description,
-                    "format": r.format.value,
-                    "content": r.content,
-                    "priority": r.priority,
-                }
-                if r.output_template:
-                    entry["output_template"] = r.output_template
-                if r.output_key:
-                    entry["output_key"] = r.output_key
-                # Attach rule-level feedback if available
-                if dataset:
-                    rule_fb = dataset.get_feedback_for("rule", r.id)
-                    if rule_fb:
-                        entry["user_feedback"] = [f.text for f in rule_fb]
-                relevant.append(entry)
+            has_feedback = bool(dataset and dataset.get_feedback_for("rule", r.id))
+            labels = self._rule_labels(r)
+            is_relevant = not failure_labels or bool(labels & failure_labels) or has_feedback
 
-            else:
-                entry = {
-                    "name": r.name,
-                    "description": r.description,
-                }
-                background.append(entry)
+            if rules_mode == "relevant" and not is_relevant:
+                compact_rules.append(self._rule_prompt_entry(r, dataset, compact=True))
+                continue
+
+            rules_detail.append(
+                self._rule_prompt_entry(
+                    r,
+                    dataset,
+                    compact=False,
+                    truncate=rules_mode == "compact",
+                )
+            )
 
         failure_snippets = []
-        for f in failures:
-            raw_input = f.get("input")
-            expected = f.get("expected")
-            input_text = raw_input.get("text") if isinstance(raw_input, dict) else raw_input
+        for f in failures[:failure_limit]:
             failure_snippets.append(
                 {
                     "input": self._truncate_failure_input(
@@ -1142,7 +1308,9 @@ INSTRUCTIONS:
         # output_template/output_key when needed (NER, TRANSFORMATION).
         if dataset:
             response_schema = self.prompt_builder._build_response_schema(dataset)
-            data_evidence = self.prompt_builder._build_data_evidence(dataset)
+            data_evidence = (
+                self.prompt_builder._build_data_evidence(dataset) if include_data_evidence else ""
+            )
         else:
             response_schema = """Return JSON:
 {   
@@ -1199,6 +1367,13 @@ INSTRUCTIONS:
                 fp_lines.append(line)
             fp_section = "\n".join(fp_lines) + "\n"
 
+        compact_rules_section = ""
+        if compact_rules:
+            compact_rules_section = (
+                "\nOTHER CURRENT RULES (compact index; avoid duplicating these names/labels):\n"
+                f"{json.dumps(compact_rules, indent=2)}\n"
+            )
+
         prompt = f"""You are updating an existing rule-based extractor. Do NOT rewrite good rules; add or adjust only what is needed.
 
 {self.prompt_builder._build_task_header(dataset) if dataset else ""}
@@ -1206,11 +1381,11 @@ INSTRUCTIONS:
 {task_feedback_section}
 {guidance_section}
 {class_metrics_section}
-RULES with failures (full details, note any user_feedback on specific rules):
-{json.dumps(relevant, indent=2)}
-Rules not active in current failures (do not modify unless necessary)
-{json.dumps(background, indent=2)}
+CURRENT RULES (full details, note any user_feedback on specific rules):
+{json.dumps(rules_detail, indent=2)}
+{compact_rules_section}
 
+{failure_summary}
 FAILURES TO FIX (sampled, corrections are high priority):
 {json.dumps(failure_snippets, indent=2)}
 {fp_section}
@@ -1291,13 +1466,93 @@ Instructions:
 
         return samples[:max_samples]
 
+    def _failure_signature(self, failure: dict, task_type: TaskType | None) -> tuple[str, str]:
+        """Classify a failure into a (expected_class, error_kind) failure mode.
+
+        Failure modes separate "rule missing" from "wrong rule fired" so
+        sampling and prompts can target each mode instead of treating all
+        failures for a class as interchangeable.
+        """
+        expected = failure.get("expected") or {}
+        got = failure.get("got") or {}
+
+        if task_type == TaskType.CLASSIFICATION:
+            exp_label = str(expected.get("label", "")) if isinstance(expected, dict) else ""
+            got_label = str(got.get("label", "")) if isinstance(got, dict) else ""
+            if not got_label:
+                return exp_label, "no_prediction"
+            return exp_label, f"predicted_as:{got_label}"
+
+        def type_counts(output) -> dict[str, int]:
+            counts: dict[str, int] = defaultdict(int)
+            if isinstance(output, dict):
+                for key in ("entities", "spans"):
+                    for item in output.get(key) or []:
+                        if isinstance(item, dict):
+                            counts[item.get("type") or item.get("label") or "_untyped"] += 1
+            return counts
+
+        exp_types = type_counts(expected)
+        got_types = type_counts(got)
+        missed = sorted(t for t in exp_types if exp_types[t] > got_types.get(t, 0))
+        spurious = sorted(t for t in got_types if got_types[t] > exp_types.get(t, 0))
+
+        cls = missed[0] if missed else (spurious[0] if spurious else "_none")
+        if missed and spurious:
+            return cls, f"missed:{'+'.join(missed)}|spurious:{'+'.join(spurious)}"
+        if missed:
+            return cls, f"missed:{'+'.join(missed)}"
+        if spurious:
+            return cls, f"spurious:{'+'.join(spurious)}"
+        return cls, "mismatch"
+
+    def _cluster_failures(
+        self, failures: list[dict], task_type: TaskType | None
+    ) -> dict[tuple[str, str], list[dict]]:
+        """Group failures by (expected_class, error_kind) failure mode."""
+        clusters: dict[tuple[str, str], list[dict]] = defaultdict(list)
+        for f in failures:
+            clusters[self._failure_signature(f, task_type)].append(f)
+        return clusters
+
+    def _failure_mode_summary(
+        self,
+        failures: list[dict],
+        task_type: TaskType | None,
+        max_modes: int = 20,
+    ) -> str:
+        """Aggregate failure-mode counts over ALL failures.
+
+        Only a handful of concrete failures fit in a patch prompt; this
+        summary tells the LLM how the full failure distribution looks so it
+        targets the dominant modes instead of the sampled tail.
+        """
+        clusters = self._cluster_failures(failures, task_type)
+        if not clusters:
+            return ""
+        ordered = sorted(clusters.items(), key=lambda kv: len(kv[1]), reverse=True)
+        lines = [f"\nFAILURE MODE SUMMARY (all {len(failures)} failures, not just the sample):"]
+        for (cls, kind), items in ordered[:max_modes]:
+            lines.append(f"  {cls} — {kind}: {len(items)}")
+        if len(ordered) > max_modes:
+            remaining = sum(len(items) for _, items in ordered[max_modes:])
+            lines.append(f"  ... and {len(ordered) - max_modes} more modes ({remaining} failures)")
+        return "\n".join(lines) + "\n"
+
     def _sample_failures(
         self,
         failures: list[dict],
         max_samples: int = 20,
         class_metrics: list | None = None,
+        task_type: TaskType | None = None,
     ):
-        """Sample failures for refinement/patch, prioritizing corrections and weak classes."""
+        """Sample failures for refinement/patch, prioritizing corrections and weak modes.
+
+        Failures are clustered by (expected_class, error_kind) and sampled
+        round-robin across clusters, so every failure mode present in the
+        data gets representation in the patch prompt — not just the most
+        frequent class.
+        """
         correction_failures = [f for f in failures if f.get("is_correction", False)]
         other_failures = [f for f in failures if not f.get("is_correction", False)]
 
@@ -1306,12 +1561,7 @@ Instructions:
         remaining = max_samples - len(sampled)
 
         if remaining > 0 and other_failures:
-            # Group by expected label/class
-            by_class = defaultdict(list)
-            for f in other_failures:
-                expected = f.get("expected", {})
-                label = expected.get("label", "") if isinstance(expected, dict) else str(expected)
-                by_class[label].append(f)
+            clusters = self._cluster_failures(other_failures, task_type)
 
             # Weight by inverse recall if metrics available (weak classes get more samples)
             class_weights = {}
@@ -1319,25 +1569,23 @@ Instructions:
                 for cm in class_metrics:
                     class_weights[cm.label] = max(0.1, 1.0 - cm.recall)
 
-            # Build weighted class order
-            classes = list(by_class.keys())
-            if class_weights:
-                # Sort by weight descending — weakest classes first
-                classes.sort(key=lambda c: class_weights.get(c, 0.5), reverse=True)
-            else:
-                random.Random(42).shuffle(classes)
+            def cluster_weight(key: tuple[str, str]) -> float:
+                cls, _kind = key
+                return len(clusters[key]) * class_weights.get(cls, 0.5)
 
-            # Round-robin with weighted class order
+            keys = sorted(clusters.keys(), key=cluster_weight, reverse=True)
+            if not class_weights:
+                random.Random(42).shuffle(keys)
+
+            # Round-robin across failure-mode clusters
             idx = 0
-            while remaining > 0 and any(by_class.values()):
-                cls = classes[idx % len(classes)]
-                if by_class[cls]:
-                    sampled.append(by_class[cls].pop(0))
+            while remaining > 0 and keys:
+                key = keys[idx % len(keys)]
+                if clusters[key]:
+                    sampled.append(clusters[key].pop(0))
                     remaining -= 1
                 idx += 1
-                classes = [c for c in classes if by_class[c]]
-                if not classes:
-                    break
+                keys = [k for k in keys if clusters[k]]
 
         return sampled[:max_samples]
 
@@ -1441,15 +1689,124 @@ Instructions:
 
                     except Exception as e2:
                         print(f"json_repair failed: {e2}")
-                        repaired = {}
-                        pass
+
+            # Response truncated mid-stream (hit output token limit): recover
+            # as many complete rule objects as possible instead of losing all.
+            recovered = self._recover_truncated_rules(text)
+            if recovered is not None:
+                print(f"   ↻ Recovered {len(recovered.get('rules', []))} rules from truncated JSON")
+                return recovered
             raise
+
+    @staticmethod
+    def _recover_truncated_rules(text: str) -> dict | None:
+        """Extract complete rule objects from a truncated ``"rules": [...]`` array.
+
+        When the model hits its output token budget, the final rule object and
+        closing brackets are cut off, so json.loads fails on the whole payload.
+        This walks the rules array and keeps every fully-balanced object,
+        discarding the incomplete tail.
+
+        Returns a dict like {"rules": [...], "deleted_rules": [...]} or None
+        if no rules array is present.
+        """
+        marker = '"rules"'
+        idx = text.find(marker)
+        if idx == -1:
+            return None
+        bracket = text.find("[", idx)
+        if bracket == -1:
+            return None
+
+        objects = []
+        depth = 0
+        in_string = False
+        escaped = False
+        start = None
+        for i in range(bracket + 1, len(text)):
+            ch = text[i]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0 and start is not None:
+                    fragment = text[start : i + 1]
+                    try:
+                        objects.append(json.loads(fragment))
+                    except json.JSONDecodeError:
+                        pass
+                    start = None
+            elif ch == "]" and depth == 0:
+                break
+
+        if not objects:
+            return None
+
+        # Recover an explicit deleted_rules array if it parsed before truncation
+        deleted: list[str] = []
+        del_match = re.search(r'"deleted_rules"\s*:\s*(\[[^\]]*\])', text)
+        if del_match:
+            try:
+                deleted = json.loads(del_match.group(1))
+            except json.JSONDecodeError:
+                deleted = []
+
+        return {"rules": objects, "deleted_rules": deleted}
+
+    # Diverse non-empty probe strings used to detect catch-all regex patterns.
+    # Empty string is excluded on purpose: a rule like ``^.{1,}$`` matches every
+    # real (non-empty) input and is just as degenerate as ``.*``.
+    _CATCH_ALL_PROBES = (
+        "hello world this is a benign sentence",
+        "1234567890",
+        "!@#$%^&*()",
+        "the quick brown fox jumps over the lazy dog",
+        "élève naïve façade",
+        "a",
+    )
+
+    def _is_catch_all_regex(self, pattern: str) -> bool:
+        """Detect regex patterns that match essentially any input.
+
+        A rule like ``.*`` or ``^[\\s\\S]{0,1000}$`` matches every document,
+        so it degenerates into a constant base-rate predictor — it passes
+        i.i.d. dev checks (it just predicts the majority class) and collapses
+        under distribution shift. Such rules are rejected at validation.
+
+        Pure negative-lookahead rules (``^(?!.*\\bkill\\b).*$``) are also
+        flagged: they match every input except ones containing a niche
+        blocked term, which is the same degenerate near-constant behavior.
+        A lookahead paired with a *positive* anchor (``(?!.*kill).*\\bweather\\b``)
+        only matches relevant inputs, so it escapes the probes and is kept.
+        """
+        try:
+            compiled = re.compile(pattern)
+        except re.error:
+            return False
+        return all(compiled.search(probe) is not None for probe in self._CATCH_ALL_PROBES)
 
     def _validate_rule(self, rule: Rule) -> bool:
         """Validate rule syntax"""
         try:
             if rule.format == RuleFormat.REGEX:
                 re.compile(rule.content)
+                if self._is_catch_all_regex(rule.content):
+                    print(
+                        f"      Rejected catch-all regex (matches any input): {rule.content[:60]!r}"
+                    )
+                    return False
             elif rule.format == RuleFormat.CODE:
                 compile(rule.content, "<string>", "exec")
                 if "def extract(" not in rule.content:

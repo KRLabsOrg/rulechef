@@ -1,0 +1,53 @@
+{
+  "feedback": {
+    "physical_measurements": "This QUANTITY rule misses most quantities in the corpus. Cover amounts of money with currency (e.g. '10,000 euros', 'EUR 4,000', '300,000 Turkish liras'), areas ('1,000 square metres'), and distances. Never match number/number patterns like '1432/03' \u2014 those are case numbers, not quantities.",
+    "case_and_echr_numbers": "This CODE rule misses bare application numbers. It must match patterns like 'no. 36244/06', 'nos. 6210/73 and 6877/75', and application numbers in parentheses '(no. 36244/06)'. The slash format digits/2-digit-year is the strongest signal. Do not match dates or monetary amounts.",
+    "initials_with_period": "This PERSON rule has too many false positives: it fires on abbreviations that are not people. Only match initials when adjacent to a name or title context (e.g. 'Mr A.B.', 'A.B. lodged the application'), and never match single common abbreviations like 'p.', 'No.', 'art.', 'cf.'."
+  },
+  "per_type": {
+    "CODE": {
+      "before": 0.4542372881355932,
+      "after": 0.488135593220339
+    },
+    "DATETIME": {
+      "before": 0.8506163886874547,
+      "after": 0.8506163886874547
+    },
+    "QUANTITY": {
+      "before": 0.05714285714285715,
+      "after": 0.3555555555555555
+    },
+    "PERSON": {
+      "before": 0.5344995140913509,
+      "after": 0.5402298850574713
+    },
+    "ORG": {
+      "before": 0.48272305312016506,
+      "after": 0.489002557544757
+    },
+    "LOC": {
+      "before": 0.5501285347043702,
+      "after": 0.5501285347043702
+    },
+    "DEM": {
+      "before": 0.40433212996389895,
+      "after": 0.3769968051118211
+    },
+    "MISC": {
+      "before": 0.03550295857988166,
+      "after": 0.04975124378109452
+    }
+  },
+  "format_micro_f1": {
+    "before": 0.7872070930968967,
+    "after": 0.7961104140526976
+  },
+  "semantic_micro_f1": {
+    "before": 0.47804364975019714,
+    "after": 0.477191184008201
+  },
+  "num_rules": {
+    "before": 22,
+    "after": 39
+  }
+}

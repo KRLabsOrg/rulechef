@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+import rulechef
 from api.config import settings
 from api.routes import data, extraction, learning, project, rules
 from api.state import sessions
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
-app = FastAPI(title="RuleChef", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="RuleChef", version=rulechef.__version__, lifespan=lifespan)
 
 # CORS for dev (Vite on :5173)
 app.add_middleware(

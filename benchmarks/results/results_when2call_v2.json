@@ -1,0 +1,718 @@
+{
+  "config": {
+    "model": "llama-3.1-8b-instant",
+    "synthesis_model": "moonshotai/kimi-k2-instruct-0905",
+    "format": "both",
+    "shots": 500,
+    "max_rules": 50,
+    "max_samples": 100,
+    "max_iterations": 10,
+    "seed": 42,
+    "train_size": 500,
+    "test_size": 3652,
+    "use_grex": true,
+    "agentic": true,
+    "task_framing": "3-class with full tool descriptions"
+  },
+  "llm_baseline": {
+    "accuracy": 0.6119934282584885,
+    "macro_f1": 0.6002533505869088,
+    "per_class": {
+      "tool_call": {
+        "precision": 0.5547,
+        "recall": 0.756,
+        "f1": 0.6399,
+        "tp": 979,
+        "fp": 786,
+        "fn": 316
+      },
+      "request_for_info": {
+        "precision": 0.4645,
+        "recall": 0.3945,
+        "f1": 0.4267,
+        "tp": 419,
+        "fp": 483,
+        "fn": 643
+      },
+      "cannot_answer": {
+        "precision": 0.8497,
+        "recall": 0.6463,
+        "f1": 0.7342,
+        "tp": 837,
+        "fp": 148,
+        "fn": 458
+      }
+    },
+    "tool_hallucination_rate": 0.12015503875968993,
+    "tool_misuse_rate": 0.18223938223938224,
+    "num_no_tool_ca": 258,
+    "prediction_distribution": {
+      "tool_call": 1765,
+      "request_for_info": 902,
+      "cannot_answer": 985
+    },
+    "confusion": {
+      "tool_call": {
+        "tool_call": 979,
+        "cannot_answer": 55,
+        "request_for_info": 261
+      },
+      "request_for_info": {
+        "tool_call": 550,
+        "request_for_info": 419,
+        "cannot_answer": 93
+      },
+      "cannot_answer": {
+        "tool_call": 236,
+        "request_for_info": 222,
+        "cannot_answer": 837
+      }
+    }
+  },
+  "rulechef_standalone": {
+    "total": 3652,
+    "covered": 2199,
+    "coverage": 0.6021358159912377,
+    "accuracy": 0.23302300109529026,
+    "macro_f1_all": 0.25009745790114973,
+    "macro_f1_trained_classes": 0.37514618685172463,
+    "per_class": {
+      "tool_call": {
+        "precision": 0,
+        "recall": 0.0,
+        "f1": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1295
+      },
+      "request_for_info": {
+        "precision": 0.3099,
+        "recall": 0.3898,
+        "f1": 0.3453,
+        "tp": 414,
+        "fp": 922,
+        "fn": 648
+      },
+      "cannot_answer": {
+        "precision": 0.5064,
+        "recall": 0.3375,
+        "f1": 0.405,
+        "tp": 437,
+        "fp": 426,
+        "fn": 858
+      }
+    }
+  },
+  "combined_system": {
+    "accuracy": 0.48055859802847756,
+    "macro_f1": 0.47730194332825615,
+    "per_class": {
+      "tool_call": {
+        "precision": 0.5753,
+        "recall": 0.3127,
+        "f1": 0.4052,
+        "tp": 405,
+        "fp": 299,
+        "fn": 890
+      },
+      "request_for_info": {
+        "precision": 0.3554,
+        "recall": 0.5876,
+        "f1": 0.4429,
+        "tp": 624,
+        "fp": 1132,
+        "fn": 438
+      },
+      "cannot_answer": {
+        "precision": 0.6091,
+        "recall": 0.5606,
+        "f1": 0.5838,
+        "tp": 726,
+        "fp": 466,
+        "fn": 569
+      }
+    },
+    "tool_hallucination_rate": 0.0,
+    "tool_misuse_rate": 0.05791505791505792,
+    "llm_calls_saved": 2199,
+    "llm_calls_saved_pct": 0.6021358159912377
+  },
+  "rulechef_training_time_s": 222.7,
+  "rulechef_eval_time_s": 260.768,
+  "rulechef_per_query_ms": 71.4,
+  "llm_time_s": 881.4,
+  "published_baselines": {
+    "Llama 3.1 8B Instruct": {
+      "tool_hall": 67,
+      "macro_f1": 16.6
+    },
+    "Llama 3.1 70B Instruct": {
+      "tool_hall": 57,
+      "macro_f1": 37.8
+    },
+    "Llama 3.2 3B Instruct": {
+      "tool_hall": 52,
+      "macro_f1": 17.9
+    },
+    "GPT-4o-Mini": {
+      "tool_hall": 41,
+      "macro_f1": 52.9
+    },
+    "GPT-4o": {
+      "tool_hall": 26,
+      "macro_f1": 61.3
+    },
+    "Qwen 2.5 7B Instruct": {
+      "tool_hall": 21,
+      "macro_f1": 32.0
+    },
+    "MNM 8B Baseline": {
+      "tool_hall": 19,
+      "macro_f1": 31.9
+    },
+    "MNM 8B + SFT": {
+      "tool_hall": 7,
+      "macro_f1": 49.4
+    },
+    "MNM 8B + RPO": {
+      "tool_hall": 1.2,
+      "macro_f1": 52.4
+    }
+  },
+  "rules": [
+    {
+      "name": "explicit_tools_none",
+      "format": "regex",
+      "content": "Tools:\\s*none\\b",
+      "priority": 10
+    },
+    {
+      "name": "forex_request_no_fx_tool",
+      "format": "regex",
+      "content": "(?i)\\b(?:forex|currency pair|exchange rate|minus directional indicator|plus directional|ADX|RSI)\\b",
+      "priority": 8
+    },
+    {
+      "name": "math_ops_without_calc_tools",
+      "format": "regex",
+      "content": "(?i)\\b(?:multiply.*matrix|eigenvalue|derivative|integral|palindrome|missing number|find.*duplicate|matrix product|dot product|polynomial.*regression|R-squared|cosine similarity)\\b",
+      "priority": 8
+    },
+    {
+      "name": "crypto_ticker_without_blockchain",
+      "format": "regex",
+      "content": "\\b(btc|bitcoin|eth|ethereum|blockchain|address|transaction|whale|cryptocurrency|coin)\\b",
+      "priority": 6
+    },
+    {
+      "name": "missing_hashtag_or_id",
+      "format": "regex",
+      "content": "(?i)\\b(fetch|get|search|find).*?\\b(hashtag|post|tweet|user|follower|pins|video|song|idea)\\b(?!.*\\bid\\b|\\b@\\w+|#\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "missing_location_coordinate_ip",
+      "format": "regex",
+      "content": "(?i)\\b(weather|ocean|forecast|zip|zipcode|coordinates|geocode|elevation|station|cams)\\b(?!.*\\b(city|state|ip|lat|lon|\\d+\\.\\d+))",
+      "priority": 9
+    },
+    {
+      "name": "missing_currency_or_date",
+      "format": "regex",
+      "content": "(?i)\\b(rate|price|exchange|stock|conversion|historical)\\b(?!.*\\b(usd|eur|gbp|jpy|cad|aud|btc|eth|\\d{4}-\\d{2}-\\d{2}))",
+      "priority": 8
+    },
+    {
+      "name": "missing_search_keyword",
+      "format": "regex",
+      "content": "(?i)\\b(search|find|retrieve).*?\\b(song|quote|product|label|nft|job|meme|radio|artist|movie|keyword)\\b(?!.*(?:['\\\"]\\w+['\\\"]|\\bby\\s+\\w+\\b))",
+      "priority": 7
+    },
+    {
+      "name": "has_urllookup_tool_but_no_url",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:v?1_)?urllookup\\b)(?=.*\\binformation (?:about|for) the website\\b)(?!.*\\bhttps?://|\\bwww\\.|\\b[a-z0-9.-]+\\.(?:com|org|net|io|co)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "has_flag_status_tool_but_no_flag_code",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_current_status_for_given_flag\\b)(?=.*\\bflag\\b)(?!.*\\bflag.*(?:code|id|['\\\"]?[a-z0-9_-]{3,}['\\\"]?))\\b",
+      "priority": 9
+    },
+    {
+      "name": "missing_url_when_urllookup_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:v?1_)?urllookup\\b)(?=.*?(?:website|url|domain|site).*)((?!.*\\bhttps?:\\/\\/)(?!.*\\bwww\\.[a-zA-Z0-9.-]+\\.))",
+      "priority": 9
+    },
+    {
+      "name": "missing_flag_code",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_current_status_for_given_flag\\b)(?=.*?flag)(?!.*\\bflag.*?(?:code|id|['\\\"]?[a-zA-Z0-9_-]{3,}['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "missing_ip_address",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_ip_zipcode\\b)(?=.*?(?:zip.*?code|ip.*?address).*)((?!.*\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b))",
+      "priority": 9
+    },
+    {
+      "name": "stock_forex_generic_without_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*?(?:stock|forex|exchange|currency|ticker|quote)(?!.*\\banalysis|news|earnings|holders))",
+      "priority": 8
+    },
+    {
+      "name": "cricket_tools_missing_sports_params",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bmatchstreakodds\\b)(?=.*?odds.*?(?:match|streak))(?!.*\\b(id|code):?\\s+['\\\"]?[a-zA-Z0-9_-]{3,}['\\\"]?)",
+      "priority": 8
+    },
+    {
+      "name": "sport_team_fixtures_cricket_only",
+      "format": "regex",
+      "content": "(?i)(?=.*?(?:ipl|csk|matches.*?(?:won|fixtures)))(?!.*\\bfixtures\\b:.*)",
+      "priority": 7
+    },
+    {
+      "name": "missing_hotel_name",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bis_hotel_available\\b)(?=.*?hotel)(?!.*?\\bhotel.*?(?:name|id|['\\\"]?[a-zA-Z0-9- ']+['\\\"]?))",
+      "priority": 8
+    },
+    {
+      "name": "missing_venue_state_holidays",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bferiados_dos_estados\\b)(?=.*?holidays).*?(?=$|\\n)(?!.*?state|UF|['\\\"]?[A-Z]{2}['\\\"]?)",
+      "priority": 8
+    },
+    {
+      "name": "missing_qrcodelabel_or_confidence",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bqrcodepro\\b.*label)(?=.*\\bQR Label\\b(?!\\s+$))|(?=.*\\bconfidence.*interval for.*sample\\b)(?!.*confidence.*level|alpha)",
+      "priority": 9
+    },
+    {
+      "name": "chess_tool_missing_rating",
+      "format": "regex",
+      "content": "",
+      "priority": 5
+    },
+    {
+      "name": "login_tool_missing_creds",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bloginuser\\b)(?=.*?(?:username|user|password))((?!.*username.*['\\\"]\\w+['\\\"]|password.*['\\\"]\\w+['\\\"]))",
+      "priority": 8
+    },
+    {
+      "name": "diabetes_risk_tool_missing_weight",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bassess_diabetes_risk\\b)(?=.*\\b(diabetes risk|tall|sedentary)\\b)(?!.*\\bbmi|weight|\\b\\d+\\.?\\d*\\s*(kg|pounds|bmi))",
+      "priority": 8
+    },
+    {
+      "name": "merge_dict_tool_missing_other",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bmerge_dictionaries\\b)(?=.*\\bwith\\s+another\\s+dictionary\\b)(?!.*other|second)",
+      "priority": 7
+    },
+    {
+      "name": "find_topn_missing_n",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bfind_n_largest_numbers\\b)(?=.*\\blargest numbers\\b)(?!.*\\b\\d+\\s+largest)",
+      "priority": 8
+    },
+    {
+      "name": "forex_tool_exists_dont_cannotanswer",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(forex|exchange.rate|currency.pair|rates|latest.rate))(?=.*\\brates:|forex:|crypto_exchange)",
+      "priority": 3
+    },
+    {
+      "name": "explicit_refusal_cannotanswer",
+      "format": "regex",
+      "content": "(?i)\\b(I cannot|no information|I don't have|unable to provide)\\b",
+      "priority": 10
+    },
+    {
+      "name": "chess_topic_no_chess_tool",
+      "format": "regex",
+      "content": "(?i)\\b(chess|puzzles|rated\\s+around\\s+\\d+|kings?\\s+gambit|abbazia\\s+defence)\\b",
+      "priority": 9
+    },
+    {
+      "name": "linear_reg_topic_no_calc_tool",
+      "format": "regex",
+      "content": "(?i)\\b(predict.*y.*value.*linear regression|R-squared|polynomial.*regression)\\b",
+      "priority": 9
+    },
+    {
+      "name": "social_dynamics_no_tool",
+      "format": "regex",
+      "content": "(?i)\\banalyze.*social dynamics\\b",
+      "priority": 8
+    },
+    {
+      "name": "keto_recipes_no_recipe_tool",
+      "format": "regex",
+      "content": "(?i)\\bketo.*avocado.*recipes?\\b",
+      "priority": 8
+    },
+    {
+      "name": "flat_split_list_missing_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(flatten|split|chunk).*\\blist\\b)(?!.*\\b(flatten_list|split_list)\\b)",
+      "priority": 8
+    },
+    {
+      "name": "charging_stations_missing_coords",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bcharging stations?\\b)(?=.*\\b(?:near|close|within))(?!.*\\b(?:lat|lon|\\d+\\.\\d+|ip|coordinates))",
+      "priority": 9
+    },
+    {
+      "name": "qrcode_label_missing_text",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bqrcodepro\\b)(?=.*\\blabel.*text)(?!.*label[^\\w]*['\\\"]?\\s*\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "flag_status_missing_code_imperative",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_current_status_for_given_flag\\b)(?=.*\\bflag\\b)(?!.*\\bflag.*?(?:code|id|['\\\"]?[A-Z]{2,}['\\\"]?|\\w{3,}))",
+      "priority": 9
+    },
+    {
+      "name": "diabetes_missing_weight_imperative",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bassess_diabetes_risk\\b)(?=.*\\btall)(?!.*\\b(bmi|weight|\\d+\\.?\\d*\\s*(kg|pounds|bmi)))",
+      "priority": 8
+    },
+    {
+      "name": "merge_dict_missing_second",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bmerge_dictionaries\\b)(?=.*\\bwith\\s+another\\s+dictionary\\b)(?!.*(second|other|dict2))",
+      "priority": 8
+    },
+    {
+      "name": "hotel_name_missing_imperative",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bis_hotel_available\\b)(?=.*\\bhotel\\b)(?!.*\\bhotel.*?(?:name|id|['\\\"]?[\\w\\s-]{3,}['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "netflix_title_missing_id",
+      "format": "regex",
+      "content": "(?i)(?=.*\\btitle_seasons\\b)(?=.*\\bnetflix.*(?:title|seasons))\\b(?!.*title.*(?:id|['\\\"]?[a-z0-9\\- ]{3,}['\\\"]?))",
+      "priority": 8
+    },
+    {
+      "name": "quotes_missing_query",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsearch_quotes\\b)(?=.*\\bquotes?\\b)(?!.*quotes?.*(?:about|['\\\"]\\w+['\\\"]))",
+      "priority": 8
+    },
+    {
+      "name": "city_name_coord_missing",
+      "format": "regex",
+      "content": "(?i)\\b(weather|ocean|forecast|elevation|station|cams)\\b(?!.*\\b(city|state|ip|lat|[-]?\\d+\\.\\d+))",
+      "priority": 9
+    },
+    {
+      "name": "urllookup_missing_url",
+      "format": "regex",
+      "content": "(?i)(?=.*\\burllookup\\b)(?=.*\\bwebsite|url|domain\\b)(?!.*\\bhttps?://|www\\.[a-zA-Z0-9.-]+\\.(?:com|org|net|io)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "realtime_quotes_tool_missing",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(real.?time|current|stock quotes?)\\b)(?!.*\\b(quote|ticker|price.*all|crypto_exchange|rates))",
+      "priority": 8
+    },
+    {
+      "name": "forex_exchange_rates_missing_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(latest exchange rates?|currency.*pair|rates.*for.*[A-Z]{3})\\b)(?!.*\\b(rates|forex|currency.pair))",
+      "priority": 8
+    },
+    {
+      "name": "split_list_missing_param",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsplit_list\\b)(?=.*\\bsplit.*list.*into chunks\\b)(?!.*\\b\\d+\\s+(?:chunk|size|parts))",
+      "priority": 8
+    },
+    {
+      "name": "ai_detect_tool_exists_but_no_text",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bchat_gpt_detector\\b)(?=.*\\b(is\\s+AI|AI-generated)\\b)(?!.*statement|text|sentence|['\\\"].+['\\\"])",
+      "priority": 9
+    },
+    {
+      "name": "exchange_rates_missing_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(latest exchange rates?|currency.*pair|rates.*for.*[A-Z]{3})\\b)(?!.*\\b(rates|forex|currency\\.pair|exchange))",
+      "priority": 8
+    },
+    {
+      "name": "charging_stations_missing_coords_relaxed",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bcharging stations?\\b)(?=.*\\b(close to|within|near))(?!(?:.*\\b(lat|lon|ip|coordinates|:))?\\d+\\.\\d+)",
+      "priority": 9
+    },
+    {
+      "name": "question_word_no_tool",
+      "format": "regex",
+      "content": "(?i)^\\s*(what|how|why)\\b",
+      "priority": 2
+    },
+    {
+      "name": "qrcodepro_label_text_missing",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bqrcodepro\\b)(?=.*\\blabel\\b)(?!.*label\\s*(?:=|:|['\\\"])?\\s*['\\\"]?\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "netflix_title_seasons_missing_id",
+      "format": "regex",
+      "content": "(?i)(?=.*\\btitle_seasons\\b)(?=.*\\bnetflix\\b)(?!.*(?:title|slug|id|['\\\"]?[a-z0-9\\-]{2,}['\\\"]?))",
+      "priority": 8
+    },
+    {
+      "name": "exchange_rates_tool_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:exchange|rates?|currency.*pair)\\b)(?!.*\\b(?:rates?|forex|currency_pair|crypto_exchange)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "keto_recipes_tool_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bketo.*(?:avocado|recipes?))(?!(?:.*\\bgo\\b|recipe|menu|food))",
+      "priority": 8
+    },
+    {
+      "name": "social_dynamics_tool_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsocial.*dynamics\\b)(?!.*\\banalyze_social_group_dynamics\\b)",
+      "priority": 8
+    },
+    {
+      "name": "forex_pairs_tool_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:forex|currency.*pair|ticker.*pair)\\b)(?!.*\\b(?:forex|rates|currency_pair|tickers?)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "chess_topic_but_chess_tool_exists",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bchess\\b)(?=.*\\b(?:chess|puzzle|opening|gambit|elo|rating)\\b)",
+      "priority": 10
+    },
+    {
+      "name": "flatten_list_tool_exists",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bflatten_list\\b)(?=.*\\bflatten.*list\\b)",
+      "priority": 9
+    },
+    {
+      "name": "recipe_tool_exists",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(recipe|menu|food|keto)\\b)(?=.*\\bketo.*avocado\\b)",
+      "priority": 9
+    },
+    {
+      "name": "random_string_missing_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\brandom.*string.*(uppercase|digit|length)\\b)(?!.*random_string_generator)",
+      "priority": 8
+    },
+    {
+      "name": "qr_code_pro_label_text_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bqrcodepro\\b)(?=.*\\blabel.*text|label.*text.*['\\\"]?\\s*$)(?!.*label.*['\\\"]\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "diabetes_missing_weight_new",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bassess_diabetes_risk\\b)(?=.*\\bheight|tall)(?!.*\\bweight|bmi|\\d+\\.?\\d*(?:kg|pounds)?)",
+      "priority": 9
+    },
+    {
+      "name": "hotel_name_absent_but_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bis_hotel_available\\b)(?=.*\\bhotel\\b)(?!.*\\bhotel\\s+(?:name|id)?['\\\"]?\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "netflix_title_season_id_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\btitle_seasons\\b)(?=.*\\bnetflix.*season|\\btitle.*season)(?!.*title.*(?:id|slug|['\\\"]?[a-z0-9\\-]+['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "quotes_missing_query_but_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsearch_quotes\\b)(?=.*quotes?)(?!.*quotes?.*(?:about|topic|['\\\"]\\w))",
+      "priority": 9
+    },
+    {
+      "name": "city_coord_absent_for_weather_forecast",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:weather|forecast|ocean|marine)\\b)(?!.*\\b(?:city|state|ip|lat|coordinates|[-]?\\d+\\.\\d+))",
+      "priority": 9
+    },
+    {
+      "name": "urllookup_missing_url_explicit",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bv1?_urllookup\\b)(?=.*\\bwebsite|url|domain\\b)(?!.*\\bhttps?://|www\\.[a-zA-Z0-9.-]+\\.(?:com|org|net)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "flag_status_code_absent_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_current_status_for_given_flag\\b)(?=.*\\bflag)(?!.*\\bflag.*?code|['\\\"]?[A-Z0-9]{2,}['\\\"]?)",
+      "priority": 9
+    },
+    {
+      "name": "split_list_chunk_size_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsplit_list\\b)(?=.*\\bsplit.*into.*chunks?)(?!.*\\b\\d+\\s*(chunk|c|parts?))",
+      "priority": 9
+    },
+    {
+      "name": "ai_detect_text_absent",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bchat_gpt_detector\\b)(?=.*\\bAI-generated|is AI\\b)(?!.*(?:statement|text|['\\\"].+['\\\"]))",
+      "priority": 9
+    },
+    {
+      "name": "question_mark_fallback_request",
+      "format": "regex",
+      "content": "(?i)^\\s*(what|how|where|when|who|why|which).*\\?\\s*$",
+      "priority": 1
+    },
+    {
+      "name": "qrcodepro_label_missing_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bqrcodepro\\b)(?=.*\\blabel\\b)(?!.*label[^\\w]*['\\\"]?\\s*\\w+)",
+      "priority": 9
+    },
+    {
+      "name": "chess_no_chess_tool_cannot",
+      "format": "regex",
+      "content": "(?i)\\b(chess|puzzles|rated\\s+around|kings?\\s+gambit|abbazia\\s+defence)\\b(?!.*\\bchess|puzzle|elo|rating|gambit\\b.*tool)",
+      "priority": 9
+    },
+    {
+      "name": "flag_status_missing_code_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_current_status_for_given_flag\\b)(?=.*\\bflag\\b)(?!.*\\bflag.*?(?:code|id|['\\\"]?[A-Z0-9_-]{2,}['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "exchange_rates_tool_missing_cannot",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:latest exchange|rates?|currency.*pair)\\b)(?!.*\\b(?:rates?|forex|currency_pair|crypto_exchange)\\b)",
+      "priority": 8
+    },
+    {
+      "name": "pizza_id_missing_but_tool",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bget_specific_pizza\\b)(?=.*\\bpizza\\b)(?!.*\\bpizza.*(?:id|['\\\"]?\\w+['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "keto_recipe_tool_exists",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bketo.*avocado\\b)(?=.*\\b(recipe|menu|food)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "ai_detect_missing_text_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bchat_gpt_detector\\b)(?=.*\\bAI-generated|is AI\\b)(?!.*(?:statement|text|['\\\"].+['\\\"]))",
+      "priority": 9
+    },
+    {
+      "name": "social_dynamics_tool_exists",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsocial.*dynamics\\b)(?=.*\\banalyze_social_group_dynamics\\b)",
+      "priority": 9
+    },
+    {
+      "name": "realtime_quotes_missing_tool_cannot",
+      "format": "regex",
+      "content": "(?i)(?=.*\\breal.?time.*stock.*quotes?\\b)(?!.*\\b(quote|ticker|price.*all|crypto_exchange|rates)\\b)",
+      "priority": 8
+    },
+    {
+      "name": "diabetes_missing_weight_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bassess_diabetes_risk\\b)(?=.*\\btall|height\\b)(?!.*\\b(weight|bmi|\\d+\\.?\\d*\\s*(kg|pounds|bmi)))",
+      "priority": 9
+    },
+    {
+      "name": "hotel_name_missing_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bis_hotel_available\\b)(?=.*\\bhotel\\b)(?!.*\\bhotel.*?(?:name|id|['\\\"]?[\\w\\s-]{2,}['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "netflix_title_missing_id_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\btitle_seasons\\b)(?=.*\\bnetflix\\b)(?!.*\\btitle.*(?:id|slug|['\\\"]?[a-z0-9\\-]{2,}['\\\"]?))",
+      "priority": 9
+    },
+    {
+      "name": "quotes_missing_query_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsearch_quotes\\b)(?=.*\\bquotes?\\b)(?!.*quotes?.*(?:about|topic|['\\\"]\\w))",
+      "priority": 9
+    },
+    {
+      "name": "urllookup_missing_url_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bv1?_urllookup\\b)(?=.*\\bwebsite|url|domain\\b)(?!.*\\bhttps?://|www\\.[a-zA-Z0-9.-]+\\.(?:com|org|net)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "split_list_missing_chunk_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bsplit_list\\b)(?=.*\\bsplit.*into.*chunks?\\b)(?!.*\\b\\d+\\s*(chunk|parts?|c)\\b)",
+      "priority": 9
+    },
+    {
+      "name": "charging_stations_missing_coords_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\bcharging stations?\\b)(?=.*\\b(?:near|close|within)\\b)(?!.*\\b(?:lat|lon|ip|coordinates|:)\\d+\\.\\d+)",
+      "priority": 9
+    },
+    {
+      "name": "city_coord_missing_weather_loose",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:weather|forecast|ocean|marine|elevation|station|cams?)\\b)(?!.*\\b(?:city|state|ip|lat|coordinates|[-]?\\d+\\.\\d+))",
+      "priority": 9
+    },
+    {
+      "name": "exchange_rates_tool_exists_missing_params",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(?:rates?|forex|currency_pair|crypto_exchange)\\b)(?=.*\\b(?:exchange|rates?)\\b)(?!.*\\b(?:usd|eur|gbp|jpy|aud|cad|btc|eth|[A-Z]{3}|base))",
+      "priority": 8
+    },
+    {
+      "name": "random_string_missing_tool_cannot",
+      "format": "regex",
+      "content": "(?i)(?=.*\\brandom.*string.*(?:uppercase|digit|length|format)\\b)(?!.*random_string_generator)",
+      "priority": 8
+    },
+    {
+      "name": "earnings_missing_tool_cannot",
+      "format": "regex",
+      "content": "(?i)(?=.*\\b(earnings?|income|revenue)\\b)(?!.*\\b(earnings|quote|ticker|price|financials?)\\b)",
+      "priority": 8
+    }
+  ]
+}

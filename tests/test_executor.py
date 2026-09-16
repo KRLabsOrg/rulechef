@@ -469,3 +469,54 @@ class TestDeduplicateDicts:
         ]
         result = self.executor._deduplicate_dicts(items)
         assert len(result) == 2
+
+
+# =========================================================================
+# Rule execution timeouts (LLM-written rules must not hang the evaluator)
+# =========================================================================
+
+
+class TestRuleTimeouts:
+    def setup_method(self):
+        self.executor = RuleExecutor()
+
+    def test_infinite_loop_code_rule_times_out(self):
+        rule = Rule(
+            id="loop",
+            name="loop",
+            description="",
+            format=RuleFormat.CODE,
+            content="def extract(input_data):\n    while True:\n        pass\n",
+        )
+        import time
+
+        t0 = time.time()
+        result = self.executor.execute_rule(rule, {"text": "abc"})
+        assert result is None
+        assert time.time() - t0 < 10  # bounded by RULE_TIMEOUT_S, not forever
+
+    def test_catastrophic_regex_times_out(self):
+        rule = Rule(
+            id="evil",
+            name="evil",
+            description="",
+            format=RuleFormat.REGEX,
+            content=r"(a+)+$",
+        )
+        import time
+
+        t0 = time.time()
+        result = self.executor.execute_rule(rule, {"text": "a" * 40 + "b"})
+        assert result == []
+        assert time.time() - t0 < 10
+
+    def test_normal_rules_unaffected(self):
+        rule = Rule(
+            id="ok",
+            name="ok",
+            description="",
+            format=RuleFormat.REGEX,
+            content=r"\d{4}",
+        )
+        result = self.executor.execute_rule(rule, {"text": "year 1999 etc"})
+        assert len(result) == 1 and result[0].text == "1999"

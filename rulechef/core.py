@@ -1,5 +1,6 @@
 """Core data structures for RuleChef"""
 
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -419,6 +420,10 @@ class Rule:
             $0, $1, $start, $end, $ent_type. None for plain span extraction.
         output_key: Which key in the output dict to populate (e.g. 'entities').
             Inferred from task type if not set.
+        validated_precision: Precision measured on held-out data (set by
+            ranking.rank_rules). Used by the executor to order rules within
+            the same priority so the more precise rule wins conflicts.
+        validated_support: Number of predictions behind validated_precision.
     """
 
     id: str
@@ -435,6 +440,9 @@ class Rule:
     # Schema-aware rule fields (optional, for NER/TRANSFORMATION)
     output_template: dict[str, Any] | None = None  # Template for output JSON
     output_key: str | None = None  # Which output key to populate (e.g., "entities")
+    # Measured on held-out data by ranking.rank_rules()
+    validated_precision: float | None = None
+    validated_support: int = 0
 
     @property
     def pattern(self) -> str:
@@ -477,27 +485,45 @@ class Rule:
             result["output_template"] = self.output_template
         if self.output_key is not None:
             result["output_key"] = self.output_key
+        if self.validated_precision is not None:
+            result["validated_precision"] = self.validated_precision
+            result["validated_support"] = self.validated_support
         return result
 
     @classmethod
-    def from_dict(cls, json_dict: dict):
-        return cls(
-            id=json_dict["id"],
-            name=json_dict["name"],
-            description=json_dict.get("description", ""),
-            format=RuleFormat(json_dict["format"]),
-            content=json_dict["content"],
-            priority=json_dict.get("priority", 5),
-            confidence=json_dict.get("confidence", 0.5),
-            times_applied=json_dict.get("times_applied", 0),
-            successes=json_dict.get("successes", 0),
-            failures=json_dict.get("failures", 0),
-            created_at=datetime.fromisoformat(
-                json_dict.get("created_at", datetime.now().isoformat())
-            ),
-            output_template=json_dict.get("output_template"),
-            output_key=json_dict.get("output_key"),
-        )
+    def from_dict(cls, d: dict) -> "Rule":
+        """Reconstruct a Rule from a serialized dict.
+
+        Tolerant of partial dicts: a missing ``id``, ``description``, or
+        ``created_at`` is filled in, so rules exported by the benchmark
+        harnesses (which omit bookkeeping fields) load as readily as full
+        ``to_dict`` output. Only ``name`` and ``content`` are required.
+        """
+        created = d.get("created_at")
+        if isinstance(created, str):
+            try:
+                created = datetime.fromisoformat(created)
+            except ValueError:
+                created = None
+        kwargs: dict[str, Any] = {
+            "id": d.get("id") or uuid.uuid4().hex[:8],
+            "name": d["name"],
+            "description": d.get("description", ""),
+            "format": RuleFormat(d.get("format", "regex")),
+            "content": d["content"],
+            "priority": d.get("priority", 5),
+            "confidence": d.get("confidence", 0.5),
+            "times_applied": d.get("times_applied", 0),
+            "successes": d.get("successes", 0),
+            "failures": d.get("failures", 0),
+            "output_template": d.get("output_template"),
+            "output_key": d.get("output_key"),
+            "validated_precision": d.get("validated_precision"),
+            "validated_support": d.get("validated_support", 0),
+        }
+        if created is not None:
+            kwargs["created_at"] = created
+        return cls(**kwargs)
 
 
 @dataclass
