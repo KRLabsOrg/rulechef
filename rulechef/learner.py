@@ -842,7 +842,7 @@ class RuleLearner:
                 class_metrics=class_metrics,
                 fp_examples=fp_examples,
             )
-            #print(f"  [debug] failures_to_use={len(failures_to_use)}  prompt_chars={len(prompt)}")
+            # print(f"  [debug] failures_to_use={len(failures_to_use)}  prompt_chars={len(prompt)}")
 
             try:
                 response = self.llm.chat.completions.create(
