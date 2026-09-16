@@ -209,6 +209,7 @@ __marimo__/
 # RuleChef data
 rulechef_data/
 docs/internal/
+reports/
 
 # App (frontend + API)
 node_modules/
