@@ -966,7 +966,7 @@ class RuleLearner:
             call_result = self.llm_calls.complete_with_variants(
                 variants,
                 output_tokens=self.llm_config.patch_output_tokens,
-                extra_kwargs=self._temp_kwargs(),
+                extra_kwargs={**self._temp_kwargs(),"seed":42},
             )
             response_text = call_result.response_text
             result = self._parse_json(response_text)
