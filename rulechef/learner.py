@@ -1686,15 +1686,11 @@ Instructions:
                     print(f"json_repair  worked!")
                     return repaired
                 if not isinstance(repaired, dict):
-                    if (
-                        isinstance(repaired, list)
-                        and repaired
-                        and isinstance(repaired[0], dict)
-                    ):
+                    if isinstance(repaired, list) and repaired and isinstance(repaired[0], dict):
                         repaired = repaired[0]
                         print(f"json_repair  worked!")
                         return repaired
-                        
+
                     else:
                         repaired = {}
                         print(f"json_repair  did not work!")
@@ -1703,7 +1699,6 @@ Instructions:
                 print(f"json_repair failed: {e2}")
             raise
 
-            
     @staticmethod
     def _recover_truncated_rules(text: str) -> dict | None:
         """Extract complete rule objects from a truncated ``"rules": [...]`` array.
