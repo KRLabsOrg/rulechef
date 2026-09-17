@@ -526,6 +526,19 @@ class Rule:
         return cls(**kwargs)
 
 
+def rule_labels(rule: Rule) -> set[str]:
+    """Entity/class labels a rule declares itself as targeting.
+    """
+    labels: set[str] = set()
+
+    if isinstance(rule.output_template, dict):
+        for key in ("label", "type"):
+            value = rule.output_template.get(key)
+            if isinstance(value, str) and not value.startswith("$"):
+                labels.add(value)
+    return labels
+
+
 @dataclass
 class Dataset:
     """Complete training dataset containing examples, corrections, feedback, and rules.
