@@ -12,6 +12,7 @@ from rulechef.core import (
     Dataset,
     Rule,
     TaskType,
+    rule_labels,
 )
 
 # ============================================================================
@@ -583,7 +584,7 @@ def evaluate_rules_individually(
         rule_total_matches = 0
         rule_covered = 0
         # check what entities a rule finds
-        entities_found_by_rule = set()
+        target_labels = rule_labels(rule)
 
         for i, item in enumerate(all_data):
             if in_context:
@@ -596,9 +597,6 @@ def evaluate_rules_individually(
 
             expected_output = item.expected_output
             gold_entities = _get_entities(expected_output, task_type)
-
-            for e in pred_entities:
-                entities_found_by_rule.add(_entity_type(e))
 
             matched, fp_list, fn_list = _match_entities(
                 pred_entities, gold_entities, task_type, mode, iou_threshold
@@ -621,7 +619,7 @@ def evaluate_rules_individually(
 
             # Only count FN for entity types that this rule targets
             # expected to find everything. But we track it for completeness.
-            targeted_fn = [g for g in fn_list if _entity_type(g) in entities_found_by_rule]
+            targeted_fn = [g for g in fn_list if _entity_type(g) in target_labels]
             for gold in targeted_fn:
                 cls = _entity_type(gold)
                 if class_counts[cls].label == "":
@@ -649,9 +647,9 @@ def evaluate_rules_individually(
                 1
                 for item in all_data
                 for e in _get_entities(item.expected_output, task_type)
-                if _entity_type(e) in entities_found_by_rule
+                if _entity_type(e) in target_labels
             )
-            if entities_found_by_rule
+            if target_labels
             else total_expected
         )
 
