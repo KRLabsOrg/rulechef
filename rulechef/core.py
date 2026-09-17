@@ -527,8 +527,7 @@ class Rule:
 
 
 def rule_labels(rule: Rule) -> set[str]:
-    """Entity/class labels a rule declares itself as targeting.
-    """
+    """Entity/class labels a rule declares itself as targeting."""
     labels: set[str] = set()
 
     if isinstance(rule.output_template, dict):
