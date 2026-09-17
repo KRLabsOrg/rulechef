@@ -413,13 +413,8 @@ def evaluate_dataset(
     fp_examples: list[dict] = []  # Concrete FP examples for refinement
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
-    entities_found_by_rule = set()
 
-    for item in all_data:
-        extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
-        pred_entities = _get_entities(extracted, task_type)
-        for e in pred_entities:
-            entities_found_by_rule.add(_entity_type(e))
+    target_labels = set().union(*(rule_labels(r) for r in rules)) if rules else set()
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
@@ -433,7 +428,7 @@ def evaluate_dataset(
 
         # Document-level exact match
         # if not fp_list and not fn_list:
-        targeted_fn = [g for g in fn_list if _entity_type(g) in entities_found_by_rule]
+        targeted_fn = [g for g in fn_list if _entity_type(g) in target_labels]
         if not fp_list and not targeted_fn:
             exact_match_count += 1
         else:
@@ -492,6 +487,8 @@ def evaluate_dataset(
         # Accumulate per-class FN
         for gold in fn_list:
             cls = _entity_type(gold)
+            if cls not in target_labels:
+                continue  # Only count FN for entity types that the rules target
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].fn += 1
