@@ -1,12 +1,14 @@
-import streamlit as st
 import json
-from rulechef import RuleChef, TaskType
-from rulechef.core import RuleFormat, Rule, Dataset
-from rulechef.executor import RuleExecutor
-from utils import get_openai_client, add_data, stream_to_streamlit
-import pandas as pd
-from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
 from datetime import datetime
+
+import pandas as pd
+import streamlit as st
+from utils import add_data, get_openai_client, stream_to_streamlit
+
+from rulechef import RuleChef, TaskType
+from rulechef.core import Dataset, Rule, RuleFormat
+from rulechef.evaluation import evaluate_rules_individually, print_rule_metrics
+from rulechef.executor import RuleExecutor
 
 st.set_page_config(page_title="RuleChef", layout="wide")
 

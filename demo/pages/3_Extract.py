@@ -1,15 +1,17 @@
+import json
 import re
 
 import streamlit as st
-import json
+from utils import add_data, get_openai_client, highlight_entities, stream_to_streamlit
+
 from rulechef import RuleChef, TaskType
-from rulechef.core import RuleFormat, Rule
+from rulechef.core import Rule, RuleFormat
 from rulechef.executor import RuleExecutor
-from utils import get_openai_client, add_data, stream_to_streamlit, highlight_entities
 
 st.set_page_config(page_title="RuleChef", layout="wide")
-from annotated_text import annotated_text
 import codecs
+
+from annotated_text import annotated_text
 
 
 def decode_unicode_escapes(text):
