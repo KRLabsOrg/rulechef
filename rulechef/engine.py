@@ -447,7 +447,6 @@ class RuleChef:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
-        run_audit: bool = True,
         holdout_fraction: float = 0.0,
         split_seed: int = 42,
     ):
@@ -467,7 +466,6 @@ class RuleChef:
                 Options: 'balanced', 'recent', 'diversity', 'uncertain', 'varied'.
             incremental_only: If True and rules already exist, only generate
                 patch rules for current failures instead of full re-synthesis.
-            run_audit: Whether to run the coordinator's post-learn rule audit
             holdout_fraction: Fraction of examples to hold out as a dev set
                 during refinement (0 disables). When set, patch acceptance and
                 best-rule selection are decided on held-out data instead of
@@ -487,7 +485,6 @@ class RuleChef:
             max_refinement_iterations=max_refinement_iterations,
             sampling_strategy=sampling_strategy,
             incremental_only=incremental_only,
-            run_audit=run_audit,
             holdout_fraction=holdout_fraction,
             split_seed=split_seed,
         )

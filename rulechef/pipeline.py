@@ -25,14 +25,10 @@ class LearningPipeline:
         max_refinement_iterations: int = 3,
         sampling_strategy: str | None = None,
         incremental_only: bool = False,
-        run_audit: bool = True,
         holdout_fraction: float = 0.0,
         split_seed: int = 42,
     ):
         """Run the full learning pipeline.
-        Args:
-            run_audit: Whether to run the coordinator's post-learn rule audit
-
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
                 (learned_rules, eval_result) on success. eval_result is None
@@ -108,8 +104,7 @@ class LearningPipeline:
             chef._store.save(chef.dataset)
 
             # Step 8: Audit rules
-            if run_audit:
-                rules, eval_result = self._audit_rules(rules, eval_result)
+            rules, eval_result = self._audit_rules(rules, eval_result)
 
             # Step 9: Re-stamp validated stats. Audit merges create new Rule
             # objects after the learner's stamping pass, so they would carry
