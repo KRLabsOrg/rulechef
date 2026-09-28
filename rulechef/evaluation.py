@@ -119,6 +119,7 @@ class EvalResult:
             "total_docs": self.total_docs,
             "per_class": [c.to_dict() for c in self.per_class],
             "failures": self.failures,
+            "fp_examples": self.fp_examples,
         }
 
 
@@ -381,6 +382,24 @@ def _match_entities_partial(
 # ============================================================================
 
 
+def _target_labels(rules: List[Rule]) -> set[str] | None:
+    """Get the set of entity types that the rules target.
+    If any rule's label is None then returns None (FN are not scoped, same as main)"""
+    if not rules:
+        return None
+    labels: set[str] = set()
+    for r in rules:
+        declared = rule_labels(r)
+        if not declared:
+            return None
+        labels |= declared
+    return labels
+
+
+def _in_scope(e: dict, targets: set[str] | None) -> bool:
+    return targets is None or _entity_type(e) in targets
+
+
 def evaluate_dataset(
     rules: List[Rule],
     dataset: Dataset,
@@ -414,7 +433,10 @@ def evaluate_dataset(
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
 
-    target_labels = set().union(*(rule_labels(r) for r in rules)) if rules else set()
+    targets = (
+        None if task_type == TaskType.CLASSIFICATION else _target_labels(rules)
+    )  # treating classification as a single label, so no need to filter by target labels
+
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
@@ -428,7 +450,8 @@ def evaluate_dataset(
 
         # Document-level exact match
         # if not fp_list and not fn_list:
-        targeted_fn = [g for g in fn_list if _entity_type(g) in target_labels]
+        targeted_fn = [g for g in fn_list if _in_scope(g, targets)]
+
         if not fp_list and not targeted_fn:
             exact_match_count += 1
         else:
@@ -487,7 +510,7 @@ def evaluate_dataset(
         # Accumulate per-class FN
         for gold in fn_list:
             cls = _entity_type(gold)
-            if cls not in target_labels:
+            if not _in_scope(gold, targets):
                 continue  # Only count FN for entity types that the rules target
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
@@ -581,7 +604,7 @@ def evaluate_rules_individually(
         rule_total_matches = 0
         rule_covered = 0
         # check what entities a rule finds
-        target_labels = rule_labels(rule)
+        target_labels = rule_labels(rule) or None
 
         for i, item in enumerate(all_data):
             if in_context:
@@ -600,7 +623,7 @@ def evaluate_rules_individually(
             )
 
             rule_total_matches += len(pred_entities)
-            rule_covered += len(matched)
+            rule_covered += sum(1 for _p, g in matched if _in_scope(g, target_labels))
 
             for pred, gold in matched:
                 cls = _entity_type(gold)
@@ -616,7 +639,7 @@ def evaluate_rules_individually(
 
             # Only count FN for entity types that this rule targets
             # expected to find everything. But we track it for completeness.
-            targeted_fn = [g for g in fn_list if _entity_type(g) in target_labels]
+            targeted_fn = [g for g in fn_list if _in_scope(g, target_labels)]
             for gold in targeted_fn:
                 cls = _entity_type(gold)
                 if class_counts[cls].label == "":
@@ -644,7 +667,7 @@ def evaluate_rules_individually(
                 1
                 for item in all_data
                 for e in _get_entities(item.expected_output, task_type)
-                if _entity_type(e) in target_labels
+                if _in_scope(e, target_labels)
             )
             if target_labels
             else total_expected
