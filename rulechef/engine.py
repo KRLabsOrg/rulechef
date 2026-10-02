@@ -61,7 +61,8 @@ class RuleChef:
         max_counter_examples: int = 10,
         synthesis_strategy: str = "auto",
         training_logger=None,
-        temperature: float | None = None,
+        temperature: float | None = 0.0,
+        seed: int | None = 42,
         llm_config: LLMCallConfig | dict | None = None,
         context_window: int | None = None,
         output_token_param: str | None = "max_completion_tokens",
@@ -129,6 +130,7 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
         self.use_spacy_ner = use_spacy_ner
         self.spacy_model = spacy_model
         if llm_config is not None:
@@ -163,6 +165,8 @@ class RuleChef:
                 self.coordinator.training_logger = self.training_logger
             if self.temperature is not None:
                 self.coordinator.temperature = self.temperature
+            if self.seed is not None:
+                self.coordinator.seed = self.seed
             self.coordinator.llm_config = self.llm_config
             self.coordinator.llm_calls = LLMCallManager(
                 self.coordinator.llm, self.coordinator.model, self.llm_config
@@ -249,6 +253,7 @@ class RuleChef:
             max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
             temperature=self.temperature,
+            seed=self.seed,
             llm_config=self.llm_config,
         )
 

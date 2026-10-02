@@ -304,6 +304,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.critic_interval = critic_interval
         self.training_logger = training_logger
         self.temperature: float | None = None
+        self.seed: int | None = None
         self.llm_config = (
             (llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config))
             if llm_config is not None
@@ -313,9 +314,12 @@ class AgenticCoordinator(CoordinatorProtocol):
 
     def _temp_kwargs(self) -> dict:
         """Return temperature kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     def should_trigger_learning(
         self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None
@@ -425,8 +429,7 @@ Return JSON:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+                **self._temp_kwargs(),
             )
             response_text = response.choices[0].message.content
             result = json.loads(response_text)
@@ -541,8 +544,7 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+                **self._temp_kwargs(),
             )
 
             result = json.loads(response.choices[0].message.content)
@@ -761,8 +763,7 @@ Return JSON:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+                **self._temp_kwargs(),
             )
             result = json.loads(response.choices[0].message.content)
 
@@ -837,8 +838,7 @@ Return JSON:
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0,
-            seed=42,
+            **self._temp_kwargs(),
         )
 
         response_text = response.choices[0].message.content

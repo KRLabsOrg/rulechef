@@ -39,7 +39,8 @@ class RuleLearner:
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
         training_logger=None,
-        temperature: float | None = None,
+        temperature: float | None = 0.0,
+        seed: int | None = 42,
         llm_config: LLMCallConfig | None = None,
     ):
         """Initialize the rule learner.
@@ -72,6 +73,7 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
         self.counter_examples_pool: list = []
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
@@ -84,9 +86,12 @@ class RuleLearner:
 
     def _temp_kwargs(self) -> dict:
         """Return temperature kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -130,8 +135,7 @@ class RuleLearner:
                 # max_completion_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0,
-                seed=42,
+                **self._temp_kwargs(),
                 frequency_penalty=0.1,
             )
             response_text = response.choices[0].message.content
@@ -282,8 +286,7 @@ class RuleLearner:
                     # max_completion_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
-                    temperature=0,
-                    seed=42,
+                    **self._temp_kwargs(),
                 )
 
                 response_text = response.choices[0].message.content
@@ -765,7 +768,10 @@ class RuleLearner:
                         continue
                 base = max(sources, key=lambda r: r.priority)
                 merged = Rule(
-                    id=self._generate_id(),
+                    id=self._generate_id(
+                        name=action.merged_name or base.name,
+                        content=action.merged_pattern or base.content,
+                    ),
                     name=action.merged_name or base.name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
@@ -810,7 +816,7 @@ class RuleLearner:
         # Write rule-level feedback (same as chef.add_feedback would)
         for rule_id, text in critique.get("rule_feedback", {}).items():
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(name=rule_id, content=text),
                 text=text,
                 level="rule",
                 target_id=rule_id,
@@ -822,7 +828,7 @@ class RuleLearner:
         # Write task-level feedback
         if critique.get("task_guidance"):
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(name="task", content=critique["task_guidance"]),
                 text=critique["task_guidance"],
                 level="task",
                 source="critic",
@@ -966,7 +972,7 @@ class RuleLearner:
             call_result = self.llm_calls.complete_with_variants(
                 variants,
                 output_tokens=self.llm_config.patch_output_tokens,
-                extra_kwargs={**self._temp_kwargs(), "seed": 42},
+                extra_kwargs=self._temp_kwargs(),
             )
             response_text = call_result.response_text
             result = self._parse_json(response_text)
@@ -1856,8 +1862,7 @@ Instructions:
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            seed=42,
+            **self._temp_kwargs(),
         )
 
         response_text = response.choices[0].message.content
