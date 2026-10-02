@@ -1114,29 +1114,6 @@ INSTRUCTIONS:
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
-    def _truncate_failure_input(
-        self, text: str, expected: dict, window: int = 50, got: dict | None = None
-    ) -> str:
-        if not text:
-            return text
-        entities = (expected or {}).get("entities", [])
-        if not entities:
-            entities = (got or {}).get("entities", [])
-
-        for ent in entities:
-            ent_text = ent.get("text", "") if isinstance(ent, dict) else ""
-            pos = text.find(ent_text) if ent_text else -1
-            if pos != -1:
-                start = max(0, pos - window)
-                end = min(len(text), pos + len(ent_text) + window)
-                snippet = text[start:end]
-                if start > 0:
-                    snippet = "..." + snippet
-                if end < len(text):
-                    snippet = snippet + "..."
-                return snippet
-        return text[: window * 2] if len(text) > window * 2 else text
-
     def _build_patch_prompt_variants(
         self,
         current_rules: list[Rule],
@@ -1297,17 +1274,10 @@ INSTRUCTIONS:
 
         failure_snippets = []
         for f in failures[:failure_limit]:
-            raw_input = f.get("input")
-            expected = f.get("expected")
-            input_text = raw_input.get("text") if isinstance(raw_input, dict) else raw_input
             failure_snippets.append(
                 {
-                    "input": self._truncate_failure_input(
-                        input_text, expected, got=f.get("got")
-                    )  # added the last param
-                    if isinstance(input_text, str)
-                    else raw_input,
-                    "expected": expected,
+                    "input": f.get("input"),
+                    "expected": f.get("expected"),
                     "got": f.get("got"),
                     "is_correction": f.get("is_correction", False),
                 }
