@@ -59,6 +59,7 @@ class RuleChef:
         max_samples: int = 50,
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
+        interleave_failures: bool = False,
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = 0.0,
@@ -99,6 +100,7 @@ class RuleChef:
             max_samples: Maximum training examples to include in prompts
                 (per-class positives and patch failures are both capped to this).
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
+            interleave_failures: If True (only for NER), interleave patch failures by entitiy text.
             max_counter_examples: Maximum counter-examples from other classes per prompt.
             synthesis_strategy: Strategy for multi-class synthesis.
                 'auto' uses per-class when multiple classes detected, 'per_class'
@@ -153,6 +155,7 @@ class RuleChef:
         self._allowed_formats_raw = allowed_formats
         self._max_rules = max_rules
         self._max_samples = max_samples
+        self._interleave_failures = interleave_failures
         self._max_rules_per_class = max_rules_per_class
         self._max_counter_examples = max_counter_examples
 
@@ -252,6 +255,7 @@ class RuleChef:
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
             training_logger=self.training_logger,
+            interleave_failures=self._interleave_failures,
             temperature=self.temperature,
             seed=self.seed,
             llm_config=self.llm_config,

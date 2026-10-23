@@ -6,7 +6,7 @@ import random
 import re
 import time
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from urllib import response
 
 from openai import OpenAI
@@ -42,6 +42,7 @@ class RuleLearner:
         temperature: float | None = 0.0,
         seed: int | None = 42,
         llm_config: LLMCallConfig | None = None,
+        interleave_failures: bool = False,
     ):
         """Initialize the rule learner.
 
@@ -60,6 +61,7 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -83,6 +85,7 @@ class RuleLearner:
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
         )
+        self.interleave_failures = interleave_failures
 
     def _temp_kwargs(self) -> dict:
         """Return temperature kwarg dict if set, empty dict otherwise."""
@@ -123,7 +126,6 @@ class RuleLearner:
         """
         max_rules = max_rules or self.max_rules
         prompt = self._build_synthesis_prompt(dataset, max_rules)
-        # print(prompt)
 
         print("📚 Synthesizing rules from dataset...")
         start = time.time()
@@ -1271,7 +1273,6 @@ INSTRUCTIONS:
                     truncate=rules_mode == "compact",
                 )
             )
-
         failure_snippets = []
         for f in failures[:failure_limit]:
             failure_snippets.append(
@@ -1518,6 +1519,40 @@ Instructions:
             lines.append(f"  ... and {len(ordered) - max_modes} more modes ({remaining} failures)")
         return "\n".join(lines) + "\n"
 
+    def _interleave_by_text(self, failures: list[dict]) -> list[dict]:
+        """Reorder failures so that distinct entity texts appear once before any text repeats"""
+        all_texts = []
+        for f in failures:
+            gold = (f.get("expected") or {}).get("entities", [])
+            pred = (f.get("got") or {}).get("entities", [])
+            pred_spans = {(e.get("start"), e.get("end"), e.get("type")) for e in pred}
+            gold_spans = {(e.get("start"), e.get("end"), e.get("type")) for e in gold}
+            missed = [
+                e.get("text", "").lower()
+                for e in gold
+                if (e.get("start"), e.get("end"), e.get("type")) not in pred_spans
+            ]
+            spurious = [
+                e.get("text", "").lower()
+                for e in pred
+                if (e.get("start"), e.get("end"), e.get("type")) not in gold_spans
+            ]
+            all_texts.append(missed + spurious)
+        freq = Counter(t for texts in all_texts for t in texts)
+        by_text = defaultdict(list)
+        key_of = {}
+        for f, texts in zip(failures, all_texts):
+            key = max(texts, key=lambda t: freq[t]) if texts else ""
+            by_text[key].append(f)
+            key_of[id(f)] = key
+        ordered = []
+        groups = sorted(by_text.values(), key=len, reverse=True)
+        for i in range(len(groups[0]) if groups else 0):
+            ordered.extend(g[i] for g in groups if i < len(g))
+        print(f"[interleave] before: {[key_of[id(f)] for f in failures[:15]]}")
+        print(f"[interleave] after:  {[key_of[id(f)] for f in ordered[:15]]}")
+        return ordered
+
     def _sample_failures(
         self,
         failures: list[dict],
@@ -1541,6 +1576,8 @@ Instructions:
 
         if remaining > 0 and other_failures:
             clusters = self._cluster_failures(other_failures, task_type)
+            if self.interleave_failures and task_type == TaskType.NER:
+                clusters = {k: self._interleave_by_text(v) for k, v in clusters.items()}
 
             # Weight by inverse recall if metrics available (weak classes get more samples)
             class_weights = {}
