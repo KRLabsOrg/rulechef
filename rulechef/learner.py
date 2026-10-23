@@ -1549,8 +1549,8 @@ Instructions:
         groups = sorted(by_text.values(), key=len, reverse=True)
         for i in range(len(groups[0]) if groups else 0):
             ordered.extend(g[i] for g in groups if i < len(g))
-        print(f"[interleave] before: {[key_of[id(f)] for f in failures[:15]]}")
-        print(f"[interleave] after:  {[key_of[id(f)] for f in ordered[:15]]}")
+        #print(f"[interleave] before: {[key_of[id(f)] for f in failures[:15]]}")
+        #print(f"[interleave] after:  {[key_of[id(f)] for f in ordered[:15]]}")
         return ordered
 
     def _sample_failures(
