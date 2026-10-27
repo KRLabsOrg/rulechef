@@ -294,6 +294,17 @@ chef = RuleChef(task, client, synthesis_strategy="per_class")
 chef = RuleChef(task, client, synthesis_strategy="bulk")
 ```
 
+### LLM-free Synthesis
+
+For NER and extraction, `synth="search"` builds candidate regexes from the labelled spans, measures each one with the executor and picks the ruleset by beam search, with no LLM call. An optional judge (any span model) checks candidates on unlabelled text, and `synth="hybrid"` lets LLM-written rules compete in the same pool:
+
+```python
+chef = RuleChef(task, synth="search")   # no client needed
+chef.learn_rules(holdout_fraction=0.2)
+```
+
+See the [learning guide](https://krlabsorg.github.io/rulechef/guide/learning/) for the judge and hybrid options.
+
 ### Agentic Coordinator
 
 The `AgenticCoordinator` uses LLM calls to guide the refinement loop, focusing on weak classes:
