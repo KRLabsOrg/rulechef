@@ -286,3 +286,47 @@ class TestSynthesizer:
         judge = Judge()
         assert judge.predict_spans(["x"], ["A"]) is None
         assert judge.reject(RuleEvidence("A", "x", 0, [])) is False
+
+
+# ---------------------------------------------------------------------------
+# Engine integration
+# ---------------------------------------------------------------------------
+
+
+class TestEngine:
+    def test_search_needs_no_llm_client(self, tmp_path, monkeypatch):
+        import rulechef.engine as engine
+
+        def no_openai(*a, **k):
+            raise AssertionError("search must not construct an LLM client")
+
+        monkeypatch.setattr(engine, "OpenAI", no_openai)
+        chef = engine.RuleChef(_ner_task(), synth="search", storage_path=str(tmp_path))
+        for ex in _dataset(20).examples:
+            chef.add_example(ex.input, ex.expected_output)
+        rules, eval_result = chef.learn_rules(holdout_fraction=0.25)
+        assert rules and eval_result is not None and eval_result.micro_f1 > 0.9
+        out = chef.extract({"text": "no. 44444/91 dated 2 June 1993"})
+        assert {e["type"] for e in out["entities"]} == {"CODE", "DATE"}
+
+    def test_hybrid_passes_llm_rules_as_seeds(self, tmp_path, monkeypatch):
+        import rulechef.engine as engine
+
+        chef = engine.RuleChef(
+            _ner_task(),
+            client=object(),
+            synth="hybrid",
+            search_config=SearchConfig(labels=["CODE"], max_rules_per_label=1),
+            storage_path=str(tmp_path),
+        )
+        for ex in _two_shape_dataset().examples:
+            chef.add_example(ex.input, ex.expected_output)
+        monkeypatch.setattr(chef._pipeline, "_synthesize_llm", lambda dataset: [_SEED])
+        rules, _ = chef.learn_rules()
+        assert [r.name for r in rules] == ["llm_code"]
+
+    def test_invalid_synth(self):
+        import rulechef.engine as engine
+
+        with pytest.raises(ValueError):
+            engine.RuleChef(_ner_task(), client=object(), synth="magic")
