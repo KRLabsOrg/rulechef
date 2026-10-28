@@ -69,6 +69,9 @@ class RuleChef:
         default_output_tokens: int | None = None,
         llm_safety_margin_tokens: int = 512,
         response_format_json: bool = True,
+        synth: str = "llm",
+        judge=None,
+        search_config=None,
     ):
         """Initialize a RuleChef instance.
 
@@ -116,9 +119,25 @@ class RuleChef:
             default_output_tokens: Optional fallback reserved output token budget.
             llm_safety_margin_tokens: Extra margin for local prompt checks.
             response_format_json: If True, request JSON object output when supported.
+            synth: Rule synthesis backend. 'llm' (default) writes rules with the
+                LLM and refines them. 'search' generates candidates from the
+                labelled spans, measures them and picks a ruleset by beam search,
+                with no LLM call (NER and EXTRACTION tasks; no client needed).
+                'hybrid' runs LLM synthesis and adds its rules to the search's
+                candidate pool.
+            judge: Optional rulechef.search.Judge for 'search'/'hybrid' (for
+                example a SpanModelJudge). It reads the unlabelled texts passed
+                to learn_rules(). Defaults to a no-op judge.
+            search_config: Optional rulechef.search.SearchConfig.
         """
+        if synth not in ("llm", "search", "hybrid"):
+            raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        self.synth = synth
+        self.judge = judge
+        self.search_config = search_config
         self.task = task
-        self.llm = client or OpenAI()
+        # Search synthesis needs no LLM: do not require an API key for it
+        self.llm = client if client is not None or synth == "search" else OpenAI()
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
@@ -445,6 +464,7 @@ class RuleChef:
         incremental_only: bool = False,
         holdout_fraction: float = 0.0,
         split_seed: int = 42,
+        unlabeled_texts: list[str] | None = None,
     ):
         """Learn rules from all collected data.
 
@@ -468,6 +488,8 @@ class RuleChef:
                 the data patches were learned from. Recommended (~0.2) for
                 datasets with hundreds of examples or more.
             split_seed: Random seed for the stratified train/dev split.
+            unlabeled_texts: Optional unlabelled texts for synth='search' or
+                'hybrid'. The judge reads them; ignored by synth='llm'.
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
@@ -483,6 +505,7 @@ class RuleChef:
             incremental_only=incremental_only,
             holdout_fraction=holdout_fraction,
             split_seed=split_seed,
+            unlabeled_texts=unlabeled_texts,
         )
 
     def load_rules(self, source: str | Path | list | dict, persist: bool = False) -> list[Rule]:

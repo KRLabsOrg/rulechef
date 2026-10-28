@@ -73,6 +73,15 @@ explores extraction: regex rules propose candidate spans with exact offsets,
 and contextual span exemplars confirm or reject each candidate — aimed at the
 semantic entity classes where surface patterns alone fall short.
 
+### LLM-free synthesis
+
+[A search backend](https://github.com/KRLabsOrg/rulechef/issues/50) generates
+candidate regexes from labelled spans, measures them with the executor and picks
+a ruleset by beam search, with an optional span-model judge on unlabelled text.
+Validation on a second benchmark and a low-label curve are tracked in
+[#51](https://github.com/KRLabsOrg/rulechef/issues/51), a trained judge in
+[#52](https://github.com/KRLabsOrg/rulechef/issues/52).
+
 ### spaCy
 
 Existing spaCy work is grouped into the same research milestone:
