@@ -180,3 +180,83 @@ class TestTruncatedJSONRecovery:
         )
         result = learner._parse_json(truncated)
         assert len(result["rules"]) == 1
+
+
+class TestInterleaveFailures:
+    def _failures(self, output_key="entities"):
+        names = ["Tax Office", "Tax Office", "Tax Office", "AZ University", "Xyz Ltd."]
+        return [
+            _ner_failure(
+                name,
+                output_key,
+            )
+            for name in names
+        ]
+
+    def test_distinct_texts_come_before_repeats(self):
+        ordered = _learner()._interleave_by_text(self._failures())
+        texts = [f["input"]["text"] for f in ordered]
+        assert texts == [
+            "Tax Office",
+            "AZ University",
+            "Xyz Ltd.",
+            "Tax Office",
+            "Tax Office",
+        ]
+
+    def test_spans_format(self):
+        ordered = _learner()._interleave_by_text(self._failures(output_key="spans"))
+        texts = [f["input"]["text"] for f in ordered]
+        assert texts == [
+            "Tax Office",
+            "AZ University",
+            "Xyz Ltd.",
+            "Tax Office",
+            "Tax Office",
+        ]
+
+    def test_flag_on(self):
+        learner = RuleLearner(
+            MagicMock(),
+            allowed_formats=[RuleFormat.REGEX],
+            model="test-model",
+            interleave_failures=True,
+        )
+        sampled = learner._sample_failures(self._failures(), max_samples=3, task_type=TaskType.NER)
+        sampled_failures = [f["input"]["text"] for f in sampled]
+        assert sampled_failures == ["Tax Office", "AZ University", "Xyz Ltd."]
+
+    def test_flag_off(self):
+        learner = RuleLearner(
+            MagicMock(),
+            allowed_formats=[RuleFormat.REGEX],
+            model="test-model",
+            interleave_failures=False,
+        )
+        sampled = learner._sample_failures(self._failures(), max_samples=3, task_type=TaskType.NER)
+        sampled_failures = [f["input"]["text"] for f in sampled]
+        assert sampled_failures == ["Tax Office", "Tax Office", "Tax Office"]
+
+    def test_flag_on_two_clusters(self):
+        learner = RuleLearner(
+            MagicMock(),
+            allowed_formats=[RuleFormat.REGEX],
+            model="test-model",
+            interleave_failures=True,
+        )
+        orgs = ["Tax Office", "Tax Office", "Tax Office", "AZ University"]
+        people = ["John Doe", "John Doe", "John Doe", "Jane Doe"]
+        failures = [_ner_failure(name) for name in orgs]
+        failures += [_ner_failure(name, entity_type="PER") for name in people]
+        sampled = learner._sample_failures(failures, max_samples=4, task_type=TaskType.NER)
+        sampled_failures = [f["input"]["text"] for f in sampled]
+        assert sampled_failures == ["Tax Office", "John Doe", "AZ University", "Jane Doe"]
+
+
+def _ner_failure(text, output_key="entities", entity_type="ORG"):
+    return {
+        "input": {"text": text},
+        "expected": {output_key: [{"text": text, "start": 0, "end": len(text), type: entity_type}]},
+        "got": {"entities": []},
+        "is_correction": False,
+    }
