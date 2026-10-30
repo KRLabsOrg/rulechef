@@ -14,6 +14,8 @@ from openai import OpenAI
 from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
 from rulechef.evaluation import (
     EvalResult,
+    _entity_type,
+    _get_entities,
     evaluate_dataset,
     evaluate_rules_individually,
 )
@@ -76,7 +78,6 @@ class RuleLearner:
         self.training_logger = training_logger
         self.temperature = temperature
         self.seed = seed
-        self.counter_examples_pool: list = []
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner, spacy_model=spacy_model)
@@ -233,10 +234,6 @@ class RuleLearner:
                 elif task_type == TaskType.TRANSFORMATION:
                     positives.append(ex)
 
-            # Use pool of pre-built counter_examples if available
-            if self.counter_examples_pool:
-                counter_examples = list(self.counter_examples_pool)
-
             # Sample positives using the configured strategy
             if len(positives) > self.max_samples:
                 class_dataset = Dataset(name=dataset.name, task=dataset.task)
@@ -263,13 +260,8 @@ class RuleLearner:
 
             # Sample counter-examples to keep prompt manageable
             if len(counter_examples) > max_counter_examples:
-                if self.counter_examples_pool:
-                    counter_examples = random.sample(counter_examples, max_counter_examples)
-                else:
-                    rng = random.Random(42 + i)
-                    counter_examples = rng.sample(counter_examples, max_counter_examples)
-            print("POSITIVES", len(positives))
-            print("NEGATIVES", len(counter_examples))
+                rng = random.Random(42 + i)
+                counter_examples = rng.sample(counter_examples, max_counter_examples)
 
             prompt = self._build_per_class_prompt(
                 dataset,
@@ -284,8 +276,6 @@ class RuleLearner:
                 response = self.llm.chat.completions.create(
                     model=self.model,
                     max_completion_tokens=16384,
-                    # max_tokens=16384,
-                    # max_completion_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     **self._temp_kwargs(),
@@ -1521,36 +1511,37 @@ Instructions:
 
     def _interleave_by_text(self, failures: list[dict]) -> list[dict]:
         """Reorder failures so that distinct entity texts appear once before any text repeats"""
+        # Find the entity text each failure got wrong
         all_texts = []
         for f in failures:
-            gold = (f.get("expected") or {}).get("entities", [])
-            pred = (f.get("got") or {}).get("entities", [])
-            pred_spans = {(e.get("start"), e.get("end"), e.get("type")) for e in pred}
-            gold_spans = {(e.get("start"), e.get("end"), e.get("type")) for e in gold}
+            gold = _get_entities(f.get("expected") or {}, TaskType.NER)
+            pred = _get_entities(f.get("got") or {}, TaskType.NER)
+            pred_spans = {(e.get("start"), e.get("end"), _entity_type(e)) for e in pred}
+            gold_spans = {(e.get("start"), e.get("end"), _entity_type(e)) for e in gold}
             missed = [
                 e.get("text", "").lower()
                 for e in gold
-                if (e.get("start"), e.get("end"), e.get("type")) not in pred_spans
+                if (e.get("start"), e.get("end"), _entity_type(e)) not in pred_spans
             ]
             spurious = [
                 e.get("text", "").lower()
                 for e in pred
-                if (e.get("start"), e.get("end"), e.get("type")) not in gold_spans
+                if (e.get("start"), e.get("end"), _entity_type(e)) not in gold_spans
             ]
             all_texts.append(missed + spurious)
+
+        # Put failures with the same text in one group
         freq = Counter(t for texts in all_texts for t in texts)
         by_text = defaultdict(list)
-        key_of = {}
         for f, texts in zip(failures, all_texts):
             key = max(texts, key=lambda t: freq[t]) if texts else ""
             by_text[key].append(f)
-            key_of[id(f)] = key
+
+        # Take one failure from each group in turn, until all are used
         ordered = []
         groups = sorted(by_text.values(), key=len, reverse=True)
         for i in range(len(groups[0]) if groups else 0):
             ordered.extend(g[i] for g in groups if i < len(g))
-        #print(f"[interleave] before: {[key_of[id(f)] for f in failures[:15]]}")
-        #print(f"[interleave] after:  {[key_of[id(f)] for f in ordered[:15]]}")
         return ordered
 
     def _sample_failures(
