@@ -1,10 +1,10 @@
 """LLM-based rule learning"""
 
+import hashlib
 import json
 import random
 import re
 import time
-import uuid
 from collections import defaultdict
 
 from openai import OpenAI
@@ -37,6 +37,7 @@ class RuleLearner:
         max_counter_examples: int = 10,
         training_logger=None,
         temperature: float | None = None,
+        seed: int | None = None,
         llm_config: LLMCallConfig | None = None,
     ):
         """Initialize the rule learner.
@@ -69,6 +70,7 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
@@ -79,10 +81,13 @@ class RuleLearner:
         )
 
     def _temp_kwargs(self) -> dict:
-        """Return temperature kwarg dict if set, empty dict otherwise."""
+        """Return temperature and seed kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -377,7 +382,7 @@ class RuleLearner:
                         continue
 
             rule = Rule(
-                id=self._generate_id(),
+                id=self._generate_id(name=rule_data.get("name", ""), content=pattern_content),
                 name=rule_data.get("name", f"Rule {i + 1}"),
                 description=rule_data.get("description", ""),
                 format=rule_format,
@@ -710,7 +715,10 @@ class RuleLearner:
                         continue
                 base = max(sources, key=lambda r: r.priority)
                 merged = Rule(
-                    id=self._generate_id(),
+                    id=self._generate_id(
+                        name=action.merged_name or base.name,
+                        content=action.merged_pattern or base.content,
+                    ),
                     name=action.merged_name or base.name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
@@ -755,7 +763,7 @@ class RuleLearner:
         # Write rule-level feedback (same as chef.add_feedback would)
         for rule_id, text in critique.get("rule_feedback", {}).items():
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(name=rule_id, content=text),
                 text=text,
                 level="rule",
                 target_id=rule_id,
@@ -767,7 +775,7 @@ class RuleLearner:
         # Write task-level feedback
         if critique.get("task_guidance"):
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(name="task", content=critique["task_guidance"]),
                 text=critique["task_guidance"],
                 level="task",
                 source="critic",
@@ -1701,9 +1709,10 @@ Instructions:
             print(f"      Validation error: {e}")
             return False
 
-    def _generate_id(self) -> str:
-        """Generate unique ID"""
-        return str(uuid.uuid4())[:8]
+    def _generate_id(self, name: str = "", content: str = "") -> str:
+        """Generate an ID from the name and content of the rule"""
+        raw = f"{name}:{content}"
+        return hashlib.md5(raw.encode()).hexdigest()[:8]
 
     def _pattern_uses_ent_type(self, pattern_data: list) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
