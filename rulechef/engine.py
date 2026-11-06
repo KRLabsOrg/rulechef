@@ -69,6 +69,8 @@ class RuleChef:
         default_output_tokens: int | None = None,
         llm_safety_margin_tokens: int = 512,
         response_format_json: bool = True,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -116,6 +118,8 @@ class RuleChef:
             default_output_tokens: Optional fallback reserved output token budget.
             llm_safety_margin_tokens: Extra margin for local prompt checks.
             response_format_json: If True, request JSON object output when supported.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types.
         """
         self.task = task
         self.llm = client or OpenAI()
@@ -128,6 +132,8 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -246,6 +252,8 @@ class RuleChef:
             training_logger=self.training_logger,
             temperature=self.temperature,
             llm_config=self.llm_config,
+            overlap_strategy=self.overlap_strategy,
+            cross_type_overlaps=self.cross_type_overlaps,
         )
 
         # Load existing dataset if on disk
