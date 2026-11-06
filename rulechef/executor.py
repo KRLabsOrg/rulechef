@@ -189,16 +189,35 @@ def substitute_template(
 class RuleExecutor:
     """Executes rules against input data"""
 
-    def __init__(self, use_spacy_ner: bool = False, spacy_model: str = "en_core_web_sm"):
+    OVERLAP_STRATEGIES = (None, "longest", "priority")
+
+    def __init__(
+        self,
+        use_spacy_ner: bool = False,
+        spacy_model: str = "en_core_web_sm",
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
+    ):
         """Initialize the rule executor.
 
         Args:
             use_spacy_ner: If True, run spaCy's NER pipeline during rule
                 execution so that ENT_TYPE/ENT_ID patterns are available.
+            overlap_strategy: Strategy for handling overlapping matches.
+                None (default): keeps the default behavior (exact position, or IoU > 0.7 within the same type)
+                "longest": keep the longest match among overlapping spans.
+                "priority": keeps the span from the highest-ranked rule (priority, then validated precision) among overlapping spans.
+            cross_type_overlaps: If True, check for overlaps across different entity types when applying the overlap strategy. If False, only check overlaps within the same type.
         """
+        if overlap_strategy not in self.OVERLAP_STRATEGIES and overlap_strategy is not None:
+            raise ValueError(
+                f"Invalid overlap_strategy: {overlap_strategy}. Must be one of {self.OVERLAP_STRATEGIES} or None."
+            )
         self._nlp = None  # Lazy-loaded spaCy model
         self.use_spacy_ner = use_spacy_ner
         self.spacy_model = spacy_model
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
 
     def apply_rules(
         self,
@@ -320,7 +339,8 @@ class RuleExecutor:
         for key, value in output.items():
             if isinstance(value, list) and value:
                 output[key] = self._deduplicate_dicts(value)
-                output[key] = self._keep_longest_spans(output[key])
+                if self.overlap_strategy:
+                    output[key] = self._resolve_overlaps(output[key])
 
         return output
 
@@ -680,10 +700,9 @@ class RuleExecutor:
 
         return unique
 
-    def _keep_longest_spans(self, items: list[dict]) -> list[dict]:
+    def _resolve_overlaps(self, items: list[dict]) -> list[dict]:
         if not items:
             return items
-
         has_spans = all(
             isinstance(item, dict) and "start" in item and "end" in item for item in items
         )
@@ -700,20 +719,25 @@ class RuleExecutor:
                 return default
             return default
 
-        sorted_items = sorted(
-            items,
-            key=lambda x: _to_int(x.get("end", 0)) - _to_int(x.get("start", 0)),
-            reverse=True,
-        )
+        def _type(item):
+            return item.get("type") or item.get("label")
+
+        if self.overlap_strategy == "longest":
+            sorted_items = sorted(
+                items,
+                key=lambda x: _to_int(x.get("end", 0)) - _to_int(x.get("start", 0)),
+                reverse=True,
+            )
+        else:
+            sorted_items = list(items)
 
         accepted = []
         for item in sorted_items:
-            item_type = item.get("type") or item.get("label")
             item_start = _to_int(item.get("start", 0))
             item_end = _to_int(item.get("end", 0))
 
             overlaps = any(
-                (item_type == (ex.get("type") or ex.get("label")))
+                (self.cross_type_overlaps or _type(item) == _type(ex))
                 and item_start < _to_int(ex.get("end", 0))
                 and item_end > _to_int(ex.get("start", 0))
                 for ex in accepted

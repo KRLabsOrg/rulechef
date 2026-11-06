@@ -45,6 +45,8 @@ class RuleLearner:
         seed: int | None = 42,
         llm_config: LLMCallConfig | None = None,
         interleave_failures: bool = False,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize the rule learner.
 
@@ -63,7 +65,9 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
-            interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text
+            interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text.
+            overlap_strategy: Span overlap resolution (None, 'longest', 'priority'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -80,7 +84,12 @@ class RuleLearner:
         self.seed = seed
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
-        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner, spacy_model=spacy_model)
+        self.executor = RuleExecutor(
+            use_spacy_ner=use_spacy_ner,
+            spacy_model=spacy_model,
+            overlap_strategy=overlap_strategy,
+            cross_type_overlaps=cross_type_overlaps,
+        )
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
@@ -133,9 +142,9 @@ class RuleLearner:
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
-                max_completion_tokens=16384,
+                # max_completion_tokens=16384,
                 # max_tokens=16384,
-                # max_completion_tokens=8192,
+                max_completion_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
@@ -275,7 +284,7 @@ class RuleLearner:
             try:
                 response = self.llm.chat.completions.create(
                     model=self.model,
-                    max_completion_tokens=16384,
+                    max_completion_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     **self._temp_kwargs(),
