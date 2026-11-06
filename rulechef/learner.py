@@ -142,9 +142,8 @@ class RuleLearner:
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
-                # max_completion_tokens=16384,
-                # max_tokens=16384,
-                max_completion_tokens=8192,
+
+                max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
@@ -284,7 +283,7 @@ class RuleLearner:
             try:
                 response = self.llm.chat.completions.create(
                     model=self.model,
-                    max_completion_tokens=8192,
+                    max_completion_tokens=16384,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     **self._temp_kwargs(),
