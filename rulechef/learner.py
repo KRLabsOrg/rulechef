@@ -66,7 +66,7 @@ class RuleLearner:
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
             interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text.
-            overlap_strategy: Span overlap resolution (None, 'longest', 'priority'); see RuleExecutor.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types.
         """
         self.llm = llm
@@ -142,7 +142,6 @@ class RuleLearner:
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
-
                 max_completion_tokens=16384,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},

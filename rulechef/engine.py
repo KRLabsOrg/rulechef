@@ -122,7 +122,7 @@ class RuleChef:
             default_output_tokens: Optional fallback reserved output token budget.
             llm_safety_margin_tokens: Extra margin for local prompt checks.
             response_format_json: If True, request JSON object output when supported.
-            overlap_strategy: Span overlap resolution (None, 'longest', 'priority'); see RuleExecutor.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types.
         """
         self.task = task
