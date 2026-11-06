@@ -1,5 +1,7 @@
 """Tests for conflict resolution: which rule wins when several match."""
 
+import pytest
+
 from rulechef.core import Rule, RuleFormat, TaskType
 from rulechef.executor import RuleExecutor
 
@@ -74,3 +76,62 @@ class TestClassificationConflicts:
         ]
         output = self.executor.apply_rules(rules, {"text": "some text"}, TaskType.CLASSIFICATION)
         assert output["label"] == "label_b"
+
+
+# =========================================================================
+# Span overlaps (overlap_strategy / cross_type_overlaps)
+# =========================================================================
+SPAN_TEXT = "Contact John Doe Consulting LLC today"
+
+
+def _span_rule(rule_id, pattern, type_, priority=5):
+    return Rule(
+        id=rule_id,
+        name=rule_id,
+        description="",
+        format=RuleFormat.REGEX,
+        content=pattern,
+        priority=priority,
+        output_template={"text": "$0", "start": "$start", "end": "$end", "type": type_},
+        output_key="entities",
+    )
+
+
+def _span_texts(rules, **kwargs):
+    out = RuleExecutor(**kwargs).apply_rules(rules, {"text": SPAN_TEXT}, TaskType.NER, "text")
+    return sorted(e["text"] for e in out.get("entities", []))
+
+
+ORG = _span_rule("org", r"John Doe Consulting LLC", "ORG", priority=1)
+ORG_SHORT = _span_rule("org_short", r"John Doe", "ORG", priority=9)
+PER = _span_rule("per", r"John Doe", "PER", priority=9)
+
+
+class TestSpanOverlapConflicts:
+    @pytest.mark.parametrize(
+        "rules, kwargs, expected",
+        [
+            # default: partial overlap (IoU 0.35 < 0.7) -> both kept
+            ([ORG, ORG_SHORT], {}, ["John Doe", "John Doe Consulting LLC"]),
+            # longest wins, even against higher priority
+            ([ORG, ORG_SHORT], {"overlap_strategy": "longest"}, ["John Doe Consulting LLC"]),
+            # different types don't conflict by default
+            (
+                [ORG, PER],
+                {"overlap_strategy": "longest"},
+                ["John Doe", "John Doe Consulting LLC"],
+            ),
+            # unless cross_type_overlaps=True
+            (
+                [ORG, PER],
+                {"overlap_strategy": "longest", "cross_type_overlaps": True},
+                ["John Doe Consulting LLC"],
+            ),
+        ],
+    )
+    def test_overlap_strategy(self, rules, kwargs, expected):
+        assert _span_texts(rules, **kwargs) == expected
+
+    def test_invalid_strategy_raises(self):
+        with pytest.raises(ValueError):
+            RuleExecutor(overlap_strategy="shortest")
