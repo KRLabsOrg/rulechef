@@ -374,8 +374,7 @@ class RuleLearner:
                         )
             elif output_template and not output_key and primary_key:
                 output_key = primary_key
-            elif dataset and dataset.task.type == TaskType.TRANSFORMATION:
-                if rule_format != RuleFormat.CODE:
+            elif (dataset and dataset.task.type == TaskType.TRANSFORMATION and rule_format != RuleFormat.CODE):
                     if not output_key and primary_key:
                         output_key = primary_key
                     if not output_key:
