@@ -27,6 +27,7 @@ class LearningPipeline:
         incremental_only: bool = False,
         holdout_fraction: float = 0.0,
         split_seed: int = 42,
+        unlabeled_texts: list[str] | None = None,
     ):
         """Run the full learning pipeline.
 
@@ -82,23 +83,31 @@ class LearningPipeline:
             observer._skip = True
 
         try:
-            # Step 5: Synthesize rules
-            rules = self._synthesize(incremental_only)
-            if rules is None:
-                return None
-
-            # Step 6: Evaluate and refine
-            if run_evaluation:
-                rules, eval_result = chef.learner.evaluate_and_refine(
-                    rules,
-                    chef.dataset,
-                    max_iterations=max_refinement_iterations,
-                    coordinator=chef.coordinator,
-                    holdout_fraction=holdout_fraction,
-                    split_seed=split_seed,
+            if chef.synth != "llm" and not incremental_only:
+                # Steps 5-6 (search): synthesize on train, evaluate on dev, no LLM patching
+                rules, eval_result = self._search(
+                    run_evaluation, holdout_fraction, split_seed, unlabeled_texts
                 )
+                if rules is None:
+                    return None
             else:
-                eval_result = None
+                # Step 5: Synthesize rules
+                rules = self._synthesize(incremental_only)
+                if rules is None:
+                    return None
+
+                # Step 6: Evaluate and refine
+                if run_evaluation:
+                    rules, eval_result = chef.learner.evaluate_and_refine(
+                        rules,
+                        chef.dataset,
+                        max_iterations=max_refinement_iterations,
+                        coordinator=chef.coordinator,
+                        holdout_fraction=holdout_fraction,
+                        split_seed=split_seed,
+                    )
+                else:
+                    eval_result = None
 
             # Step 7: Save learned rules
             chef.dataset.rules = rules
@@ -264,25 +273,60 @@ class LearningPipeline:
             )
             return self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
         else:
-            # Choose synthesis method based on strategy
-            use_per_class = False
-            if chef.synthesis_strategy == "per_class":
-                use_per_class = True
-            elif chef.synthesis_strategy == "auto":
-                classes = chef.learner._get_classes(chef.dataset)
-                use_per_class = len(classes) > 1
-
-            if use_per_class:
-                rules = chef.learner.synthesize_ruleset_per_class(chef.dataset)
-            else:
-                rules = chef.learner.synthesize_ruleset(chef.dataset)
-
+            rules = self._synthesize_llm(chef.dataset)
             if not rules:
                 print("Failed to synthesize rules")
                 return None
 
             print(f"✓ Generated {len(rules)} rules")
             return rules
+
+    def _synthesize_llm(self, dataset) -> list[Rule]:
+        """Full LLM synthesis (per-class or bulk, by synthesis_strategy)."""
+        chef = self._chef
+        use_per_class = False
+        if chef.synthesis_strategy == "per_class":
+            use_per_class = True
+        elif chef.synthesis_strategy == "auto":
+            classes = chef.learner._get_classes(dataset)
+            use_per_class = len(classes) > 1
+
+        if use_per_class:
+            return chef.learner.synthesize_ruleset_per_class(dataset)
+        return chef.learner.synthesize_ruleset(dataset)
+
+    def _search(self, run_evaluation, holdout_fraction, split_seed, unlabeled_texts):
+        """Search synthesis on the train split ('hybrid' adds LLM rules as candidates).
+
+        Returns (rules, eval_result); eval_result is measured on the dev split
+        when holdout_fraction is active, on train otherwise, and is None when
+        evaluation is off. Returns (None, None) if nothing was learned.
+        """
+        from rulechef.evaluation import evaluate_dataset
+        from rulechef.search import SearchSynthesizer
+        from rulechef.splitting import split_dataset
+
+        chef = self._chef
+        train_ds, dev_ds = split_dataset(chef.dataset, holdout_fraction, seed=split_seed)
+        seeds = None
+        if chef.synth == "hybrid":
+            seeds = self._synthesize_llm(train_ds) or []
+            print(f"✓ LLM proposed {len(seeds)} candidate rules")
+
+        print(f"🔎 Search synthesis on {len(train_ds.get_all_training_data())} training items")
+        synthesizer = SearchSynthesizer(chef.search_config, chef.judge)
+        rules = synthesizer.synthesize(train_ds, unlabeled_texts, seeds)
+        if not rules:
+            print("Failed to synthesize rules")
+            return None, None
+        print(f"✓ Selected {len(rules)} rules")
+
+        eval_result = None
+        if run_evaluation:
+            eval_ds = dev_ds or train_ds
+            eval_result = evaluate_dataset(rules, eval_ds, chef.learner._apply_rules)
+            chef.learner._stamp_validated_stats(rules, eval_ds)
+        return rules, eval_result
 
     def _audit_rules(self, rules: list[Rule], eval_result) -> tuple:
         """Run coordinator audit and apply actions with F1 safety net."""

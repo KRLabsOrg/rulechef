@@ -103,6 +103,37 @@ Per-class synthesis generates rules for each label separately — one LLM call p
 
 For a 5-class classification task with default settings, this means 5 LLM calls, each producing up to 5 rules, with up to 50 positive examples and 10 counter-examples per prompt.
 
+## LLM-free Synthesis (search)
+
+For NER and extraction tasks, `synth="search"` learns regex rules without an LLM. Candidates are generated from the labelled spans (atom-signature generalisation of the positives, left-context `$1` rules, mutations), every candidate is measured alone with the executor, and a beam search picks the ordered ruleset with the best F1 on the training split:
+
+```python
+chef = RuleChef(task, synth="search")  # no client or API key needed
+chef.learn_rules(holdout_fraction=0.2)  # learn on train, report on dev
+```
+
+Optionally, a **judge** reads unlabelled text and confirms or vetoes candidates. Any span model fits through `SpanModelJudge`; the search mixes the share of a rule's unlabelled matches the judge confirms into its precision:
+
+```python
+from rulechef.search import SearchConfig, SpanModelJudge
+
+def predict(text, label_names):  # -> [{"start": int, "end": int, "label": str}, ...]
+    ...
+
+judge = SpanModelJudge(predict, label_names={"DATETIME": "date or time"})
+chef = RuleChef(
+    task,
+    synth="search",
+    judge=judge,
+    search_config=SearchConfig(labels=["DATETIME", "CODE"], min_support=2, judge_weight=0.5),
+)
+chef.learn_rules(holdout_fraction=0.2, unlabeled_texts=pool)
+```
+
+Subclass `rulechef.search.Judge` and override `reject(evidence)` to drop candidates from sample matches in context.
+
+`synth="hybrid"` runs the usual LLM synthesis and adds its rules to the search's candidate pool, so LLM-written and generated rules compete on the same measurement. `SearchSynthesizer(config, judge).synthesize(dataset, unlabeled_texts, seed_rules=rules)` does the same with an existing ruleset and no LLM call.
+
 ## Prompt Size Controls
 
 These parameters control how much data goes into each LLM prompt:
