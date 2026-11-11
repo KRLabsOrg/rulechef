@@ -12,8 +12,8 @@ from openai import OpenAI
 from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
 from rulechef.evaluation import (
     EvalResult,
-    _entity_type,
     _get_entities,
+    _match_entities,
     evaluate_dataset,
     evaluate_rules_individually,
 )
@@ -1463,25 +1463,17 @@ Instructions:
         for f in failures:
             gold = _get_entities(f.get("expected") or {}, TaskType.NER)
             pred = _get_entities(f.get("got") or {}, TaskType.NER)
-            pred_spans = {(e.get("start"), e.get("end"), _entity_type(e)) for e in pred}
-            gold_spans = {(e.get("start"), e.get("end"), _entity_type(e)) for e in gold}
-            missed = [
-                e.get("text", "").lower()
-                for e in gold
-                if (e.get("start"), e.get("end"), _entity_type(e)) not in pred_spans
-            ]
-            spurious = [
-                e.get("text", "").lower()
-                for e in pred
-                if (e.get("start"), e.get("end"), _entity_type(e)) not in gold_spans
-            ]
+            _, spurious_ents, missed_ents = _match_entities(pred, gold, TaskType.NER, mode="text")
+            missed = [(e.get("text") or "").lower() for e in missed_ents]
+            spurious = [(e.get("text") or "").lower() for e in spurious_ents]
+
             all_texts.append(missed + spurious)
 
         # Put failures with the same text in one group
         freq = Counter(t for texts in all_texts for t in texts)
         by_text = defaultdict(list)
         for f, texts in zip(failures, all_texts):
-            key = max(texts, key=lambda t: freq[t]) if texts else ""
+            key = min(texts, key=lambda t: freq[t]) if texts else ""
             by_text[key].append(f)
 
         # Take one failure from each group in turn, until all are used

@@ -58,7 +58,6 @@ class RuleChef:
         max_samples: int = 50,
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
-        interleave_failures: bool = False,
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = None,
@@ -70,6 +69,7 @@ class RuleChef:
         default_output_tokens: int | None = None,
         llm_safety_margin_tokens: int = 512,
         response_format_json: bool = True,
+        interleave_failures: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -99,7 +99,6 @@ class RuleChef:
                 (per-class positives and patch failures are both capped to this).
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes per prompt.
-            interleave_failures: If True (only for NER), interleave patch failures by entity text.
             synthesis_strategy: Strategy for multi-class synthesis.
                 'auto' uses per-class when multiple classes detected, 'per_class'
                 always uses per-class, any other value uses bulk synthesis.
@@ -118,6 +117,7 @@ class RuleChef:
             default_output_tokens: Optional fallback reserved output token budget.
             llm_safety_margin_tokens: Extra margin for local prompt checks.
             response_format_json: If True, request JSON object output when supported.
+            interleave_failures: If True (only for NER), interleave patch failures by entity text.
         """
         self.task = task
         self.llm = client or OpenAI()

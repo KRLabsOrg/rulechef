@@ -250,13 +250,45 @@ class TestInterleaveFailures:
         failures += [_ner_failure(name, entity_type="PER") for name in people]
         sampled = learner._sample_failures(failures, max_samples=4, task_type=TaskType.NER)
         sampled_failures = [f["input"]["text"] for f in sampled]
-        assert sampled_failures == ["Tax Office", "John Doe", "AZ University", "Jane Doe"]
+        assert sampled_failures == ["John Doe", "Tax Office", "Jane Doe", "AZ University"]
+
+    def test_multi_entity_failure(self):
+        learner = RuleLearner(
+            MagicMock(),
+            allowed_formats=[RuleFormat.REGEX],
+            model="test-model",
+            interleave_failures=True,
+        )
+        failures = [
+            _ner_failure("Tax Office"),
+            _ner_failure("Tax Office"),
+            _ner_multi_failure(["Tax Office", "AZ University"]),
+            _ner_failure("Xyz Ltd."),
+        ]
+        sampled = learner._sample_failures(failures, max_samples=3, task_type=TaskType.NER)
+        sampled_failures = [{e["text"] for e in f["expected"]["entities"]} for f in sampled]
+        assert sampled_failures == [
+            {"Tax Office"},
+            {"Tax Office", "AZ University"},
+            {"Xyz Ltd."},
+        ]
 
 
 def _ner_failure(text, output_key="entities", entity_type="ORG"):
     return {
         "input": {"text": text},
-        "expected": {output_key: [{"text": text, "start": 0, "end": len(text), type: entity_type}]},
+        "expected": {
+            output_key: [{"text": text, "start": 0, "end": len(text), "type": entity_type}]
+        },
+        "got": {"entities": []},
+        "is_correction": False,
+    }
+
+
+def _ner_multi_failure(texts, entity_type="ORG"):
+    return {
+        "input": {"text": " / ".join(texts)},
+        "expected": {"entities": [{"text": t, "type": entity_type} for t in texts]},
         "got": {"entities": []},
         "is_correction": False,
     }
