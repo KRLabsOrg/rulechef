@@ -59,7 +59,6 @@ class RuleChef:
         max_samples: int = 50,
         max_rules_per_class: int = 5,
         max_counter_examples: int = 10,
-        interleave_failures: bool = False,
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = 0.0,
@@ -74,6 +73,10 @@ class RuleChef:
         response_format_json: bool = True,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
+        synth: str = "llm",
+        judge=None,
+        search_config=None,
+        interleave_failures: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -102,7 +105,6 @@ class RuleChef:
             max_samples: Maximum training examples to include in prompts
                 (per-class positives and patch failures are both capped to this).
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
-            interleave_failures: If True (only for NER), interleave patch failures by entitiy text.
             max_counter_examples: Maximum counter-examples from other classes per prompt.
             synthesis_strategy: Strategy for multi-class synthesis.
                 'auto' uses per-class when multiple classes detected, 'per_class'
@@ -122,11 +124,26 @@ class RuleChef:
             default_output_tokens: Optional fallback reserved output token budget.
             llm_safety_margin_tokens: Extra margin for local prompt checks.
             response_format_json: If True, request JSON object output when supported.
-            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
-            cross_type_overlaps: If True, resolve conflict between spans of different types.
+            synth: Rule synthesis backend. 'llm' (default) writes rules with the
+                LLM and refines them. 'search' generates candidates from the
+                labelled spans, measures them and picks a ruleset by beam search,
+                with no LLM call (NER and EXTRACTION tasks; no client needed).
+                'hybrid' runs LLM synthesis and adds its rules to the search's
+                candidate pool.
+            judge: Optional rulechef.search.Judge for 'search'/'hybrid' (for
+                example a SpanModelJudge). It reads the unlabelled texts passed
+                to learn_rules(). Defaults to a no-op judge.
+            search_config: Optional rulechef.search.SearchConfig.
+            interleave_failures: If True (only for NER), interleave patch failures by entity text.
         """
+        if synth not in ("llm", "search", "hybrid"):
+            raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        self.synth = synth
+        self.judge = judge
+        self.search_config = search_config
         self.task = task
-        self.llm = client or OpenAI()
+        # Search synthesis needs no LLM: do not require an API key for it
+        self.llm = client if client is not None or synth == "search" else OpenAI()
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
@@ -161,9 +178,9 @@ class RuleChef:
         self._allowed_formats_raw = allowed_formats
         self._max_rules = max_rules
         self._max_samples = max_samples
-        self._interleave_failures = interleave_failures
         self._max_rules_per_class = max_rules_per_class
         self._max_counter_examples = max_counter_examples
+        self._interleave_failures = interleave_failures
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -260,8 +277,8 @@ class RuleChef:
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
-            training_logger=self.training_logger,
             interleave_failures=self._interleave_failures,
+            training_logger=self.training_logger,
             temperature=self.temperature,
             seed=self.seed,
             llm_config=self.llm_config,
@@ -466,6 +483,7 @@ class RuleChef:
         incremental_only: bool = False,
         holdout_fraction: float = 0.0,
         split_seed: int = 42,
+        unlabeled_texts: list[str] | None = None,
     ):
         """Learn rules from all collected data.
 
@@ -489,6 +507,8 @@ class RuleChef:
                 the data patches were learned from. Recommended (~0.2) for
                 datasets with hundreds of examples or more.
             split_seed: Random seed for the stratified train/dev split.
+            unlabeled_texts: Optional unlabelled texts for synth='search' or
+                'hybrid'. The judge reads them; ignored by synth='llm'.
 
         Returns:
             Optional[Tuple[List[Rule], Optional[EvalResult]]]: A tuple of
@@ -504,6 +524,7 @@ class RuleChef:
             incremental_only=incremental_only,
             holdout_fraction=holdout_fraction,
             split_seed=split_seed,
+            unlabeled_texts=unlabeled_texts,
         )
 
     def load_rules(self, source: str | Path | list | dict, persist: bool = False) -> list[Rule]:
