@@ -61,7 +61,6 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = None,
-        seed: int | None = None,
         llm_config: LLMCallConfig | dict | None = None,
         context_window: int | None = None,
         output_token_param: str | None = "max_completion_tokens",
@@ -73,6 +72,7 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        seed: int | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -109,7 +109,6 @@ class RuleChef:
                 all LLM calls as training data for model distillation.
             temperature: LLM temperature for rule synthesis calls. Set to 0 for
                 deterministic results. None uses the model's default.
-            seed: Seed sent with LLM calls, for more reproducible runs.
             llm_config: Optional LLMCallConfig or dict. If provided, overrides
                 the individual LLM budget arguments below.
             context_window: Optional model context window for local prompt checks.
@@ -131,6 +130,7 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -640,10 +640,11 @@ Input: {json.dumps(input_data)}
 Output schema: {self.task.get_schema_for_prompt()}
 
 Return ONLY valid JSON matching the output schema, no explanation."""
-
+        seed_kwargs = {"seed": self.seed} if self.seed is not None else {}
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **seed_kwargs,
         )
 
         try:

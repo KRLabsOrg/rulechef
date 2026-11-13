@@ -7,7 +7,7 @@ import pytest
 from openai import OpenAI
 
 from rulechef import RuleChef
-from rulechef.core import RuleFormat, Task, TaskType
+from rulechef.core import Rule, RuleFormat, Task, TaskType
 from rulechef.learner import RuleLearner
 
 live = pytest.mark.skipif("LIVE_LLM_BASE_URL" not in os.environ, reason="needs a live LLM endpoint")
@@ -21,13 +21,54 @@ def _learner(**kwargs):
 
 def test_same_input_gives_same_id():
     learner = _learner()
-    assert learner._generate_id("a", "b") == learner._generate_id("a", "b")
+    assert learner._generate_id(
+        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
+    ) == learner._generate_id(
+        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
+    )
 
 
 def test_id_same_across_learners():
     first = _learner()
     second = _learner()
-    assert first._generate_id("a", "b") == second._generate_id("a", "b")
+    assert first._generate_id(
+        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
+    ) == second._generate_id(
+        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
+    )
+
+
+def test_same_name_and_pattern_different_type_get_different_ids():
+    learner = _learner()
+    rule = {"name": "capitalized_pair", "format": "regex", "pattern": r"[A-Z]\w+ [A-Z]\w+"}
+    result = {
+        "rules": [
+            {**rule, "output_template": {"text": "$0", "type": "PER"}},
+            {**rule, "output_template": {"text": "$0", "type": "ORG"}},
+        ]
+    }
+    rules = learner._parse_rules_from_response(result, max_rules=10)
+    assert len(rules) == 2
+
+    assert rules[0].id != rules[1].id
+    remaining = [r for r in rules if r.id != rules[0].id]
+    assert [r.output_template["type"] for r in remaining] == ["ORG"]
+
+
+def test_identical_rules_get_suffix():
+    learner = _learner()
+    rule = {"name": "capitalized_pair", "format": "regex", "pattern": r"[A-Z]\w+ [A-Z]\w+"}
+    result = {
+        "rules": [
+            {**rule, "output_template": {"text": "$0", "type": "PER"}},
+            {**rule, "output_template": {"text": "$0", "type": "PER"}},
+            {**rule, "output_template": {"text": "$0", "type": "PER"}},
+        ]
+    }
+    rules = learner._parse_rules_from_response(result, max_rules=10)
+    assert len(rules) == 3
+    assert rules[1].id == f"{rules[0].id}_2"
+    assert rules[2].id == f"{rules[0].id}_3"
 
 
 def test_temp_kwargs_include_seed_and_temperature():
