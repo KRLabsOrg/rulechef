@@ -835,7 +835,7 @@ class RuleLearner:
                 pr.confidence = current.confidence
             by_name[pr.name] = pr
         merged = list(by_name.values())
-        return RuleLearner._ensure_unique_ids(RuleLearner._dedup_rules(merged))
+        return RuleLearner._dedup_rules(RuleLearner._ensure_unique_ids(merged))
 
     @staticmethod
     def _dedup_rules(rules: list[Rule]) -> list[Rule]:
@@ -1729,8 +1729,8 @@ Instructions:
             print(f"      Validation error: {e}")
             return False
 
+    @staticmethod
     def _generate_id(
-        self,
         *,
         name: str,
         content: str,
