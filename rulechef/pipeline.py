@@ -363,18 +363,21 @@ class LearningPipeline:
 
                 # Create merged rule from the highest-priority source
                 base = max(sources, key=lambda r: r.priority)
+                name = action.merged_name or base.name
+                content = action.merged_pattern or base.content
+
                 merged = Rule(
                     id=chef.learner._generate_id(
-                        name=action.merged_name or base.name,
-                        content=action.merged_pattern or base.content,
+                        name=name,
+                        content=content,
                         format=base.format,
                         output_template=base.output_template,
                         output_key=base.output_key,
                     ),
-                    name=action.merged_name or base.name,
+                    name=name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
-                    content=action.merged_pattern or base.content,
+                    content=content,
                     priority=base.priority,
                     output_template=base.output_template,
                     output_key=base.output_key,

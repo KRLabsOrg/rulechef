@@ -640,7 +640,7 @@ Input: {json.dumps(input_data)}
 Output schema: {self.task.get_schema_for_prompt()}
 
 Return ONLY valid JSON matching the output schema, no explanation."""
-        seed_kwargs = {"seed": self.seed} if self.seed is not None else {}
+        seed_kwargs: dict[str, Any] = {"seed": self.seed} if self.seed is not None else {}
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
