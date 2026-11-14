@@ -38,6 +38,8 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize the rule learner.
 
@@ -56,6 +58,8 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -71,7 +75,11 @@ class RuleLearner:
         self.temperature = temperature
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
-        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
+        self.executor = RuleExecutor(
+            use_spacy_ner=use_spacy_ner,
+            overlap_strategy=overlap_strategy,
+            cross_type_overlaps=cross_type_overlaps,
+        )
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,

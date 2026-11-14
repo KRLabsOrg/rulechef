@@ -314,7 +314,7 @@ class LearningPipeline:
             print(f"✓ LLM proposed {len(seeds)} candidate rules")
 
         print(f"🔎 Search synthesis on {len(train_ds.get_all_training_data())} training items")
-        synthesizer = SearchSynthesizer(chef.search_config, chef.judge)
+        synthesizer = SearchSynthesizer(chef.search_config, chef.judge, chef.learner.executor)
         rules = synthesizer.synthesize(train_ds, unlabeled_texts, seeds)
         if not rules:
             print("Failed to synthesize rules")
