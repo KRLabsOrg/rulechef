@@ -303,6 +303,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.critic_interval = critic_interval
         self.training_logger = training_logger
         self.temperature: float | None = None
+        self.seed: int | None = None
         self.llm_config = (
             (llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config))
             if llm_config is not None
@@ -311,10 +312,13 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.llm_calls = LLMCallManager(llm_client, model, self.llm_config)
 
     def _temp_kwargs(self) -> dict:
-        """Return temperature kwarg dict if set, empty dict otherwise."""
+        """Return temperature and seed kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     def should_trigger_learning(
         self, buffer: "ExampleBuffer", current_rules: list["Rule"] | None

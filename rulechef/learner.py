@@ -1,10 +1,11 @@
 """LLM-based rule learning"""
 
+import dataclasses
+import hashlib
 import json
 import random
 import re
 import time
-import uuid
 from collections import defaultdict
 
 from openai import OpenAI
@@ -38,6 +39,7 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
+        seed: int | None = None,
     ):
         """Initialize the rule learner.
 
@@ -56,6 +58,7 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            seed: Seed sent with LLM calls, for more reproducible runs.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -69,6 +72,7 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
@@ -79,10 +83,13 @@ class RuleLearner:
         )
 
     def _temp_kwargs(self) -> dict:
-        """Return temperature kwarg dict if set, empty dict otherwise."""
+        """Return temperature and seed kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -287,7 +294,7 @@ class RuleLearner:
         print(
             f"✓ Per-class synthesis complete: {len(all_rules)} rules from {len(classes)} classes ({total_elapsed:.1f}s)"
         )
-        return all_rules
+        return self._ensure_unique_ids(all_rules)
 
     def _parse_rules_from_response(
         self, result: dict, max_rules: int, dataset: Dataset | None = None
@@ -377,7 +384,13 @@ class RuleLearner:
                         continue
 
             rule = Rule(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name=rule_data.get("name", ""),
+                    content=pattern_content,
+                    format=rule_format,
+                    output_template=output_template,
+                    output_key=output_key,
+                ),
                 name=rule_data.get("name", f"Rule {i + 1}"),
                 description=rule_data.get("description", ""),
                 format=rule_format,
@@ -395,7 +408,7 @@ class RuleLearner:
             else:
                 print(f"   ⚠ Skipped invalid rule: {rule.name}")
 
-        return rules
+        return self._ensure_unique_ids(rules)
 
     # ========================================
     # Rule Evaluation & Refinement
@@ -710,7 +723,13 @@ class RuleLearner:
                         continue
                 base = max(sources, key=lambda r: r.priority)
                 merged = Rule(
-                    id=self._generate_id(),
+                    id=self._generate_id(
+                        name=action.merged_name or base.name,
+                        content=action.merged_pattern or base.content,
+                        format=base.format,
+                        output_template=base.output_template,
+                        output_key=base.output_key,
+                    ),
                     name=action.merged_name or base.name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
@@ -721,6 +740,7 @@ class RuleLearner:
                 )
                 rules = [r for r in rules if r.id not in action.rule_ids]
                 rules.append(merged)
+                rules = self._ensure_unique_ids(rules)
                 rules_by_id = {r.id: r for r in rules}
 
             elif action.action == "remove":
@@ -755,7 +775,9 @@ class RuleLearner:
         # Write rule-level feedback (same as chef.add_feedback would)
         for rule_id, text in critique.get("rule_feedback", {}).items():
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name=rule_id, content=text, format=None, output_template=None, output_key=None
+                ),
                 text=text,
                 level="rule",
                 target_id=rule_id,
@@ -767,7 +789,13 @@ class RuleLearner:
         # Write task-level feedback
         if critique.get("task_guidance"):
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name="task",
+                    content=critique["task_guidance"],
+                    format=None,
+                    output_template=None,
+                    output_key=None,
+                ),
                 text=critique["task_guidance"],
                 level="task",
                 source="critic",
@@ -807,7 +835,7 @@ class RuleLearner:
                 pr.confidence = current.confidence
             by_name[pr.name] = pr
         merged = list(by_name.values())
-        return RuleLearner._dedup_rules(merged)
+        return RuleLearner._dedup_rules(RuleLearner._ensure_unique_ids(merged))
 
     @staticmethod
     def _dedup_rules(rules: list[Rule]) -> list[Rule]:
@@ -1701,9 +1729,33 @@ Instructions:
             print(f"      Validation error: {e}")
             return False
 
-    def _generate_id(self) -> str:
-        """Generate unique ID"""
-        return str(uuid.uuid4())[:8]
+    @staticmethod
+    def _generate_id(
+        *,
+        name: str,
+        content: str,
+        format: RuleFormat | None,
+        output_template: dict | None,
+        output_key: str | None,
+    ) -> str:
+        """Generate an ID from the fields that identify a rule"""
+        fmt = format.value if isinstance(format, RuleFormat) else (format or "")
+        template = json.dumps(output_template, sort_keys=True) if output_template else ""
+        raw = f"{name}:{content}:{fmt}:{template}:{output_key or ''}"
+        return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8]
+
+    @staticmethod
+    def _ensure_unique_ids(rules: list[Rule]) -> list[Rule]:
+        seen: set[str] = set()
+        result = []
+        for r in rules:
+            new_id, n = r.id, 2
+            while new_id in seen:
+                new_id = f"{r.id}_{n}"
+                n += 1
+            seen.add(new_id)
+            result.append(r if new_id == r.id else dataclasses.replace(r, id=new_id))
+        return result
 
     def _pattern_uses_ent_type(self, pattern_data: list) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""
