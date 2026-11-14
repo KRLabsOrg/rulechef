@@ -30,6 +30,7 @@ from rulechef.evaluation import (
     print_eval_result,
     print_rule_metrics,
 )
+from rulechef.executor import RuleExecutor
 from rulechef.learner import RuleLearner
 from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
@@ -70,13 +71,13 @@ class RuleChef:
         default_output_tokens: int | None = None,
         llm_safety_margin_tokens: int = 512,
         response_format_json: bool = True,
-        overlap_strategy: str | None = None,
-        cross_type_overlaps: bool = False,
         synth: str = "llm",
         judge=None,
         search_config=None,
         interleave_failures: bool = False,
         seed: int | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -136,9 +137,12 @@ class RuleChef:
             search_config: Optional rulechef.search.SearchConfig.
             interleave_failures: If True (only for NER), interleave patch failures by entity text.
             seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        RuleExecutor.check_overlap_strategy(overlap_strategy)
         self.synth = synth
         self.judge = judge
         self.search_config = search_config

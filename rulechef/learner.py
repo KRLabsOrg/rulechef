@@ -66,7 +66,7 @@ class RuleLearner:
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
             interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text.
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
-            cross_type_overlaps: If True, resolve conflict between spans of different types.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
             seed: Seed sent with LLM calls, for more reproducible runs.
         """
         self.llm = llm

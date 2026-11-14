@@ -204,20 +204,25 @@ class RuleExecutor:
             use_spacy_ner: If True, run spaCy's NER pipeline during rule
                 execution so that ENT_TYPE/ENT_ID patterns are available.
             overlap_strategy: Strategy for handling overlapping matches.
-                None (default): keeps the default behavior (exact position, or IoU > 0.7 within the same type)
-                "longest": keep the longest match among overlapping spans.
-            cross_type_overlaps: If True, check for overlaps across different entity types when applying the overlap strategy. If False, only check overlaps within the same type.
+                None (default): keeps the default behavior (exact position, or IoU > 0.7 within the same type). Output is in rule priority order.
+                "longest": keep the longest match among overlapping spans. On equal lengths, the higher priority rule wins. Output is sorted by start position.
+            cross_type_overlaps: If True, spans of different types also count as overlapping. Has no effect when overlap_strategy is None.
         """
-        if overlap_strategy not in self.OVERLAP_STRATEGIES and overlap_strategy is not None:
-            raise ValueError(
-                f"Invalid overlap_strategy: {overlap_strategy}. Must be one of {self.OVERLAP_STRATEGIES} or None."
-            )
 
+        self.check_overlap_strategy(overlap_strategy)
         self._nlp = None  # Lazy-loaded spaCy model
         self.use_spacy_ner = use_spacy_ner
-        self.spacy_model = spacy_model
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
+        self.spacy_model = spacy_model
+
+    @classmethod
+    def check_overlap_strategy(cls, strategy: str | None) -> None:
+        """Raise ValueError if overlap_strategy is not supported."""
+        if strategy not in cls.OVERLAP_STRATEGIES:
+            raise ValueError(
+                f"Invalid overlap_strategy: {strategy}. Must be one of {cls.OVERLAP_STRATEGIES}"
+            )
 
     def apply_rules(
         self,
@@ -338,6 +343,8 @@ class RuleExecutor:
         # Deduplicate array fields
         for key, value in output.items():
             if isinstance(value, list) and value:
+                if self.overlap_strategy:
+                    value = self._resolve_overlaps(value)
                 output[key] = self._deduplicate_dicts(value)
                 if self.overlap_strategy:
                     output[key] = self._resolve_overlaps(output[key])
@@ -701,6 +708,9 @@ class RuleExecutor:
         return unique
 
     def _resolve_overlaps(self, items: list[dict]) -> list[dict]:
+        """Keep the longest match among overlapping spans.
+        Resolves overlaps within the same type, or across types if cross_type_overlaps is True.
+        """
         if not items:
             return items
         has_spans = all(
