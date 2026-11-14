@@ -859,13 +859,14 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             print_eval_result(result, self.dataset.name)
         return result
 
-    def get_rule_metrics(self, verbose: bool = True) -> list[RuleMetrics]:
+    def get_rule_metrics(self, verbose: bool = True, in_context: bool = False) -> list[RuleMetrics]:
         """Evaluate each rule individually against the dataset.
 
         Useful for identifying dead or harmful rules.
 
         Args:
             verbose: If True, print a formatted per-rule metrics table to stdout.
+            in_context: If True, measure each rule's contribution to the full ruleset's output instead of running it alone.
 
         Returns:
             List[RuleMetrics] with per-rule precision/recall/F1, sample matches,
@@ -880,6 +881,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            in_context=in_context,
         )
         if verbose:
             print_rule_metrics(metrics)
