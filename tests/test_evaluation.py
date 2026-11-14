@@ -16,6 +16,7 @@ from rulechef.evaluation import (
     evaluate_dataset,
     evaluate_rules_individually,
 )
+from rulechef.executor import RuleExecutor
 
 # =========================================================================
 # ClassMetrics
@@ -152,32 +153,31 @@ class TestMatchEntities:
 # =========================================================================
 # evaluate_dataset
 # =========================================================================
+def _make_dataset(task_type, examples):
+    """Helper to build a dataset with the given examples."""
+    task = Task(
+        name="test",
+        description="test",
+        input_schema={"text": "string"},
+        output_schema={"spans": "List[Span]"},
+        type=task_type,
+    )
+    ex_objs = [
+        Example(
+            id=f"ex-{i}",
+            input=ex["input"],
+            expected_output=ex["expected"],
+            source="human_labeled",
+        )
+        for i, ex in enumerate(examples)
+    ]
+    return Dataset(name="test_ds", task=task, examples=ex_objs)
 
 
 class TestEvaluateDataset:
-    def _make_dataset(self, task_type, examples):
-        """Helper to build a dataset with the given examples."""
-        task = Task(
-            name="test",
-            description="test",
-            input_schema={"text": "string"},
-            output_schema={"spans": "List[Span]"},
-            type=task_type,
-        )
-        ex_objs = [
-            Example(
-                id=f"ex-{i}",
-                input=ex["input"],
-                expected_output=ex["expected"],
-                source="human_labeled",
-            )
-            for i, ex in enumerate(examples)
-        ]
-        return Dataset(name="test_ds", task=task, examples=ex_objs)
-
     def test_perfect_score(self):
         """Mock apply_rules_fn returns exactly the expected output => F1 = 1.0."""
-        ds = self._make_dataset(
+        ds = _make_dataset(
             TaskType.EXTRACTION,
             [
                 {
@@ -210,7 +210,7 @@ class TestEvaluateDataset:
 
     def test_no_matches(self):
         """apply_rules_fn returns empty => F1 = 0.0."""
-        ds = self._make_dataset(
+        ds = _make_dataset(
             TaskType.EXTRACTION,
             [
                 {
@@ -232,7 +232,7 @@ class TestEvaluateDataset:
 
     def test_partial_matches(self):
         """Some matches, some misses => check exact TP/FP/FN counts."""
-        ds = self._make_dataset(
+        ds = _make_dataset(
             TaskType.NER,
             [
                 {
@@ -268,7 +268,7 @@ class TestEvaluateDataset:
 
     def test_classification_evaluation(self):
         """Classification task evaluation via apply_rules_fn."""
-        ds = self._make_dataset(
+        ds = _make_dataset(
             TaskType.CLASSIFICATION,
             [
                 {"input": {"text": "great"}, "expected": {"label": "positive"}},
@@ -372,3 +372,83 @@ class TestEvaluateRulesIndividually:
         assert rb.precision == pytest.approx(0.5)
         assert rb.covered_expected == 1
         assert rb.total_expected == 3
+
+    def test_in_context_ner(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [
+                {
+                    "input": {"text": "Contact John Doe Consulting LLC today"},
+                    "expected": {"entities": [{"text": "John Doe Consulting LLC", "type": "ORG"}]},
+                }
+            ],
+        )
+        template = {"text": "$0", "start": "$start", "end": "$end", "type": "ORG"}
+        rules = [
+            Rule(
+                id="rLong",
+                name="long_org",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"John Doe Consulting LLC",
+                priority=1,
+                output_template=template,
+                output_key="entities",
+            ),
+            Rule(
+                id="rNear",
+                name="near_org",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"John Doe Consulting",
+                priority=9,
+                output_template=template,
+                output_key="entities",
+            ),
+        ]
+        apply = RuleExecutor().apply_rules
+        isolated = evaluate_rules_individually(rules, ds, apply)
+        assert next(r for r in isolated if r.rule_id == "rLong").true_positives == 1
+        in_ctx = evaluate_rules_individually(rules, ds, apply, in_context=True)
+        assert next(r for r in in_ctx if r.rule_id == "rLong").true_positives == 0
+        assert next(r for r in in_ctx if r.rule_id == "rNear").false_positives == 1
+
+    def test_in_context_classification(self):
+        ds = _make_dataset(
+            TaskType.CLASSIFICATION,
+            [{"input": {"text": "not great"}, "expected": {"label": "negative"}}],
+        )
+        rules = [
+            # matches "great" -> positive, lower priority
+            Rule(
+                id="rPos",
+                name="positive",
+                description="",
+                format=RuleFormat.REGEX,
+                content="great",
+                priority=3,
+                output_template={"label": "positive"},
+                output_key="label",
+            ),
+            # matches "not" -> negative, higher priority
+            Rule(
+                id="rNeg",
+                name="negative",
+                description="",
+                format=RuleFormat.REGEX,
+                content="not",
+                priority=8,
+                output_template={"label": "negative"},
+                output_key="label",
+            ),
+        ]
+
+        # Alone: rPos says "positive" -> wrong
+        apply = RuleExecutor().apply_rules
+        isolated = evaluate_rules_individually(rules, ds, apply)
+        assert next(r for r in isolated if r.rule_id == "rPos").false_positives == 1
+
+        # In context: rNeg wins (priority 8), the system says "negative"
+        in_ctx = evaluate_rules_individually(rules, ds, apply, in_context=True)
+        assert next(r for r in in_ctx if r.rule_id == "rNeg").true_positives == 1
+        assert next(r for r in in_ctx if r.rule_id == "rPos").false_positives == 0
