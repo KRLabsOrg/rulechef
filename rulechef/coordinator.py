@@ -1,6 +1,5 @@
 """Coordination layer for learning decisions - swappable simple/agentic implementations"""
 
-import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -313,7 +312,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.llm_calls = LLMCallManager(llm_client, model, self.llm_config)
 
     def _temp_kwargs(self) -> dict:
-        """Return temperature kwarg dict if set, empty dict otherwise."""
+        """Return temperature and seed kwarg dict if set, empty dict otherwise."""
         kw = {}
         if self.temperature is not None:
             kw["temperature"] = self.temperature
@@ -538,7 +537,7 @@ Return JSON:
 
 Return {{"analysis": "All rules are useful", "actions": []}} if no changes needed.
 """
-        print("Audit prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
+
         try:
             response = self.llm.chat.completions.create(
                 model=self.model,
@@ -546,12 +545,8 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
             )
-
             result = json.loads(response.choices[0].message.content)
-            print(
-                "Audit response hash:",
-                hashlib.md5(response.choices[0].message.content.encode()).hexdigest(),
-            )
+
             actions = []
             for a in result.get("actions", []):
                 action_type = a.get("action", "")
@@ -673,11 +668,11 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                     f"(TP={m.true_positives} FP={m.false_positives}, {m.matches} total matches)"
                 )
                 # Show FP examples from sample_matches for this rule
-                fp_samples = [s for s in m.sample_matches if s.fp > 0]
+                fp_samples = [s for s in m.sample_matches if s.get("fp", 0) > 0]
                 if fp_samples:
                     rules_lines.append("    FP examples from this rule:")
                     for sample in fp_samples[:3]:
-                        input_text = sample.input  # sample.get("input", {})
+                        input_text = sample.get("input", {})
                         # Get first string value as context
                         if isinstance(input_text, dict):
                             text_vals = [v for v in input_text.values() if isinstance(v, str)]
@@ -686,9 +681,11 @@ Return {{"analysis": "All rules are useful", "actions": []}} if no changes neede
                             ctx = str(input_text)[:150]
                         rules_lines.append(f'      Input: "{ctx}"')
                         rules_lines.append(
-                            f"      Rule produced: {json.dumps(sample.rule_output[:3])}"
+                            f"      Rule produced: {json.dumps(sample.get('rule_output', [])[:3])}"
                         )
-                        rules_lines.append(f"      Expected: {json.dumps(sample.expected[:3])}")
+                        rules_lines.append(
+                            f"      Expected: {json.dumps(sample.get('expected', [])[:3])}"
+                        )
             else:
                 rules_lines.append("    Metrics: (no metrics available)")
         rules_section = "\n".join(rules_lines) + "\n"

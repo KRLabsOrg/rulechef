@@ -62,7 +62,6 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = 0.0,
-        seed: int | None = 42,
         llm_config: LLMCallConfig | dict | None = None,
         context_window: int | None = None,
         output_token_param: str | None = "max_completion_tokens",
@@ -77,6 +76,7 @@ class RuleChef:
         judge=None,
         search_config=None,
         interleave_failures: bool = False,
+        seed: int | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -135,6 +135,7 @@ class RuleChef:
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
             interleave_failures: If True (only for NER), interleave patch failures by entity text.
+            seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -653,10 +654,11 @@ Input: {json.dumps(input_data)}
 Output schema: {self.task.get_schema_for_prompt()}
 
 Return ONLY valid JSON matching the output schema, no explanation."""
-
+        seed_kwargs: dict[str, Any] = {"seed": self.seed} if self.seed is not None else {}
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **seed_kwargs,
         )
 
         try:

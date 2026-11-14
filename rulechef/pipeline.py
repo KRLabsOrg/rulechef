@@ -270,7 +270,9 @@ class LearningPipeline:
                 failures,
                 dataset=chef.dataset,
             )
-            return self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
+            return chef.learner._ensure_unique_ids(
+                self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
+            )
         else:
             rules = self._synthesize_llm(chef.dataset)
             if not rules:
@@ -364,12 +366,21 @@ class LearningPipeline:
 
                 # Create merged rule from the highest-priority source
                 base = max(sources, key=lambda r: r.priority)
+                name = action.merged_name or base.name
+                content = action.merged_pattern or base.content
+
                 merged = Rule(
-                    id=chef._store.generate_id(),
-                    name=action.merged_name or base.name,
+                    id=chef.learner._generate_id(
+                        name=name,
+                        content=content,
+                        format=base.format,
+                        output_template=base.output_template,
+                        output_key=base.output_key,
+                    ),
+                    name=name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
-                    content=action.merged_pattern or base.content,
+                    content=content,
                     priority=base.priority,
                     output_template=base.output_template,
                     output_key=base.output_key,
@@ -379,6 +390,7 @@ class LearningPipeline:
                 print(f"  🔀 merge {[s.name for s in sources]} → '{merged.name}': {action.reason}")
                 chef.dataset.rules = [r for r in chef.dataset.rules if r.id not in action.rule_ids]
                 chef.dataset.rules.append(merged)
+                chef.dataset.rules = chef.learner._ensure_unique_ids(chef.dataset.rules)
                 rules_by_id = {r.id: r for r in chef.dataset.rules}
                 changed = True
 
