@@ -72,6 +72,7 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        spacy_model: str = "en_core_web_sm",
     ):
         """Initialize a RuleChef instance.
 
@@ -129,6 +130,7 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -141,6 +143,7 @@ class RuleChef:
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
         self.use_grex = use_grex
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
@@ -257,6 +260,7 @@ class RuleChef:
             sampling_strategy=self.sampling_strategy,
             model=self.model,
             use_spacy_ner=self.use_spacy_ner,
+            spacy_model=self.spacy_model,
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,

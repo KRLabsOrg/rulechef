@@ -38,6 +38,7 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
+        spacy_model: str = "en_core_web_sm",
     ):
         """Initialize the rule learner.
 
@@ -56,6 +57,7 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            spacy_model: spaCy pipeline for SPACY rules.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -71,7 +73,7 @@ class RuleLearner:
         self.temperature = temperature
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
-        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
+        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner, spacy_model=spacy_model)
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
