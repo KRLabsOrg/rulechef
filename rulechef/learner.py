@@ -57,7 +57,7 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
-            spacy_model: spaCy pipeline for SPACY rules.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
