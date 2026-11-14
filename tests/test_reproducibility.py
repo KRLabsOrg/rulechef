@@ -84,21 +84,19 @@ def _learn(storage_path, learner_client, coordinator_client):
 
 def test_same_input_gives_same_id():
     learner = _learner()
-    assert learner._generate_id(
-        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
-    ) == learner._generate_id(
+    kwargs = dict(
         name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
     )
+    assert RuleLearner._generate_id(**kwargs) == RuleLearner._generate_id(**kwargs)
 
 
 def test_id_same_across_learners():
     first = _learner()
     second = _learner()
-    assert first._generate_id(
-        name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
-    ) == second._generate_id(
+    kwargs = dict(
         name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
     )
+    assert first._generate_id(**kwargs) == second._generate_id(**kwargs)
 
 
 def test_same_name_and_pattern_different_type_get_different_ids():
@@ -118,7 +116,7 @@ def test_same_name_and_pattern_different_type_get_different_ids():
     assert [r.output_template["type"] for r in remaining] == ["ORG"]
 
 
-def test_identical_rules_get_suffix():
+def test_rules_with_same_id_get_suffix():
     learner = _learner()
     rule = {"name": "capitalized_pair", "format": "regex", "pattern": r"[A-Z]\w+ [A-Z]\w+"}
     result = {
