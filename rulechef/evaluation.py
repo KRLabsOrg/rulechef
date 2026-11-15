@@ -554,12 +554,14 @@ def evaluate_rules_individually(
     iou_threshold: float = 0.5,
     in_context: bool = False,
 ) -> list[RuleMetrics]:
-    """Evaluate each rule against the dataset.
+    """Evaluate each rule against the dataset, in isolation (default) or in the full ruleset (in_context = True).
 
-    By default (in_context=False) each rule is run in isolation.
-    With in_context=True, all rules run together once per example and each
-    prediction is attributed to its rule via the rule_id stamp set by the
-    executor, giving TP/FP counts that reflect actual system behaviour.
+    By default, for each rule, runs it alone and computes how many expected entities it
+    produces correctly (TP), how many spurious entities it produces (FP),
+    and how many expected entities it misses (recall denominator).
+    With in_context = True the full ruleset runs once per example and each prediction
+    is credited to the rule that produced it (rule_id), which measures what each rule contributes
+    to the system's output after priority and overlap dedup.
 
     Args:
         rules: Rules to evaluate.
@@ -568,7 +570,7 @@ def evaluate_rules_individually(
         mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
         iou_threshold: Minimum IoU for partial matching (default 0.5).
-        in_context: If True, run all rules together and attribute by rule_id.
+        in_context: If True, measure each rule's contribution to the full ruleset's output instead of running it alone.
 
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
@@ -584,12 +586,12 @@ def evaluate_rules_individually(
         gold_entities = _get_entities(item.expected_output, task_type)
         total_expected += len(gold_entities)
 
-    context_preds = {}
+    context_preds: dict[int, dict[str, list[dict]]] = {}
     # run all rules once per item and group preds by rule_id
     if in_context:
         for i, item in enumerate(all_data):
             extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
-            by_rule = defaultdict(list)
+            by_rule: dict[str, list[dict]] = defaultdict(list)
             for pred in _get_entities(extracted, task_type):
                 rule_id = pred.get("rule_id") if isinstance(pred, dict) else None
                 if rule_id:
