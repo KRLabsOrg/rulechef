@@ -78,6 +78,7 @@ class RuleChef:
         seed: int | None = None,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
+        scope_to_rule_labels: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -139,6 +140,8 @@ class RuleChef:
             seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
+                entity types the rules declare in their output_template. Classification is not scoped. Defaults to False (count all FN).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -163,6 +166,7 @@ class RuleChef:
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
         self.spacy_model = spacy_model
+        self.scope_to_rule_labels = scope_to_rule_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -289,6 +293,7 @@ class RuleChef:
             llm_config=self.llm_config,
             overlap_strategy=self.overlap_strategy,
             cross_type_overlaps=self.cross_type_overlaps,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
 
         # Load existing dataset if on disk
@@ -879,6 +884,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
@@ -907,6 +913,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset,
             self.learner._apply_rules,
             in_context=in_context,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_rule_metrics(metrics)
