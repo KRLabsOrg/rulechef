@@ -1097,9 +1097,6 @@ class RuleLearner:
         prompt += self.prompt_builder._build_format_instructions(dataset.task.type)
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
-        # prompt += self.prompt_builder._build_extra_instructions(
-        #       dataset.task.type
-        # )  # extra instructions
         prompt += self.prompt_builder._build_closing_instructions()
         print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
