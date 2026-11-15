@@ -151,7 +151,6 @@ class RuleLearner:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
-                frequency_penalty=0.1,
             )
             response_text = response.choices[0].message.content
             print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
@@ -1334,7 +1333,7 @@ INSTRUCTIONS:
         else:
             response_schema = """Return JSON:
 {   
- "analysis": "1-2 sentences short reasoning",
+  "analysis": "short reasoning",
   "rules": [
     {
       "name": "rule name",
