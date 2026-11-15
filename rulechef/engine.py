@@ -72,6 +72,7 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        scope_to_rule_labels: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -129,6 +130,8 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
+                entity types the rules declare in their output_template. Classification is not scoped. Defaults to False (count all FN).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -147,6 +150,7 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.scope_to_rule_labels = scope_to_rule_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -265,6 +269,7 @@ class RuleChef:
             training_logger=self.training_logger,
             temperature=self.temperature,
             llm_config=self.llm_config,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
 
         # Load existing dataset if on disk
@@ -854,6 +859,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
@@ -880,6 +886,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_rule_metrics(metrics)

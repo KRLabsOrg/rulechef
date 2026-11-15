@@ -1,7 +1,10 @@
 """Tests for rulechef.evaluation — metrics and evaluation functions."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
+from rulechef import RuleChef
 from rulechef.core import (
     Dataset,
     Example,
@@ -16,6 +19,7 @@ from rulechef.evaluation import (
     evaluate_dataset,
     evaluate_rules_individually,
 )
+from rulechef.executor import RuleExecutor
 
 # =========================================================================
 # ClassMetrics
@@ -372,3 +376,85 @@ class TestEvaluateRulesIndividually:
         assert rb.precision == pytest.approx(0.5)
         assert rb.covered_expected == 1
         assert rb.total_expected == 3
+
+
+# =========================================================================
+# scope_to_rule_labels
+# =========================================================================
+
+
+class TestScopeToRuleLabels:
+    def _setup(self):
+        task = Task(
+            name="ner",
+            description="test ner",
+            input_schema={"text": "string"},
+            output_schema={"entities": "List[Entity]"},
+            type=TaskType.NER,
+        )
+
+        ds = Dataset(
+            name="test",
+            task=task,
+            examples=[
+                Example(
+                    id="ex-1",
+                    input={"text": "John Doe Consulting LLC was founded in NYC in 2006"},
+                    expected_output={
+                        "entities": [
+                            {"text": "John Doe Consulting LLC", "type": "ORG"},
+                            {"text": "NYC", "type": "LOC"},
+                            {"text": "2006", "type": "DATE"},
+                        ]
+                    },
+                    source="human_labeled",
+                ),
+            ],
+        )
+        rule = Rule(
+            id="rDate",
+            name="years",
+            description="Find years",
+            format=RuleFormat.REGEX,
+            content=r"\b\d{4}\b",
+            output_template={"text": "$0", "type": "DATE"},
+        )
+
+        apply = RuleExecutor().apply_rules
+        return ds, rule, apply
+
+    def test_dataset_flag_off_counts_all_fn(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset([rule], ds, apply)
+        assert result.total_fn == 2  # John Doe Consulting LLC , NYC
+        assert result.exact_match == pytest.approx(0.0)
+
+    def test_dataset_flag_on_skips_untargeted_fn(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True)
+        assert result.total_fn == 0  # ORG and LOC not targeted by this rule
+        assert result.micro_recall == pytest.approx(1.0)
+        assert result.exact_match == pytest.approx(1.0)
+
+    def test_rule_recall_scoped_to_declared_label(self):
+        ds, rule, apply = self._setup()
+        off = evaluate_rules_individually([rule], ds, apply)[0]
+        assert off.total_expected == 3
+        assert off.recall == pytest.approx(1 / 3)
+        off = evaluate_rules_individually([rule], ds, apply, scope_to_rule_labels=True)[0]
+        assert off.total_expected == 1
+        assert off.recall == pytest.approx(1.0)
+
+    def test_rulechef_setting_reaches_evaluate_and_learner(self, tmp_path):
+        ds, rule, apply = self._setup()
+        chef = RuleChef(
+            task=ds.task,
+            client=MagicMock(),
+            storage_path=str(tmp_path),
+            scope_to_rule_labels=True,
+        )
+        chef.dataset.examples = ds.examples
+        chef.dataset.rules = [rule]
+        assert chef.learner.scope_to_rule_labels is True
+        result = chef.evaluate(verbose=False)
+        assert result.total_fn == 0
