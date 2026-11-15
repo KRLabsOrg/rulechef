@@ -10,6 +10,7 @@ from rulechef.core import (
     Dataset,
     Rule,
     TaskType,
+    rule_labels,
 )
 
 # ============================================================================
@@ -343,12 +344,32 @@ def _match_entities_partial(
 # ============================================================================
 
 
+def _target_labels(rules: list[Rule]) -> set[str] | None:
+    """Get the set of entity types that the rules target.
+    If any rule's label is None then returns None (FN are not scoped, same as main)"""
+    if not rules:
+        return None
+    labels: set[str] = set()
+    for r in rules:
+        declared = rule_labels(r)
+        if not declared:
+            return None
+        labels |= declared
+    return labels
+
+
+def _in_scope(e: dict, targets: set[str] | None) -> bool:
+    """True if the entity's type is in targets, or if targets is None (no scoping)."""
+    return targets is None or _entity_type(e) in targets
+
+
 def evaluate_dataset(
     rules: list[Rule],
     dataset: Dataset,
     apply_rules_fn,
     mode: str = "text",
     iou_threshold: float = 0.5,
+    scope_to_rule_labels: bool = False,
 ) -> EvalResult:
     """Evaluate rules against a full dataset, producing entity-level metrics.
 
@@ -359,6 +380,7 @@ def evaluate_dataset(
         mode: 'text' (match by text+type), 'exact' (match by text+type+start+end),
             or 'partial' (type match + span IoU >= iou_threshold).
         iou_threshold: Minimum IoU for partial matching (default 0.5).
+        scope_to_rule_labels: If True, only count FN for entity types the rule declares in their output_template (default False).
 
     Returns:
         EvalResult with micro/macro metrics, per-class breakdown, exact match
@@ -376,6 +398,11 @@ def evaluate_dataset(
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
 
+    targets = (
+        _target_labels(rules)
+        if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION
+        else None
+    )
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
@@ -388,7 +415,8 @@ def evaluate_dataset(
         )
 
         # Document-level exact match
-        if not fp_list and not fn_list:
+        targeted_fn = [g for g in fn_list if _in_scope(g, targets)]
+        if not fp_list and not targeted_fn:
             exact_match_count += 1
         else:
             failures.append(
@@ -446,6 +474,9 @@ def evaluate_dataset(
         # Accumulate per-class FN
         for gold in fn_list:
             cls = _entity_type(gold)
+            if not _in_scope(gold, targets):
+                continue  # Only count FN for entity types that the rules target
+
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].fn += 1
@@ -491,6 +522,7 @@ def evaluate_rules_individually(
     mode: str = "text",
     max_samples: int = 10,
     iou_threshold: float = 0.5,
+    scope_to_rule_labels: bool = False,
 ) -> list[RuleMetrics]:
     """Evaluate each rule in isolation against the dataset.
 
@@ -505,7 +537,8 @@ def evaluate_rules_individually(
         mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
         iou_threshold: Minimum IoU for partial matching (default 0.5).
-
+        scope_to_rule_labels: If True, each rule's recall and FN only count gold
+            entities of the labels the rule declares (default False).
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
         match counts, per-class breakdown, and sample matches.
@@ -515,9 +548,12 @@ def evaluate_rules_individually(
 
     # Count total expected entities across all docs (for recall denominator)
     total_expected = 0
+    expected_by_label: dict[str, int] = defaultdict(int)
     for item in all_data:
         gold_entities = _get_entities(item.expected_output, task_type)
         total_expected += len(gold_entities)
+        for g in gold_entities:
+            expected_by_label[_entity_type(g)] += 1
 
     results = []
 
@@ -526,6 +562,12 @@ def evaluate_rules_individually(
         sample_matches = []
         rule_total_matches = 0
         rule_covered = 0
+        # check what entities a rule finds
+        target_labels = (
+            rule_labels(rule) or None
+            if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION
+            else None
+        )
 
         for item in all_data:
             extracted = apply_rules_fn([rule], item.input, task_type, dataset.task.text_field)
@@ -539,7 +581,7 @@ def evaluate_rules_individually(
             )
 
             rule_total_matches += len(pred_entities)
-            rule_covered += len(matched)
+            rule_covered += sum(1 for _p, g in matched if _in_scope(g, target_labels))
 
             for _pred, gold in matched:
                 cls = _entity_type(gold)
@@ -553,9 +595,9 @@ def evaluate_rules_individually(
                     class_counts[cls].label = cls
                 class_counts[cls].fp += 1
 
-            # Note: we don't count FN per-rule since a single rule isn't
-            # expected to find everything. But we track it for completeness.
-            for gold in fn_list:
+            # Only count FN for entity types that this rule targets
+            targeted_fn = [g for g in fn_list if _in_scope(g, target_labels)]
+            for gold in targeted_fn:
                 cls = _entity_type(gold)
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
@@ -572,13 +614,17 @@ def evaluate_rules_individually(
                         "fp": len(fp_list),
                     }
                 )
-
+        rule_total_expected = (
+            sum(expected_by_label[label] for label in target_labels)
+            if target_labels
+            else total_expected
+        )
         per_class = sorted(class_counts.values(), key=lambda c: c.label)
         rule_tp = sum(c.tp for c in per_class)
         rule_fp = sum(c.fp for c in per_class)
 
         precision = rule_tp / (rule_tp + rule_fp) if (rule_tp + rule_fp) > 0 else 0.0
-        recall = rule_covered / total_expected if total_expected > 0 else 0.0
+        recall = rule_covered / rule_total_expected if rule_total_expected > 0 else 0.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
         results.append(
@@ -592,7 +638,7 @@ def evaluate_rules_individually(
                 true_positives=rule_tp,
                 false_positives=rule_fp,
                 covered_expected=rule_covered,
-                total_expected=total_expected,
+                total_expected=rule_total_expected,
                 per_class=per_class,
                 sample_matches=sample_matches,
             )
