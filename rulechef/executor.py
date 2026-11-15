@@ -346,8 +346,6 @@ class RuleExecutor:
                 if self.overlap_strategy:
                     value = self._resolve_overlaps(value)
                 output[key] = self._deduplicate_dicts(value)
-                if self.overlap_strategy:
-                    output[key] = self._resolve_overlaps(output[key])
 
         return output
 

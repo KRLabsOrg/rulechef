@@ -456,6 +456,7 @@ class TestEvaluateRulesIndividually:
         assert next(r for r in in_ctx if r.rule_id == "rNeg").true_positives == 1
         assert next(r for r in in_ctx if r.rule_id == "rPos").false_positives == 0
 
+
 # =========================================================================
 # scope_to_rule_labels
 # =========================================================================

@@ -627,7 +627,7 @@ def evaluate_rules_individually(
                     apply_rules_fn([rule], item.input, task_type, dataset.task.text_field),
                     task_type,
                 )
-        
+
             expected_output = item.expected_output
             gold_entities = _get_entities(expected_output, task_type)
 
