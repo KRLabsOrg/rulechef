@@ -1332,7 +1332,7 @@ INSTRUCTIONS:
             )
         else:
             response_schema = """Return JSON:
-{   
+{
   "analysis": "short reasoning",
   "rules": [
     {
