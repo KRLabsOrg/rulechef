@@ -455,8 +455,6 @@ class TestScopeToRuleLabels:
         )
         chef.dataset.examples = ds.examples
         chef.dataset.rules = [rule]
-        print(chef.learner.scope_to_rule_labels)
         assert chef.learner.scope_to_rule_labels is True
         result = chef.evaluate(verbose=False)
-        print(result)
         assert result.total_fn == 0
