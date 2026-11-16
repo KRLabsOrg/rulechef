@@ -47,6 +47,7 @@ class RuleLearner:
         cross_type_overlaps: bool = False,
         seed: int | None = None,
         scope_to_rule_labels: bool = False,
+        frequency_penalty: float | None= None,
     ):
         """Initialize the rule learner.
 
@@ -87,6 +88,7 @@ class RuleLearner:
         self.training_logger = training_logger
         self.temperature = temperature
         self.seed = seed
+        self.frequency_penalty = frequency_penalty
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(
@@ -109,6 +111,7 @@ class RuleLearner:
             kw["temperature"] = self.temperature
         if self.seed is not None:
             kw["seed"] = self.seed
+
         return kw
 
     # ========================================
@@ -151,6 +154,7 @@ class RuleLearner:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
+                frequency_penalty= self.frequency_penalty,
             )
             response_text = response.choices[0].message.content
             print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
@@ -1020,8 +1024,9 @@ class RuleLearner:
             call_result = self.llm_calls.complete_with_variants(
                 variants,
                 output_tokens=self.llm_config.patch_output_tokens,
-                extra_kwargs=self._temp_kwargs(),
+                extra_kwargs={**self._temp_kwargs(), "frequency_penalty": self.frequency_penalty},
             )
+            
             response_text = call_result.response_text
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)

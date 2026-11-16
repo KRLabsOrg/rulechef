@@ -63,6 +63,7 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = 0.0,
+        frequency_penalty: float | None= None,
         llm_config: LLMCallConfig | dict | None = None,
         context_window: int | None = None,
         output_token_param: str | None = "max_completion_tokens",
@@ -161,6 +162,7 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.frequency_penalty = frequency_penalty
         self.seed = seed
         self.use_spacy_ner = use_spacy_ner
         self.overlap_strategy = overlap_strategy
@@ -294,6 +296,7 @@ class RuleChef:
             overlap_strategy=self.overlap_strategy,
             cross_type_overlaps=self.cross_type_overlaps,
             scope_to_rule_labels=self.scope_to_rule_labels,
+            frequency_penalty = self.frequency_penalty
         )
 
         # Load existing dataset if on disk
