@@ -337,7 +337,7 @@ def get_schema_aware_response_schema(
 Return JSON:
 {{
   "analysis": "What patterns did you find? What went wrong in corrections? Respond in 1-2 sentences",
-   "strategy": "Overall approach in 1-2 sentence",
+   "strategy": "Overall approach in 1 sentence",
   "note": "Every rule must include both output_template and output_key",
   "rules": [
     {{
