@@ -47,7 +47,8 @@ class RuleLearner:
         cross_type_overlaps: bool = False,
         seed: int | None = None,
         scope_to_rule_labels: bool = False,
-        frequency_penalty: float | None= None,
+        frequency_penalty: float | None = None,
+        target_labels: list[str] | None = None,
     ):
         """Initialize the rule learner.
 
@@ -73,10 +74,13 @@ class RuleLearner:
             scope_to_rule_labels: If True, rule evaluation during synthesis,
                 patching and pruning only counts false negatives for entity
                 types the rules declare (default False).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                 If None, the scope follows the labels of the current rules.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
@@ -154,7 +158,7 @@ class RuleLearner:
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 **self._temp_kwargs(),
-                frequency_penalty= self.frequency_penalty,
+                frequency_penalty=self.frequency_penalty,
             )
             response_text = response.choices[0].message.content
             print(f"  finish={response.choices[0].finish_reason}  len={len(response_text or '')}")
@@ -956,6 +960,7 @@ class RuleLearner:
             self._apply_rules,
             mode="text",
             scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
 
     def _coerce_spacy_content(self, content) -> list | None:
@@ -1024,9 +1029,11 @@ class RuleLearner:
             call_result = self.llm_calls.complete_with_variants(
                 variants,
                 output_tokens=self.llm_config.patch_output_tokens,
-                extra_kwargs={**self._temp_kwargs(), }, #"frequency_penalty": self.frequency_penalty
+                extra_kwargs={
+                    **self._temp_kwargs(),
+                },  # "frequency_penalty": self.frequency_penalty
             )
-            
+
             response_text = call_result.response_text
             result = self._parse_json(response_text)
             rules = self._parse_rules_from_response(result, max_rules, dataset=dataset)

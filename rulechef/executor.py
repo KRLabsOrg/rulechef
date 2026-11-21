@@ -166,6 +166,10 @@ def substitute_template(
             # Literal value (int, bool, etc.)
             result[key] = value
 
+    # LLM sometimes writes "$start_1"/"$end_1" -> fall back to match offsets
+    for k, v in (("start", start), ("end", end)):
+        if isinstance(result.get(k), str):
+            result[k] = v
     # Fix start/end when text comes from a capture group ($1, $2, ...):
     # $start/$end refer to the full match, but the text is from the group.
     # Recalculate so start/end match the actual text position.

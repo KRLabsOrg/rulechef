@@ -63,7 +63,7 @@ class RuleChef:
         synthesis_strategy: str = "auto",
         training_logger=None,
         temperature: float | None = 0.0,
-        frequency_penalty: float | None= None,
+        frequency_penalty: float | None = None,
         llm_config: LLMCallConfig | dict | None = None,
         context_window: int | None = None,
         output_token_param: str | None = "max_completion_tokens",
@@ -80,6 +80,7 @@ class RuleChef:
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
         scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -143,6 +144,7 @@ class RuleChef:
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
             scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
                 entity types the rules declare in their output_template. Classification is not scoped. Defaults to False (count all FN).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True. If None, the scope follows the labels of the current rules.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -169,6 +171,7 @@ class RuleChef:
         self.cross_type_overlaps = cross_type_overlaps
         self.spacy_model = spacy_model
         self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -296,7 +299,8 @@ class RuleChef:
             overlap_strategy=self.overlap_strategy,
             cross_type_overlaps=self.cross_type_overlaps,
             scope_to_rule_labels=self.scope_to_rule_labels,
-            frequency_penalty = self.frequency_penalty
+            frequency_penalty=self.frequency_penalty,
+            target_labels=self.target_labels,
         )
 
         # Load existing dataset if on disk
@@ -888,6 +892,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset,
             self.learner._apply_rules,
             scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
