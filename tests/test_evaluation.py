@@ -458,3 +458,45 @@ class TestScopeToRuleLabels:
         assert chef.learner.scope_to_rule_labels is True
         result = chef.evaluate(verbose=False)
         assert result.total_fn == 0
+
+    def test_target_labels_override_rule_labels(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset(
+            [rule], ds, apply, scope_to_rule_labels=True, target_labels=["DATE", "LOC"]
+        )
+        print(result)
+        assert result.total_fn == 1  # NYC counted, ORG out of scope
+
+    def test_target_labels_keep_scope_stable(self):
+        ds, date_rule, apply = (
+            self._setup()
+        )  # gold: ORG (John Doe Consulting LLC), LOC (NYC), DATE (2006)
+
+        # matches nothing in the example -> not a useful rule
+        loc_rule = Rule(
+            id="rLoc",
+            name="paris",
+            description="Find Paris",
+            format=RuleFormat.REGEX,
+            content=r"\bParis\b",
+            output_template={"text": "$0", "type": "LOC"},
+        )
+        rules_before_patch = [date_rule, loc_rule]
+        rules_after_patch = [date_rule]  # patch listed "paris" in deleted_rules
+
+        # Scope from rules, deleting the LOC rule hides the missed NYC -> F1 increases
+        before = evaluate_dataset(rules_before_patch, ds, apply, scope_to_rule_labels=True)
+        after = evaluate_dataset(rules_after_patch, ds, apply, scope_to_rule_labels=True)
+        assert before.total_fn == 1  # NYC
+        assert after.total_fn == 0  # NYC no longer counted
+        print(after)
+        assert after.micro_f1 > before.micro_f1  # learner would accept this as progress
+
+        # Fixed scope: NYC is missed in both cases -> same F1, no false progress
+        fixed = {"scope_to_rule_labels": True, "target_labels": ["DATE", "LOC"]}
+        before = evaluate_dataset(rules_before_patch, ds, apply, **fixed)
+        print(before)
+        after = evaluate_dataset(rules_after_patch, ds, apply, **fixed)
+        print(after)
+        assert before.total_fn == after.total_fn == 1
+        assert after.micro_f1 == pytest.approx(before.micro_f1)

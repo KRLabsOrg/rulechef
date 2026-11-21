@@ -73,6 +73,7 @@ class RuleChef:
         judge=None,
         search_config=None,
         scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -132,6 +133,8 @@ class RuleChef:
             search_config: Optional rulechef.search.SearchConfig.
             scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
                 entity types the rules declare in their output_template. Classification is not scoped. Defaults to False (count all FN).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None, the scope follows the labels of the current rules.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -151,6 +154,7 @@ class RuleChef:
         self.training_logger = training_logger
         self.temperature = temperature
         self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -270,6 +274,7 @@ class RuleChef:
             temperature=self.temperature,
             llm_config=self.llm_config,
             scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
 
         # Load existing dataset if on disk

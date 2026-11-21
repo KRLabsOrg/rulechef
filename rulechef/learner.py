@@ -39,6 +39,7 @@ class RuleLearner:
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
         scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
     ):
         """Initialize the rule learner.
 
@@ -60,10 +61,13 @@ class RuleLearner:
             scope_to_rule_labels: If True, rule evaluation during synthesis,
                 patching and pruning only counts false negatives for entity
                 types the rules declare (default False).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None, the scope follows the labels of the current rules.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
         self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
@@ -872,6 +876,7 @@ class RuleLearner:
             self._apply_rules,
             mode="text",
             scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
 
     def _coerce_spacy_content(self, content) -> list | None:

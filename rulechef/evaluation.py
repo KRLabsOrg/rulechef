@@ -370,6 +370,7 @@ def evaluate_dataset(
     mode: str = "text",
     iou_threshold: float = 0.5,
     scope_to_rule_labels: bool = False,
+    target_labels: list[str] | None = None,
 ) -> EvalResult:
     """Evaluate rules against a full dataset, producing entity-level metrics.
 
@@ -380,7 +381,8 @@ def evaluate_dataset(
         mode: 'text' (match by text+type), 'exact' (match by text+type+start+end),
             or 'partial' (type match + span IoU >= iou_threshold).
         iou_threshold: Minimum IoU for partial matching (default 0.5).
-        scope_to_rule_labels: If True, only count FN for entity types the rule declares in their output_template (default False).
+        scope_to_rule_labels: If True, only count FN for entity types set in target_labels or declared by the rules (default False).
+        target_labels: Fixed set of labels for scoping FN. If None, the labels the rules declare are used.
 
     Returns:
         EvalResult with micro/macro metrics, per-class breakdown, exact match
@@ -398,11 +400,9 @@ def evaluate_dataset(
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
 
-    targets = (
-        _target_labels(rules)
-        if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION
-        else None
-    )
+    targets = None
+    if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION:
+        targets = set(target_labels) if target_labels else _target_labels(rules)
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
