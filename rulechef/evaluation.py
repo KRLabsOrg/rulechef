@@ -179,19 +179,6 @@ class RuleMetrics:
         }
 
 
-@dataclass
-class SampleMatch:
-    input: str
-    rule_output: list
-    expected: list
-    tp: int
-    fp: int
-    fn: int
-    matched_pairs: list = field(default_factory=list)
-    false_positives: list = field(default_factory=list)
-    missed: list = field(default_factory=list)
-
-
 # ============================================================================
 # Core evaluation helpers
 # ============================================================================
@@ -661,17 +648,17 @@ def evaluate_rules_individually(
             # Collect sample matches
             if pred_entities and len(sample_matches) < max_samples:
                 sample_matches.append(
-                    SampleMatch(
-                        input=item.input,
-                        rule_output=pred_entities,
-                        expected=gold_entities,
-                        tp=len(matched),
-                        fp=len(fp_list),
-                        fn=len(targeted_fn),
-                        matched_pairs=[(p, g) for p, g in matched],
-                        false_positives=[p for p in fp_list],
-                        missed=targeted_fn,
-                    )
+                    {
+                        "input": item.input,
+                        "rule_output": pred_entities,
+                        "expected": gold_entities,
+                        "tp": len(matched),
+                        "fp": len(fp_list),
+                        "fn": len(targeted_fn),
+                        "matched_pairs": list(matched),
+                        "false_positives": list(fp_list),
+                        "missed": list(targeted_fn),
+                    }
                 )
         rule_total_expected = (
             sum(expected_by_label[label] for label in target_labels)
@@ -691,7 +678,7 @@ def evaluate_rules_individually(
                 rule_id=rule.id,
                 rule_name=rule.name,
                 rule_description=rule.description,
-                rule_format=rule.format,
+                rule_format=rule.format.value,
                 rule_content=rule.content,
                 precision=precision,
                 recall=recall,
