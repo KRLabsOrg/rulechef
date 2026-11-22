@@ -122,6 +122,17 @@ class TestExecuteRegexRule:
         results = self.executor._execute_regex_rule(rule, {"text": "nothing here"})
         assert results == []
 
+    def test_zero_length_matches_skipped(self):
+        rule = Rule(
+            id="r5",
+            name="optional_digits",
+            description="Can match empty",
+            format=RuleFormat.REGEX,
+            content=r"\d*",
+        )
+        results = self.executor._execute_regex_rule(rule, {"text": "ab 12"})
+        assert [r.text for r in results] == ["12"]
+
 
 # =========================================================================
 # RuleExecutor._execute_code_rule

@@ -331,6 +331,8 @@ class LearningPipeline:
     def _audit_rules(self, rules: list[Rule], eval_result) -> tuple:
         """Run coordinator audit and apply actions with F1 safety net."""
         chef = self._chef
+        if eval_result is None:  # run_evaluation = False -> needs a baseline for an F1 safety net
+            eval_result = chef.evaluate(verbose=False)
         audit = chef.coordinator.audit_rules(rules, chef.get_rule_metrics(verbose=False))
         if audit.actions:
             rules = self._apply_audit(audit, eval_result)

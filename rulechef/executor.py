@@ -374,6 +374,9 @@ class RuleExecutor:
             match_text = match.group()
             start = match.start()
             end = match.end()
+            # Skip zero-length matches as they produce empty spans
+            if start == end:
+                continue
             groups = match.groups()
 
             if rule.output_template:
