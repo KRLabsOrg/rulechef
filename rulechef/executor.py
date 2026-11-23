@@ -471,6 +471,11 @@ class RuleExecutor:
 
                     download(self.spacy_model)
                     self._nlp = spacy.load(self.spacy_model)
+                if self.use_spacy_ner and "ner" not in self._nlp.pipe_names:
+                    print(
+                        f"   ⚠ use_spacy_ner=True, but spaCy model {self.spacy_model} has no "
+                        "'ner' component."
+                    )
 
             # content may be stored as string or list
             if isinstance(rule.content, str):
@@ -507,9 +512,11 @@ class RuleExecutor:
             text = self._select_text(input_data, text_field)
             if self.use_spacy_ner:
                 doc = self._nlp(text)
-            else:
+            elif "ner" in self._nlp.pipe_names:
                 with self._nlp.disable_pipes("ner"):
                     doc = self._nlp(text)
+            else:
+                doc = self._nlp(text)
 
             # Build entity lookup (optional, uses spaCy NER)
             char_to_ent = {}

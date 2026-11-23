@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `spacy_model` option (default `en_core_web_sm`) so spaCy rules can now use other models.
+
 ## 0.1.1
 
 - Added training data logger for LLM distillation

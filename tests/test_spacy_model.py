@@ -33,3 +33,20 @@ def test_executor_loads_configured_spacy_model(monkeypatch):
     )
     RuleExecutor(spacy_model="de_core_news_sm")._execute_spacy_rule(rule, {"text": "test"})
     fake_spacy.load.assert_called_once_with("de_core_news_sm")
+
+
+def test_spacy_rule_works_without_ner(monkeypatch):
+    fake_spacy = MagicMock()
+    monkeypatch.setitem(sys.modules, "spacy", fake_spacy)
+    monkeypatch.setitem(sys.modules, "spacy.matcher", fake_spacy.matcher)
+    nlp = fake_spacy.load.return_value
+    nlp.pipe_names = []
+    rule = Rule(
+        id="r",
+        name="r",
+        description="",
+        format=RuleFormat.SPACY,
+        content='[{"LOWER": "test"}]',
+    )
+    RuleExecutor()._execute_spacy_rule(rule, {"text": "test"})
+    nlp.disable_pipes.assert_not_called()
