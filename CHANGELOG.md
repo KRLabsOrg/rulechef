@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Added opt-in span overlap resolution: `overlap_strategy="longest"` keeps only the longest of overlapping spans (default `None` keeps the existing behaviour). 
+- `cross_type_overlaps=True` also resolves overlaps across types
+
 ## 0.1.1
 
 - Added training data logger for LLM distillation
