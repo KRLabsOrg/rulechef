@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -173,7 +174,7 @@ class RuleMetrics:
 # ============================================================================
 
 
-def _get_entities(output: dict, task_type: TaskType) -> list[dict]:
+def _get_entities(output: dict, task_type: TaskType, keep_rule_id: bool = False) -> list[dict]:
     """Extract the entity/span list from an output dict."""
     if task_type == TaskType.NER:
         for key in ("entities", "spans", "ner"):
@@ -204,7 +205,7 @@ def _get_entities(output: dict, task_type: TaskType) -> list[dict]:
         if not label:
             return []
         entity = {"label": label}
-        if "rule_id" in output:
+        if keep_rule_id and "rule_id" in output:
             entity["rule_id"] = output["rule_id"]
             entity["rule_name"] = output.get("rule_name", "")
         return [entity]
@@ -511,7 +512,9 @@ def evaluate_rules_individually(
     Args:
         rules: Rules to evaluate individually.
         dataset: Dataset with examples and corrections.
-        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict. With in_context = True,
+            every predicted item must carry the rule_id of the rule that produced it. If the predictions do not have a rule_id
+            they will not be credited to any rule.
         mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
         iou_threshold: Minimum IoU for partial matching (default 0.5).
@@ -530,18 +533,34 @@ def evaluate_rules_individually(
         gold_entities = _get_entities(item.expected_output, task_type)
         total_expected += len(gold_entities)
 
-    context_preds: dict[int, dict[str, list[dict]]] = {}
-    # run all rules once per item and group preds by rule_id
+    # run all rules once per item, match the output against the gold once
+    context: dict[int, dict[str | None, tuple[list, list, list]]] = {}
+    context_gold: dict[int, list[dict]] = {}
+    missing_rule_id = 0
     if in_context:
         for i, item in enumerate(all_data):
             extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
-            by_rule: dict[str, list[dict]] = defaultdict(list)
-            for pred in _get_entities(extracted, task_type):
-                rule_id = pred.get("rule_id") if isinstance(pred, dict) else None
-                if rule_id:
-                    by_rule[rule_id].append(pred)
-            context_preds[i] = by_rule
-
+            pred_entities = _get_entities(extracted, task_type, keep_rule_id=True)
+            gold_entities = _get_entities(item.expected_output, task_type)
+            matched, fp_list, _ = _match_entities(
+                pred_entities, gold_entities, task_type, mode, iou_threshold
+            )
+            by_rule: dict[str | None, tuple[list, list, list]] = defaultdict(lambda: ([], [], []))
+            for pred in pred_entities:
+                by_rule[pred.get("rule_id")][0].append(pred)
+            for pred, gold in matched:
+                by_rule[pred.get("rule_id")][1].append((pred, gold))
+            for pred in fp_list:
+                by_rule[pred.get("rule_id")][2].append(pred)
+            context[i] = by_rule
+            context_gold[i] = gold_entities
+            missing_rule_id += sum(1 for pred in pred_entities if not pred.get("rule_id"))
+        if missing_rule_id:
+            warnings.warn(
+                f"in_context = True -> {missing_rule_id} predictions have no rule_id and are not "
+                "credited to any rule. apply_rules_fn must set rule_id on each predicted item.",
+                stacklevel=2,
+            )
     results = []
 
     for rule in rules:
@@ -552,19 +571,19 @@ def evaluate_rules_individually(
 
         for i, item in enumerate(all_data):
             if in_context:
-                pred_entities = context_preds[i].get(rule.id, [])
+                gold_entities = context_gold[i]
+                pred_entities, matched, fp_list = context[i].get(rule.id, ([], [], []))
+                used = {id(g) for _, g in matched}
+                fn_list = [g for g in gold_entities if id(g) not in used]
             else:
+                gold_entities = _get_entities(item.expected_output, task_type)
                 pred_entities = _get_entities(
                     apply_rules_fn([rule], item.input, task_type, dataset.task.text_field),
                     task_type,
                 )
-            expected_output = item.expected_output
-
-            gold_entities = _get_entities(expected_output, task_type)
-
-            matched, fp_list, fn_list = _match_entities(
-                pred_entities, gold_entities, task_type, mode, iou_threshold
-            )
+                matched, fp_list, fn_list = _match_entities(
+                    pred_entities, gold_entities, task_type, mode, iou_threshold
+                )
 
             rule_total_matches += len(pred_entities)
             rule_covered += len(matched)

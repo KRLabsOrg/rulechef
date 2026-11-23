@@ -304,6 +304,11 @@ class RuleExecutor:
                     # TRANSFORMATION: merge dict results directly
                     if isinstance(results, dict):
                         for k, v in results.items():
+                            if isinstance(v, list):
+                                for item in v:
+                                    if isinstance(item, dict):
+                                        item["rule_id"] = rule.id
+                                        item["rule_name"] = rule.name
                             if k not in output:
                                 output[k] = v
                             elif isinstance(output[k], list) and isinstance(v, list):

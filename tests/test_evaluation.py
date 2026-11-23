@@ -452,3 +452,137 @@ class TestEvaluateRulesIndividually:
         in_ctx = evaluate_rules_individually(rules, ds, apply, in_context=True)
         assert next(r for r in in_ctx if r.rule_id == "rNeg").true_positives == 1
         assert next(r for r in in_ctx if r.rule_id == "rPos").false_positives == 0
+
+    def test_in_context_totals_match_evaluate_dataset(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [
+                {
+                    "input": {"text": "Paris and Paris"},
+                    "expected": {"entities": [{"text": "Paris", "type": "LOC"}]},
+                }
+            ],
+        )
+        template = {"text": "$0", "start": "$start", "end": "$end", "type": "LOC"}
+        rules = [
+            Rule(
+                id="rStart",
+                name="start",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"^Paris",
+                priority=5,
+                output_template=template,
+                output_key="entities",
+            ),
+            Rule(
+                id="rEnd",
+                name="end",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"Paris$",
+                priority=5,
+                output_template=template,
+                output_key="entities",
+            ),
+        ]
+        apply = RuleExecutor().apply_rules
+        total = evaluate_dataset(rules, ds, apply)
+        per_rule = evaluate_rules_individually(rules, ds, apply, in_context=True)
+        assert sum(r.true_positives for r in per_rule) == total.total_tp == 1
+        assert sum(r.false_positives for r in per_rule) == total.total_fp == 1
+
+    def test_in_context_totals_match_evaluate_dataset_partial(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [
+                {
+                    "input": {"text": "ABCDEFGHIJ"},
+                    "expected": {
+                        "entities": [{"text": "ABCDEFGHIJ", "start": 0, "end": 10, "type": "X"}]
+                    },
+                }
+            ],
+        )
+        template = {"text": "$0", "start": "$start", "end": "$end", "type": "X"}
+        rules = [
+            Rule(
+                id="rLong",
+                name="long",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"ABCDEFGHIJ",
+                priority=9,
+                output_template=template,
+                output_key="entities",
+            ),
+            Rule(
+                id="rShort",
+                name="short",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"ABCDEF",
+                priority=1,
+                output_template=template,
+                output_key="entities",
+            ),
+        ]
+        apply = RuleExecutor().apply_rules
+        total = evaluate_dataset(rules, ds, apply, mode="partial")
+        per_rule = evaluate_rules_individually(rules, ds, apply, mode="partial", in_context=True)
+        assert sum(r.true_positives for r in per_rule) == total.total_tp == 1
+        assert sum(r.false_positives for r in per_rule) == total.total_fp == 1
+
+    def test_in_context_transformation_code_rule(self):
+        ds = _make_dataset(
+            TaskType.TRANSFORMATION,
+            [
+                {
+                    "input": {"text": "a 12 b 34"},
+                    "expected": {"numbers": [{"text": "12"}, {"text": "34"}]},
+                }
+            ],
+        )
+        rule = Rule(
+            id="rNum",
+            name="numbers",
+            description="",
+            format=RuleFormat.CODE,
+            content='def extract(input_data):\n    return {"numbers": [{"text": "12"}, {"text": "34"}]}',
+        )
+        apply = RuleExecutor().apply_rules
+        in_ctx = evaluate_rules_individually([rule], ds, apply, in_context=True)
+        assert in_ctx[0].true_positives == 2
+
+    def test_in_context_no_rule_id_warning(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [{"input": {"text": "x"}, "expected": {"entities": [{"text": "x", "type": "A"}]}}],
+        )
+        rule = Rule(id="r", name="r", description="", format=RuleFormat.REGEX, content="x")
+
+        def apply(rules, input_data, task_type, text_field):
+            return {"entities": [{"text": "x", "type": "A"}]}
+
+        with pytest.warns(UserWarning, match="rule_id"):
+            evaluate_rules_individually([rule], ds, apply, in_context=True)
+
+    def test_classification_output_unchanged(self):
+        ds = _make_dataset(
+            TaskType.CLASSIFICATION,
+            [{"input": {"text": "great"}, "expected": {"label": "negative"}}],
+        )
+        rule = Rule(
+            id="rPos",
+            name="positive",
+            description="",
+            format=RuleFormat.REGEX,
+            content="great",
+            priority=3,
+            output_template={"label": "positive"},
+            output_key="label",
+        )
+
+        apply = RuleExecutor().apply_rules
+        metrics = evaluate_rules_individually([rule], ds, apply)
+        assert metrics[0].sample_matches[0]["rule_output"] == [{"label": "positive"}]
