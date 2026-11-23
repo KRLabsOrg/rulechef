@@ -116,7 +116,6 @@ class EvalResult:
             "total_docs": self.total_docs,
             "per_class": [c.to_dict() for c in self.per_class],
             "failures": self.failures,
-            "fp_examples": self.fp_examples,
         }
 
 
