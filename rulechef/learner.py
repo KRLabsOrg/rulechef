@@ -1,7 +1,6 @@
 """LLM-based rule learning"""
 
 import dataclasses
-import hashlib
 import json
 import random
 import re
@@ -10,7 +9,15 @@ from collections import defaultdict
 
 from openai import OpenAI
 
-from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
+from rulechef.core import (
+    Correction,
+    Dataset,
+    Feedback,
+    Rule,
+    RuleFormat,
+    TaskType,
+    generate_rule_id,
+)
 from rulechef.evaluation import (
     EvalResult,
     evaluate_dataset,
@@ -1739,10 +1746,13 @@ Instructions:
         output_key: str | None,
     ) -> str:
         """Generate an ID from the fields that identify a rule"""
-        fmt = format.value if isinstance(format, RuleFormat) else (format or "")
-        template = json.dumps(output_template, sort_keys=True) if output_template else ""
-        raw = f"{name}:{content}:{fmt}:{template}:{output_key or ''}"
-        return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8]
+        return generate_rule_id(
+            name=name,
+            content=content,
+            format=format,
+            output_template=output_template,
+            output_key=output_key,
+        )
 
     @staticmethod
     def _ensure_unique_ids(rules: list[Rule]) -> list[Rule]:

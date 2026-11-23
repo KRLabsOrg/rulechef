@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Added optional `seed` on `RuleChef`, sent with all LLM calls for more reproducible runs
+- Rule IDs are derived from rule's information now (name, content, format, output_template, output_key). A rule learned again with the same fields keeps the same ID, and an ID can carry a suffix in case of duplicates.
+
 ## 0.1.1
 
 - Added training data logger for LLM distillation
