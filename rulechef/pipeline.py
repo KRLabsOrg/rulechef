@@ -335,6 +335,8 @@ class LearningPipeline:
         chef = self._chef
         audit = chef.coordinator.audit_rules(rules, chef.get_rule_metrics(verbose=False))
         if audit.actions:
+            # run_evaluation = False -> still needs a baseline for an F1 safety net
+            eval_result = eval_result or chef.evaluate(verbose=False)
             rules = self._apply_audit(audit, eval_result)
             eval_result = chef.evaluate(verbose=False) if eval_result else None
         return rules, eval_result
