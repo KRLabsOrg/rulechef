@@ -29,6 +29,12 @@ Each rule gets individual metrics:
 - **Sample matches** — which examples each rule matched
 - **Dead rules** — rules that never fire on any example
 
+By default each rule is measured alone, as if it were the only rule in the ruleset. To measure the contribution of each rule to the full ruleset's output, use `in_context` = True:
+
+```python
+metrics = chef.get_rule_metrics(in_context=True)
+```
+
 ```python
 # Delete a rule that's causing false positives
 chef.delete_rule("rule_id")
