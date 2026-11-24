@@ -55,6 +55,7 @@ class RuleChef:
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
         use_grex: bool = True,
+        concise_reasoning: bool = False,
         max_rules: int = 10,
         max_samples: int = 50,
         max_rules_per_class: int = 5,
@@ -165,6 +166,7 @@ class RuleChef:
         self.use_spacy_ner = use_spacy_ner
         self.spacy_model = spacy_model
         self.use_grex = use_grex
+        self.concise_reasoning = concise_reasoning
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
@@ -290,6 +292,7 @@ class RuleChef:
             use_spacy_ner=self.use_spacy_ner,
             spacy_model=self.spacy_model,
             use_grex=self.use_grex,
+            concise_reasoning=self.concise_reasoning,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
