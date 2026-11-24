@@ -73,6 +73,7 @@ class RuleChef:
         judge=None,
         search_config=None,
         seed: int | None = None,
+        interleave_failures: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -131,6 +132,7 @@ class RuleChef:
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
             seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
+            interleave_failures: If True (only for NER), interleave patch failures by entity text.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -172,6 +174,7 @@ class RuleChef:
         self._max_samples = max_samples
         self._max_rules_per_class = max_rules_per_class
         self._max_counter_examples = max_counter_examples
+        self._interleave_failures = interleave_failures
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -267,6 +270,7 @@ class RuleChef:
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
+            interleave_failures=self._interleave_failures,
             training_logger=self.training_logger,
             temperature=self.temperature,
             seed=self.seed,
