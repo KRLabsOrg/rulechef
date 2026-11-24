@@ -7,9 +7,11 @@ import pytest
 from openai import OpenAI
 
 from rulechef import RuleChef
-from rulechef.coordinator import AgenticCoordinator
-from rulechef.core import RuleFormat, Task, TaskType
+from rulechef.buffer import ExampleBuffer
+from rulechef.coordinator import AgenticCoordinator, AuditAction, AuditResult
+from rulechef.core import Rule, RuleFormat, Task, TaskType, generate_rule_id
 from rulechef.learner import RuleLearner
+from rulechef.openai_wrapper import OpenAIObserver, RawObservation
 
 NER_DATA = Path(__file__).parent.parent / "examples" / "data" / "demo_ner_bulk.jsonl"
 FAKE_RESPONSE = json.dumps(
@@ -83,7 +85,6 @@ def _learn(storage_path, learner_client, coordinator_client):
 
 
 def test_same_input_gives_same_id():
-    learner = _learner()
     kwargs = dict(
         name="a", content="b", format=RuleFormat.REGEX, output_template=None, output_key=None
     )
@@ -151,6 +152,96 @@ def test_two_runs_give_same_ids(tmp_path):
     second = _learn(tmp_path / "b", _mock_client(), _mock_client())
     assert first
     assert first == second
+
+
+def test_from_dict_without_id_uses_hashed_id():
+    rule = Rule.from_dict({"name": "a", "content": "b"})
+    assert rule.id == generate_rule_id(
+        name="a",
+        content="b",
+        format=RuleFormat.REGEX,
+        output_template=None,
+        output_key=None,
+    )
+
+
+def test_audit_merge_two_rules(tmp_path):
+    chef = RuleChef(
+        task=_ner_task(),
+        client=_mock_client(),
+        dataset_name="repro",
+        storage_path=str(tmp_path),
+        allowed_formats=[RuleFormat.REGEX],
+        seed=42,
+    )
+    chef.dataset.rules = [
+        Rule.from_dict({"id": "a", "name": "a", "content": r"\d+mg"}),
+        Rule.from_dict({"id": "b", "name": "b", "content": r"\d+ mg"}),
+    ]
+    audit = AuditResult(
+        actions=[
+            AuditAction(
+                action="merge",
+                rule_ids=["a", "b"],
+                reason="test",
+                merged_pattern=r"\d+ ?mg",
+                merged_name="merged",
+            )
+        ]
+    )
+    (merged,) = chef._pipeline._apply_audit(audit, None)
+    assert merged.id == generate_rule_id(
+        name="merged",
+        content=r"\d+ ?mg",
+        format=RuleFormat.REGEX,
+        output_template=None,
+        output_key=None,
+    )
+
+
+def test_execute_with_llm_seed(tmp_path):
+    client = _mock_client()
+    chef = RuleChef(
+        task=_ner_task(),
+        client=client,
+        dataset_name="repro",
+        storage_path=str(tmp_path),
+        allowed_formats=[RuleFormat.REGEX],
+        seed=42,
+    )
+    chef._execute_with_llm({"text": "Take 50mg aspirin"})
+    assert client.chat.completions.create.call_args.kwargs["seed"] == 42
+
+
+def test_observer_sends_seed():
+    client = _mock_client(
+        json.dumps(
+            {
+                "name": "sentiment_analysis",
+                "description": "Classify sentiment of text",
+                "type": "classification",
+                "input_schema": {"text": "str"},
+                "output_schema": {"label": "str"},
+                "text_field": "text",
+            }
+        )
+    )
+    observer = OpenAIObserver(
+        buffer=ExampleBuffer(),
+        task=None,
+        original_create=MagicMock(),
+        min_observations_for_discovery=3,
+        seed=42,
+    )
+    observer._raw_observations = [
+        RawObservation(
+            messages=[{"role": "user", "content": f"text {i}"}],
+            response_content=f"response {i}",
+        )
+        for i in range(5)
+    ]
+    observer.discover_task(client, "test-model")
+    assert client.chat.completions.create.call_args.kwargs["seed"] == 42
 
 
 def _learn_with_live_llm(storage_path):

@@ -1,5 +1,6 @@
 """Tests for rulechef.evaluation — metrics and evaluation functions."""
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -375,6 +376,14 @@ class TestEvaluateRulesIndividually:
         assert rb.precision == pytest.approx(0.5)
         assert rb.covered_expected == 1
         assert rb.total_expected == 3
+        # Sample matches keep per-entity details; to_dict() stays JSON-serializable
+        sample = rb.sample_matches[0]
+        assert (sample["tp"], sample["fp"], sample["fn"]) == (1, 1, 2)  # NYC; Paris; Alice, Bob
+        assert [e["text"] for e in sample["false_positives"]] == ["Paris"]
+        assert [e["text"] for e in sample["missed"]] == ["Alice", "Bob"]
+        assert rb.rule_description == "Find locations"
+        assert rb.rule_format == RuleFormat.REGEX.value
+        json.dumps(rb.to_dict())
 
     def test_in_context_ner(self):
         ds = _make_dataset(
@@ -456,6 +465,141 @@ class TestEvaluateRulesIndividually:
         assert next(r for r in in_ctx if r.rule_id == "rNeg").true_positives == 1
         assert next(r for r in in_ctx if r.rule_id == "rPos").false_positives == 0
 
+    def test_in_context_totals_match_evaluate_dataset(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [
+                {
+                    "input": {"text": "Paris and Paris"},
+                    "expected": {"entities": [{"text": "Paris", "type": "LOC"}]},
+                }
+            ],
+        )
+        template = {"text": "$0", "start": "$start", "end": "$end", "type": "LOC"}
+        rules = [
+            Rule(
+                id="rStart",
+                name="start",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"^Paris",
+                priority=5,
+                output_template=template,
+                output_key="entities",
+            ),
+            Rule(
+                id="rEnd",
+                name="end",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"Paris$",
+                priority=5,
+                output_template=template,
+                output_key="entities",
+            ),
+        ]
+        apply = RuleExecutor().apply_rules
+        total = evaluate_dataset(rules, ds, apply)
+        per_rule = evaluate_rules_individually(rules, ds, apply, in_context=True)
+        assert sum(r.true_positives for r in per_rule) == total.total_tp == 1
+        assert sum(r.false_positives for r in per_rule) == total.total_fp == 1
+
+    def test_in_context_totals_match_evaluate_dataset_partial(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [
+                {
+                    "input": {"text": "ABCDEFGHIJ"},
+                    "expected": {
+                        "entities": [{"text": "ABCDEFGHIJ", "start": 0, "end": 10, "type": "X"}]
+                    },
+                }
+            ],
+        )
+        template = {"text": "$0", "start": "$start", "end": "$end", "type": "X"}
+        rules = [
+            Rule(
+                id="rLong",
+                name="long",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"ABCDEFGHIJ",
+                priority=9,
+                output_template=template,
+                output_key="entities",
+            ),
+            Rule(
+                id="rShort",
+                name="short",
+                description="",
+                format=RuleFormat.REGEX,
+                content=r"ABCDEF",
+                priority=1,
+                output_template=template,
+                output_key="entities",
+            ),
+        ]
+        apply = RuleExecutor().apply_rules
+        total = evaluate_dataset(rules, ds, apply, mode="partial")
+        per_rule = evaluate_rules_individually(rules, ds, apply, mode="partial", in_context=True)
+        assert sum(r.true_positives for r in per_rule) == total.total_tp == 1
+        assert sum(r.false_positives for r in per_rule) == total.total_fp == 1
+
+    def test_in_context_transformation_code_rule(self):
+        ds = _make_dataset(
+            TaskType.TRANSFORMATION,
+            [
+                {
+                    "input": {"text": "a 12 b 34"},
+                    "expected": {"numbers": [{"text": "12"}, {"text": "34"}]},
+                }
+            ],
+        )
+        rule = Rule(
+            id="rNum",
+            name="numbers",
+            description="",
+            format=RuleFormat.CODE,
+            content='def extract(input_data):\n    return {"numbers": [{"text": "12"}, {"text": "34"}]}',
+        )
+        apply = RuleExecutor().apply_rules
+        in_ctx = evaluate_rules_individually([rule], ds, apply, in_context=True)
+        assert in_ctx[0].true_positives == 2
+
+    def test_in_context_no_rule_id_warning(self):
+        ds = _make_dataset(
+            TaskType.NER,
+            [{"input": {"text": "x"}, "expected": {"entities": [{"text": "x", "type": "A"}]}}],
+        )
+        rule = Rule(id="r", name="r", description="", format=RuleFormat.REGEX, content="x")
+
+        def apply(rules, input_data, task_type, text_field):
+            return {"entities": [{"text": "x", "type": "A"}]}
+
+        with pytest.warns(UserWarning, match="rule_id"):
+            evaluate_rules_individually([rule], ds, apply, in_context=True)
+
+    def test_classification_output_unchanged(self):
+        ds = _make_dataset(
+            TaskType.CLASSIFICATION,
+            [{"input": {"text": "great"}, "expected": {"label": "negative"}}],
+        )
+        rule = Rule(
+            id="rPos",
+            name="positive",
+            description="",
+            format=RuleFormat.REGEX,
+            content="great",
+            priority=3,
+            output_template={"label": "positive"},
+            output_key="label",
+        )
+
+        apply = RuleExecutor().apply_rules
+        metrics = evaluate_rules_individually([rule], ds, apply)
+        assert metrics[0].sample_matches[0]["rule_output"] == [{"label": "positive"}]
+
+
 
 # =========================================================================
 # scope_to_rule_labels
@@ -531,9 +675,83 @@ class TestScopeToRuleLabels:
             client=MagicMock(),
             storage_path=str(tmp_path),
             scope_to_rule_labels=True,
+            target_labels=["DATE", "LOC"],
         )
         chef.dataset.examples = ds.examples
         chef.dataset.rules = [rule]
+
         assert chef.learner.scope_to_rule_labels is True
+        assert chef.learner.target_labels == ["DATE", "LOC"]
         result = chef.evaluate(verbose=False)
+        learner_result = chef.learner._evaluate_rules([rule], chef.dataset)
+        assert result.micro_f1 == pytest.approx(learner_result.micro_f1)
+        assert result.total_fn == 1
+
+    def test_target_labels_override_rule_labels(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset(
+            [rule], ds, apply, scope_to_rule_labels=True, target_labels=["DATE", "LOC"]
+        )
+        assert result.total_fn == 1  # NYC counted, ORG out of scope
+
+    def test_target_labels_keep_scope_stable(self):
+        ds, date_rule, apply = (
+            self._setup()
+        )  # gold: ORG (John Doe Consulting LLC), LOC (NYC), DATE (2006)
+
+        # matches nothing in the example -> not a useful rule
+        loc_rule = Rule(
+            id="rLoc",
+            name="paris",
+            description="Find Paris",
+            format=RuleFormat.REGEX,
+            content=r"\bParis\b",
+            output_template={"text": "$0", "type": "LOC"},
+        )
+        rules_before_patch = [date_rule, loc_rule]
+        rules_after_patch = [date_rule]  # patch listed "paris" in deleted_rules
+
+        # Scope from rules, deleting the LOC rule hides the missed NYC -> F1 increases
+        before = evaluate_dataset(rules_before_patch, ds, apply, scope_to_rule_labels=True)
+        after = evaluate_dataset(rules_after_patch, ds, apply, scope_to_rule_labels=True)
+        assert before.total_fn == 1  # NYC
+        assert after.total_fn == 0  # NYC no longer counted
+
+        assert after.micro_f1 > before.micro_f1  # learner would accept this as progress
+
+        # Fixed scope: NYC is missed in both cases -> same F1, no false progress
+        fixed = {"scope_to_rule_labels": True, "target_labels": ["DATE", "LOC"]}
+        before = evaluate_dataset(rules_before_patch, ds, apply, **fixed)
+        after = evaluate_dataset(rules_after_patch, ds, apply, **fixed)
+        assert before.total_fn == after.total_fn == 1
+        assert after.micro_f1 == pytest.approx(before.micro_f1)
+
+    def test_target_labels_string_rejected(self):
+        ds, rule, apply = self._setup()
+        with pytest.raises(TypeError):
+            evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True, target_labels="DATE")
+
+    def test_target_labels_unknown_label_warns(self):
+        ds, rule, apply = self._setup()
+        with pytest.warns(UserWarning, match="XYZ"):
+            evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True, target_labels=["XYZ"])
+
+    def test_target_labels_scope_only_fn(self):
+        ds, rule, apply = self._setup()
+        loc_rule = Rule(
+            id="rLoc",
+            name="nyc",
+            description="Find NYC",
+            format=RuleFormat.REGEX,
+            content=r"\bNYC\b",
+            output_template={"text": "$0", "type": "LOC"},
+        )
+        result = evaluate_dataset(
+            [rule, loc_rule], ds, apply, scope_to_rule_labels=True, target_labels=["DATE"]
+        )
+        # ORG missed but out of scope -> no FN; LOC TP still counts
+        assert result.total_tp == 2
         assert result.total_fn == 0
+        assert result.micro_f1 == pytest.approx(1.0)
+        loc = next(c for c in result.per_class if c.label == "LOC")
+        assert (loc.tp, loc.fn) == (1, 0)

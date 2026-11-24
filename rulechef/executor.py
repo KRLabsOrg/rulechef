@@ -211,6 +211,7 @@ class RuleExecutor:
                 None (default): keeps the default behavior (exact position, or IoU > 0.7 within the same type). Output is in rule priority order.
                 "longest": keep the longest match among overlapping spans. On equal lengths, the higher priority rule wins. Output is sorted by start position.
             cross_type_overlaps: If True, spans of different types also count as overlapping. Has no effect when overlap_strategy is None.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
 
         self.check_overlap_strategy(overlap_strategy)
@@ -333,6 +334,11 @@ class RuleExecutor:
                     # TRANSFORMATION: merge dict results directly
                     if isinstance(results, dict):
                         for k, v in results.items():
+                            if isinstance(v, list):
+                                for item in v:
+                                    if isinstance(item, dict):
+                                        item["rule_id"] = rule.id
+                                        item["rule_name"] = rule.name
                             if k not in output:
                                 output[k] = v
                             elif isinstance(output[k], list) and isinstance(v, list):
@@ -405,7 +411,7 @@ class RuleExecutor:
             match_text = match.group()
             start = match.start()
             end = match.end()
-            # to skip rules that match nothing, failures too big, 400 error
+            # Skip zero-length matches as they produce empty spans
             if start == end:
                 continue
             groups = match.groups()
@@ -503,6 +509,11 @@ class RuleExecutor:
 
                     download(self.spacy_model)
                     self._nlp = spacy.load(self.spacy_model)
+                if self.use_spacy_ner and "ner" not in self._nlp.pipe_names:
+                    print(
+                        f"   ⚠ use_spacy_ner=True, but spaCy model {self.spacy_model} has no "
+                        "'ner' component."
+                    )
 
             # content may be stored as string or list
             if isinstance(rule.content, str):
@@ -539,9 +550,11 @@ class RuleExecutor:
             text = self._select_text(input_data, text_field)
             if self.use_spacy_ner:
                 doc = self._nlp(text)
-            else:
+            elif "ner" in self._nlp.pipe_names:
                 with self._nlp.disable_pipes("ner"):
                     doc = self._nlp(text)
+            else:
+                doc = self._nlp(text)
 
             # Build entity lookup (optional, uses spaCy NER)
             char_to_ent = {}

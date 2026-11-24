@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 from rulechef.core import (
     Correction,
@@ -89,7 +88,7 @@ class EvalResult:
     macro_f1: float = 0.0
 
     # Per-class breakdown
-    per_class: List[ClassMetrics] = field(default_factory=list)
+    per_class: list[ClassMetrics] = field(default_factory=list)
 
     # Document-level exact match (legacy compat)
     exact_match: float = 0.0
@@ -101,7 +100,7 @@ class EvalResult:
     total_docs: int = 0
 
     # Failures for refinement prompts
-    failures: List[dict] = field(default_factory=list)
+    failures: list[dict] = field(default_factory=list)
 
     # False positive examples for refinement prompts
     fp_examples: list[dict] = field(default_factory=list)
@@ -119,7 +118,6 @@ class EvalResult:
             "total_docs": self.total_docs,
             "per_class": [c.to_dict() for c in self.per_class],
             "failures": self.failures,
-            "fp_examples": self.fp_examples,
         }
 
 
@@ -130,6 +128,9 @@ class RuleMetrics:
     Attributes:
         rule_id: Unique identifier of the evaluated rule.
         rule_name: Human-readable name of the rule.
+        rule_description: Description of the rule.
+        rule_format: Rule format (e.g. "regex", "code").
+        rule_content: The rule's pattern or code.
         precision: Precision of this rule alone (TP / (TP + FP)).
         recall: Recall of this rule alone (covered / total expected entities).
         f1: F1 score derived from precision and recall.
@@ -139,15 +140,15 @@ class RuleMetrics:
         covered_expected: How many expected entities this rule correctly finds.
         total_expected: Total expected entities across the full dataset.
         per_class: Per-class breakdown of TP/FP/FN for this rule.
-        sample_matches: Up to 10 sample match dicts showing rule behavior.
-
+        sample_matches: Up to 10 sample match dicts (input, rule_output, expected,
+            tp/fp/fn counts, matched_pairs, false_positives, missed).
     """
 
     rule_id: str
     rule_name: str
-    rule_description: str
-    rule_format: str
-    rule_content: str
+    rule_description: str = ""
+    rule_format: str = ""
+    rule_content: str = ""
     precision: float = 0.0
     recall: float = 0.0
     f1: float = 0.0
@@ -156,8 +157,8 @@ class RuleMetrics:
     false_positives: int = 0
     covered_expected: int = 0  # how many expected entities this rule finds
     total_expected: int = 0
-    per_class: List[ClassMetrics] = field(default_factory=list)
-    sample_matches: List[dict] = field(default_factory=list)
+    per_class: list[ClassMetrics] = field(default_factory=list)
+    sample_matches: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -184,7 +185,7 @@ class RuleMetrics:
 # ============================================================================
 
 
-def _get_entities(output: Dict, task_type: TaskType) -> List[Dict]:
+def _get_entities(output: dict, task_type: TaskType, keep_rule_id: bool = False) -> list[dict]:
     """Extract the entity/span list from an output dict."""
     if task_type == TaskType.NER:
         for key in ("entities", "spans", "ner"):
@@ -215,7 +216,7 @@ def _get_entities(output: Dict, task_type: TaskType) -> List[Dict]:
         if not label:
             return []
         entity = {"label": label}
-        if "rule_id" in output:
+        if keep_rule_id and "rule_id" in output:
             entity["rule_id"] = output["rule_id"]
             entity["rule_name"] = output.get("rule_name", "")
         return [entity]
@@ -244,8 +245,8 @@ def _entity_type(e: dict) -> str:
 
 
 def _match_entities(
-    predicted: List[dict],
-    expected: List[dict],
+    predicted: list[dict],
+    expected: list[dict],
     task_type: TaskType,
     mode: str = "text",
     iou_threshold: float = 0.5,
@@ -313,13 +314,11 @@ def _match_entities_partial(
     # Build scored candidates: (iou, pred_idx, gold_idx)
     candidates = []
     for pi, pred in enumerate(predicted):
-        # print("PREDICTED:", pred)
         p_type = _entity_type(pred)
         p_start = pred.get("start")
         p_end = pred.get("end")
 
         for gi, gold in enumerate(expected):
-            # print("GOLD:", gold)
             g_type = _entity_type(gold)
             if p_type != g_type:
                 continue
@@ -334,20 +333,13 @@ def _match_entities_partial(
                 and g_start is not None
                 and g_end is not None
             ):
-                print("IOU_THRESHOLD:", iou_threshold)
-                print("SPAN_IOU:", span_iou(pred, gold))
                 iou = span_iou(pred, gold)
                 if iou >= iou_threshold:
                     candidates.append((iou, pi, gi))
-                else:
-                    print(pred, gold, "-> CANDIDATE with IoU", iou)
-
             else:
                 # Fallback: text match
-
                 if pred.get("text", "") == gold.get("text", ""):
                     candidates.append((1.0, pi, gi))
-                    print(pi, gi)
 
     # Greedy match: best IoU first
     candidates.sort(key=lambda x: -x[0])
@@ -389,7 +381,7 @@ def _in_scope(e: dict, targets: set[str] | None) -> bool:
 
 
 def evaluate_dataset(
-    rules: List[Rule],
+    rules: list[Rule],
     dataset: Dataset,
     apply_rules_fn,
     mode: str = "text",
@@ -406,8 +398,13 @@ def evaluate_dataset(
         mode: 'text' (match by text+type), 'exact' (match by text+type+start+end),
             or 'partial' (type match + span IoU >= iou_threshold).
         iou_threshold: Minimum IoU for partial matching (default 0.5).
-        scope_to_rule_labels: If True, only count FN for entity types set in target_labels or declared by the rules (default False).
-        target_labels: Fixed set of labels to scope FN to. If None, the labels the rules declare are used.
+        scope_to_rule_labels: If True, only count FN for entity types set in target_labels or declared
+            by the rules (default False). If any rule has no static label in its output_template,
+            scoping is turned off unless target_labels is set.
+        target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+            If None or empty, the scope follows the labels of the current rules.
+            Ignored unless scope_to_rule_labels is True.
+            Only missed entities are scoped, everything else the rules predict is counted as usual.
 
     Returns:
         EvalResult with micro/macro metrics, per-class breakdown, exact match
@@ -418,16 +415,34 @@ def evaluate_dataset(
     total_docs = len(all_data)
 
     # Per-class accumulators
-    class_counts: Dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
+    class_counts: dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
     exact_match_count = 0
     failures = []
     fp_examples: list[dict] = []  # Concrete FP examples for refinement
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
 
+    if isinstance(target_labels, str):
+        raise TypeError(f"target_labels must be a list of labels, not a string: {target_labels!r}")
     targets = None
     if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION:
-        targets = set(target_labels) if target_labels else _target_labels(rules)
+        if target_labels:
+            targets = set(target_labels)
+            known = {label for r in rules for label in rule_labels(r)}
+            known |= {
+                _entity_type(g)
+                for item in all_data
+                for g in _get_entities(item.expected_output, task_type)
+            }
+            unknown = targets - known
+            if unknown:
+                warnings.warn(
+                    f"target_labels {sorted(unknown)} not found in gold data or rules; "
+                    "their missed entities can never be counted.",
+                    stacklevel=2,
+                )
+        else:
+            targets = _target_labels(rules)
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
@@ -454,7 +469,7 @@ def evaluate_dataset(
             )
 
         # Accumulate per-class TP
-        for pred, gold in matched:
+        for _pred, gold in matched:
             cls = _entity_type(gold)
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
@@ -501,6 +516,7 @@ def evaluate_dataset(
             cls = _entity_type(gold)
             if not _in_scope(gold, targets):
                 continue  # Only count FN for entity types that the rules target
+
             if class_counts[cls].label == "":
                 class_counts[cls].label = cls
             class_counts[cls].fn += 1
@@ -534,8 +550,13 @@ def evaluate_dataset(
     )
 
 
+# ============================================================================
+# Per-rule evaluation
+# ============================================================================
+
+
 def evaluate_rules_individually(
-    rules: List[Rule],
+    rules: list[Rule],
     dataset: Dataset,
     apply_rules_fn,
     mode: str = "text",
@@ -554,21 +575,22 @@ def evaluate_rules_individually(
     to the system's output after priority and overlap dedup.
 
     Args:
-        rules: Rules to evaluate.
+        rules: Rules to evaluate individually.
         dataset: Dataset with examples and corrections.
-        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict.
+        apply_rules_fn: Callable(rules, input_data, task_type, text_field) -> output_dict. With in_context = True,
+            every predicted item must carry the rule_id of the rule that produced it. If the predictions do not have a rule_id
+            they will not be credited to any rule.
         mode: 'text', 'exact', or 'partial'.
         max_samples: Max sample matches to store per rule.
         iou_threshold: Minimum IoU for partial matching (default 0.5).
         in_context: If True, measure each rule's contribution to the full ruleset's output instead of running it alone.
-
         scope_to_rule_labels: If True, each rule's recall and FN only count gold
             entities of the labels the rule declares (default False).
+
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
         match counts, per-class breakdown, and sample matches.
     """
-
     task_type = dataset.task.type
     all_data = dataset.get_all_training_data()
 
@@ -581,22 +603,38 @@ def evaluate_rules_individually(
         for g in gold_entities:
             expected_by_label[_entity_type(g)] += 1
 
-    context_preds: dict[int, dict[str, list[dict]]] = {}
-    # run all rules once per item and group preds by rule_id
+    # run all rules once per item, match the output against the gold once
+    context: dict[int, dict[str | None, tuple[list, list, list]]] = {}
+    context_gold: dict[int, list[dict]] = {}
+    missing_rule_id = 0
     if in_context:
         for i, item in enumerate(all_data):
             extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
-            by_rule: dict[str, list[dict]] = defaultdict(list)
-            for pred in _get_entities(extracted, task_type):
-                rule_id = pred.get("rule_id") if isinstance(pred, dict) else None
-                if rule_id:
-                    by_rule[rule_id].append(pred)
-            context_preds[i] = by_rule
-
+            pred_entities = _get_entities(extracted, task_type, keep_rule_id=True)
+            gold_entities = _get_entities(item.expected_output, task_type)
+            matched, fp_list, _ = _match_entities(
+                pred_entities, gold_entities, task_type, mode, iou_threshold
+            )
+            by_rule: dict[str | None, tuple[list, list, list]] = defaultdict(lambda: ([], [], []))
+            for pred in pred_entities:
+                by_rule[pred.get("rule_id")][0].append(pred)
+            for pred, gold in matched:
+                by_rule[pred.get("rule_id")][1].append((pred, gold))
+            for pred in fp_list:
+                by_rule[pred.get("rule_id")][2].append(pred)
+            context[i] = by_rule
+            context_gold[i] = gold_entities
+            missing_rule_id += sum(1 for pred in pred_entities if not pred.get("rule_id"))
+        if missing_rule_id:
+            warnings.warn(
+                f"in_context = True -> {missing_rule_id} predictions have no rule_id and are not "
+                "credited to any rule. apply_rules_fn must set rule_id on each predicted item.",
+                stacklevel=2,
+            )
     results = []
 
     for rule in rules:
-        class_counts: Dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
+        class_counts: dict[str, ClassMetrics] = defaultdict(lambda: ClassMetrics(label=""))
         sample_matches = []
         rule_total_matches = 0
         rule_covered = 0
@@ -606,26 +644,27 @@ def evaluate_rules_individually(
             if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION
             else None
         )
+
         for i, item in enumerate(all_data):
             if in_context:
-                pred_entities = context_preds[i].get(rule.id, [])
+                gold_entities = context_gold[i]
+                pred_entities, matched, fp_list = context[i].get(rule.id, ([], [], []))
+                used = {id(g) for _, g in matched}
+                fn_list = [g for g in gold_entities if id(g) not in used]
             else:
+                gold_entities = _get_entities(item.expected_output, task_type)
                 pred_entities = _get_entities(
                     apply_rules_fn([rule], item.input, task_type, dataset.task.text_field),
                     task_type,
                 )
-
-            expected_output = item.expected_output
-            gold_entities = _get_entities(expected_output, task_type)
-
-            matched, fp_list, fn_list = _match_entities(
-                pred_entities, gold_entities, task_type, mode, iou_threshold
-            )
+                matched, fp_list, fn_list = _match_entities(
+                    pred_entities, gold_entities, task_type, mode, iou_threshold
+                )
 
             rule_total_matches += len(pred_entities)
             rule_covered += sum(1 for _p, g in matched if _in_scope(g, target_labels))
 
-            for pred, gold in matched:
+            for _pred, gold in matched:
                 cls = _entity_type(gold)
                 if class_counts[cls].label == "":
                     class_counts[cls].label = cls
@@ -654,10 +693,10 @@ def evaluate_rules_individually(
                         "expected": gold_entities,
                         "tp": len(matched),
                         "fp": len(fp_list),
-                        "fn": len(targeted_fn),
+                        "fn": len(fn_list),
                         "matched_pairs": list(matched),
                         "false_positives": list(fp_list),
-                        "missed": list(targeted_fn),
+                        "missed": list(fn_list),
                     }
                 )
         rule_total_expected = (
@@ -727,7 +766,7 @@ def print_eval_result(result: EvalResult, name: str = "Dataset") -> None:
     print(f"\n{'=' * 70}\n")
 
 
-def print_rule_metrics(rule_metrics: List[RuleMetrics]) -> None:
+def print_rule_metrics(rule_metrics: list[RuleMetrics]) -> None:
     """Pretty-print per-rule metrics."""
     print(f"\n{'=' * 70}")
     print("PER-RULE METRICS")
@@ -750,7 +789,7 @@ def print_rule_metrics(rule_metrics: List[RuleMetrics]) -> None:
 # ============================================================================
 
 
-def span_iou(span1: Dict, span2: Dict) -> float:
+def span_iou(span1: dict, span2: dict) -> float:
     """Calculate Intersection over Union for two spans."""
     s1_start = span1.get("start", 0)
     s1_end = span1.get("end", 0)
@@ -766,11 +805,11 @@ def span_iou(span1: Dict, span2: Dict) -> float:
 
 
 def evaluate_typed_spans(
-    predictions: List[Dict],
-    gold_standard: List[Dict],
+    predictions: list[dict],
+    gold_standard: list[dict],
     type_field: str = "type",
     iou_threshold: float = 0.5,
-) -> Dict:
+) -> dict:
     """Legacy typed span evaluation (kept for backward compatibility)."""
     from collections import defaultdict
 
@@ -839,7 +878,7 @@ def evaluate_typed_spans(
             per_type_counts[ptype]["fp"] += 1
 
     for gtype, gold_list in gold_by_type.items():
-        for gold_idx, gold in gold_list:
+        for gold_idx, _gold in gold_list:
             if gold_idx not in matched_gold:
                 per_type_counts[gtype]["fn"] += 1
 

@@ -10,7 +10,15 @@ from collections import Counter, defaultdict
 
 from openai import OpenAI
 
-from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
+from rulechef.core import (
+    Correction,
+    Dataset,
+    Feedback,
+    Rule,
+    RuleFormat,
+    TaskType,
+    generate_rule_id,
+)
 from rulechef.evaluation import (
     EvalResult,
     _get_entities,
@@ -42,13 +50,13 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = 0.0,
         llm_config: LLMCallConfig | None = None,
+        seed: int | None = None,
         interleave_failures: bool = False,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
-        seed: int | None = None,
         scope_to_rule_labels: bool = False,
-        frequency_penalty: float | None = None,
         target_labels: list[str] | None = None,
+        frequency_penalty: float | None = None,
     ):
         """Initialize the rule learner.
 
@@ -67,15 +75,16 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
-            interleave_failures: If True (only for NER), interleave each failure cluster by entitiy text.
+            seed: Seed sent with LLM calls, for more reproducible runs.
+            interleave_failures: If True (only for NER), interleave each failure cluster by entity text
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
-            seed: Seed sent with LLM calls, for more reproducible runs.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
             scope_to_rule_labels: If True, rule evaluation during synthesis,
                 patching and pruning only counts false negatives for entity
                 types the rules declare (default False).
             target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
-                 If None, the scope follows the labels of the current rules.
+                If None, the scope follows the labels of the current rules.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -106,6 +115,7 @@ class RuleLearner:
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
         )
+
         self.interleave_failures = interleave_failures
 
     def _temp_kwargs(self) -> dict:
@@ -1744,17 +1754,17 @@ Instructions:
 
                 repaired = repair_json(text, return_objects=True)
                 if isinstance(repaired, dict):
-                    print(f"json_repair  worked!")
+                    print("json_repair  worked!")
                     return repaired
                 if not isinstance(repaired, dict):
                     if isinstance(repaired, list) and repaired and isinstance(repaired[0], dict):
                         repaired = repaired[0]
-                        print(f"json_repair  worked!")
+                        print("json_repair  worked!")
                         return repaired
 
                     else:
                         repaired = {}
-                        print(f"json_repair  did not work!")
+                        print("json_repair  did not work!")
 
             except Exception as e2:
                 print(f"json_repair failed: {e2}")
@@ -1897,10 +1907,13 @@ Instructions:
         output_key: str | None,
     ) -> str:
         """Generate an ID from the fields that identify a rule"""
-        fmt = format.value if isinstance(format, RuleFormat) else (format or "")
-        template = json.dumps(output_template, sort_keys=True) if output_template else ""
-        raw = f"{name}:{content}:{fmt}:{template}:{output_key or ''}"
-        return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8]
+        return generate_rule_id(
+            name=name,
+            content=content,
+            format=format,
+            output_template=output_template,
+            output_key=output_key,
+        )
 
     @staticmethod
     def _ensure_unique_ids(rules: list[Rule]) -> list[Rule]:
