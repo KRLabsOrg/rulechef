@@ -1,5 +1,5 @@
 from rulechef.core import Dataset, Example, RuleFormat, Task, TaskType
-from rulechef.prompts import PromptBuilder
+from rulechef.prompts import PromptBuilder, get_schema_aware_response_schema
 
 
 def test_prompt_derives_labels_and_includes_evidence_for_dict_schema():
@@ -93,3 +93,11 @@ def test_prompt_includes_grex_patterns_when_available():
         assert "Exact pattern:" in prompt
     else:
         assert "Exact pattern:" not in prompt
+
+
+def test_concise_reasoning_is_opt_in():
+    default = get_schema_aware_response_schema(["regex"], "entities")
+    concise = get_schema_aware_response_schema(["regex"], "entities", concise_reasoning=True)
+    assert "Respond in 1-2 sentences" not in default
+    assert "Respond in 1-2 sentences" in concise
+    assert "in 1 sentence" in concise

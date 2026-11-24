@@ -315,7 +315,10 @@ Return JSON:
 
 
 def get_schema_aware_response_schema(
-    format_options: list[str], primary_key: str, is_classification: bool = False
+    format_options: list[str],
+    primary_key: str,
+    is_classification: bool = False,
+    concise_reasoning: bool = False,
 ) -> str:
     """Get JSON schema for schema-aware tasks (NER, TRANSFORMATION, CLASSIFICATION)"""
     format_str = '" or "'.join(format_options)
@@ -336,8 +339,8 @@ def get_schema_aware_response_schema(
     return f'''
 Return JSON:
 {{
-  "analysis": "What patterns did you find? What went wrong in corrections? Respond in 1-2 sentences",
-   "strategy": "Overall approach in 1 sentence",
+  "analysis": "What patterns did you find? What went wrong in corrections?{" Respond in 1-2 sentences" if concise_reasoning else ""}",
+  "strategy": "Overall approach{" in 1 sentence" if concise_reasoning else ""}",
   "note": "Every rule must include both output_template and output_key",
   "rules": [
     {{
@@ -369,10 +372,12 @@ class PromptBuilder:
         allowed_formats: list[RuleFormat],
         use_spacy_ner: bool = False,
         use_grex: bool = True,
+        concise_reasoning: bool = False,
     ):
         self.allowed_formats = allowed_formats
         self.use_spacy_ner = use_spacy_ner
         self.use_grex = use_grex
+        self.concise_reasoning = concise_reasoning
 
     # ========================================
     # Main Prompt Builders
@@ -708,7 +713,10 @@ Each rule needs:
 {context_matching_block}"""
 
         section += get_schema_aware_response_schema(
-            format_options, primary_key, is_classification=is_classification
+            format_options,
+            primary_key,
+            is_classification=is_classification,
+            concise_reasoning=self.concise_reasoning,
         )
 
         return section

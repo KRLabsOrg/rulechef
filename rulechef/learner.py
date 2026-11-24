@@ -57,6 +57,7 @@ class RuleLearner:
         scope_to_rule_labels: bool = False,
         target_labels: list[str] | None = None,
         frequency_penalty: float | None = None,
+        concise_reasoning: bool = False,
     ):
         """Initialize the rule learner.
 
@@ -85,6 +86,8 @@ class RuleLearner:
                 types the rules declare (default False).
             target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
                 If None, the scope follows the labels of the current rules.
+            concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
+                (shorter responses, fewer truncations).
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -94,6 +97,7 @@ class RuleLearner:
         self.model = model
         self.use_spacy_ner = use_spacy_ner
         self.use_grex = use_grex
+        self.concise_reasoning = concise_reasoning
         self.max_rules = max_rules
         self.max_samples = max_samples
         self.max_rules_per_class = max_rules_per_class
@@ -114,6 +118,7 @@ class RuleLearner:
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
+            concise_reasoning=self.concise_reasoning,
         )
 
         self.interleave_failures = interleave_failures
