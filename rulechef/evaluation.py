@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -381,8 +382,13 @@ def evaluate_dataset(
         mode: 'text' (match by text+type), 'exact' (match by text+type+start+end),
             or 'partial' (type match + span IoU >= iou_threshold).
         iou_threshold: Minimum IoU for partial matching (default 0.5).
-        scope_to_rule_labels: If True, only count FN for entity types set in target_labels or declared by the rules (default False).
-        target_labels: Fixed set of labels for scoping FN. If None, the labels the rules declare are used.
+        scope_to_rule_labels: If True, only count FN for entity types set in target_labels or declared
+            by the rules (default False). If any rule has no static label in its output_template,
+            scoping is turned off unless target_labels is set.
+        target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+            If None or empty, the scope follows the labels of the current rules.
+            Ignored unless scope_to_rule_labels is True.
+            Only missed entities are scoped, everything else the rules predict is counted as usual.
 
     Returns:
         EvalResult with micro/macro metrics, per-class breakdown, exact match
@@ -400,9 +406,27 @@ def evaluate_dataset(
     fp_per_class_count: dict[str, int] = defaultdict(int)  # Track per-class FP sample count
     max_fp_per_class = 5  # Keep examples bounded
 
+    if isinstance(target_labels, str):
+        raise TypeError(f"target_labels must be a list of labels, not a string: {target_labels!r}")
     targets = None
     if scope_to_rule_labels and task_type != TaskType.CLASSIFICATION:
-        targets = set(target_labels) if target_labels else _target_labels(rules)
+        if target_labels:
+            targets = set(target_labels)
+            known = {label for r in rules for label in rule_labels(r)}
+            known |= {
+                _entity_type(g)
+                for item in all_data
+                for g in _get_entities(item.expected_output, task_type)
+            }
+            unknown = targets - known
+            if unknown:
+                warnings.warn(
+                    f"target_labels {sorted(unknown)} not found in gold data or rules; "
+                    "their missed entities can never be counted.",
+                    stacklevel=2,
+                )
+        else:
+            targets = _target_labels(rules)
     for item in all_data:
         extracted = apply_rules_fn(rules, item.input, task_type, dataset.task.text_field)
         expected_output = item.expected_output
@@ -539,6 +563,7 @@ def evaluate_rules_individually(
         iou_threshold: Minimum IoU for partial matching (default 0.5).
         scope_to_rule_labels: If True, each rule's recall and FN only count gold
             entities of the labels the rule declares (default False).
+
     Returns:
         List[RuleMetrics], one entry per rule, with per-rule precision/recall/F1,
         match counts, per-class breakdown, and sample matches.

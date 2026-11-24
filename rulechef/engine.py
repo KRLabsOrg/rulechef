@@ -132,9 +132,13 @@ class RuleChef:
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
             scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
-                entity types the rules declare in their output_template. Classification is not scoped. Defaults to False (count all FN).
+                entity types the rules declare in their output_template. Classification is not scoped. rank_rules() and pruning always
+                use the full gold set. If any rule has no static label in its output_template scoping is turned off
+                unless target_labels is set, so setting target_labels is recommended. Defaults to False (count all FN).
             target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
-                If None, the scope follows the labels of the current rules.
+                If None or empty, the scope follows the labels of the current rules.
+                Ignored unless scope_to_rule_labels is True.
+                Only missed entities are scoped, everything else the rules predict is counted as usual.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -865,6 +869,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset,
             self.learner._apply_rules,
             scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
