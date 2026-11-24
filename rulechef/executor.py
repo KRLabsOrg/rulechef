@@ -196,8 +196,8 @@ class RuleExecutor:
         use_spacy_ner: bool = False,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
     ):
-    def __init__(self, use_spacy_ner: bool = False, spacy_model: str = "en_core_web_sm"):
         """Initialize the rule executor.
 
         Args:
@@ -215,6 +215,7 @@ class RuleExecutor:
         self.use_spacy_ner = use_spacy_ner
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
+        self.spacy_model = spacy_model
 
     @classmethod
     def check_overlap_strategy(cls, strategy: str | None) -> None:
@@ -223,7 +224,6 @@ class RuleExecutor:
             raise ValueError(
                 f"Invalid overlap_strategy: {strategy}. Must be one of {cls.OVERLAP_STRATEGIES}"
             )
-        self.spacy_model = spacy_model
 
     def apply_rules(
         self,

@@ -98,6 +98,12 @@ class RuleLearner:
             cross_type_overlaps=cross_type_overlaps,
             spacy_model=spacy_model,
         )
+        self.prompt_builder = PromptBuilder(
+            self.allowed_formats,
+            use_spacy_ner=use_spacy_ner,
+            use_grex=use_grex,
+        )
+
         self.interleave_failures = interleave_failures
 
     def _temp_kwargs(self) -> dict:
