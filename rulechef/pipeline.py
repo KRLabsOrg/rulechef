@@ -326,7 +326,13 @@ class LearningPipeline:
         eval_result = None
         if run_evaluation:
             eval_ds = dev_ds or train_ds
-            eval_result = evaluate_dataset(rules, eval_ds, chef.learner._apply_rules)
+            eval_result = evaluate_dataset(
+                rules,
+                eval_ds,
+                chef.learner._apply_rules,
+                scope_to_rule_labels=chef.scope_to_rule_labels,
+                target_labels=chef.target_labels,
+            )
             chef.learner._stamp_validated_stats(rules, eval_ds)
         return rules, eval_result
 
