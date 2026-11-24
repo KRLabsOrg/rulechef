@@ -1,5 +1,6 @@
 """LLM-based rule learning"""
 
+import hashlib
 import dataclasses
 import json
 import random
@@ -1077,7 +1078,7 @@ class RuleLearner:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
-
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     def _build_per_class_prompt(
@@ -1132,7 +1133,7 @@ INSTRUCTIONS:
         prompt += self.prompt_builder._build_response_schema(dataset)
         prompt += self.prompt_builder._build_format_examples(dataset.task.type)
         prompt += self.prompt_builder._build_closing_instructions()
-
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     def _build_patch_prompt_variants(
@@ -1405,7 +1406,8 @@ Instructions:
 {self.prompt_builder._build_format_instructions(dataset.task.type) if dataset else ""}
 
 {response_schema}
-"""
+"""     
+        print("Prompt hash:", hashlib.md5(prompt.encode()).hexdigest())
         return prompt
 
     # ========================================
