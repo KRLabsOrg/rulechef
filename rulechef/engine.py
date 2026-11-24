@@ -30,6 +30,7 @@ from rulechef.evaluation import (
     print_eval_result,
     print_rule_metrics,
 )
+from rulechef.executor import RuleExecutor
 from rulechef.learner import RuleLearner
 from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
@@ -74,6 +75,8 @@ class RuleChef:
         search_config=None,
         seed: int | None = None,
         interleave_failures: bool = False,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -133,9 +136,12 @@ class RuleChef:
             search_config: Optional rulechef.search.SearchConfig.
             seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
             interleave_failures: If True (only for NER), interleave patch failures by entity text.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor. Search-based synthesis selects rules without this strategy.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        RuleExecutor.check_overlap_strategy(overlap_strategy)
         self.synth = synth
         self.judge = judge
         self.search_config = search_config
@@ -152,6 +158,8 @@ class RuleChef:
         self.training_logger = training_logger
         self.temperature = temperature
         self.seed = seed
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -275,6 +283,8 @@ class RuleChef:
             temperature=self.temperature,
             seed=self.seed,
             llm_config=self.llm_config,
+            overlap_strategy=self.overlap_strategy,
+            cross_type_overlaps=self.cross_type_overlaps,
         )
 
         # Load existing dataset if on disk

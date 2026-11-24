@@ -3,6 +3,8 @@
 ## Unreleased
 - Added optional `seed` on `RuleChef`, sent with all LLM calls for more reproducible runs
 - Rule IDs are derived from rule's information now (name, content, format, output_template, output_key). A rule learned again with the same fields keeps the same ID, and an ID can carry a suffix in case of duplicates.
+- Added opt-in span overlap resolution: `overlap_strategy="longest"` keeps only the longest of overlapping spans (default `None` keeps the existing behaviour). 
+- `cross_type_overlaps=True` also resolves overlaps across types
 
 ## 0.1.1
 
