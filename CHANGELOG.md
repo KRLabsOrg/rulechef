@@ -6,6 +6,8 @@
 - Added opt-in span overlap resolution: `overlap_strategy="longest"` keeps only the longest of overlapping spans (default `None` keeps the existing behaviour). 
 - `cross_type_overlaps=True` also resolves overlaps across types
 
+- Added `spacy_model` option (default `en_core_web_sm`) so spaCy rules can now use other models.
+
 ## 0.1.1
 
 - Added training data logger for LLM distillation
