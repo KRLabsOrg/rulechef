@@ -127,6 +127,9 @@ class RuleMetrics:
     Attributes:
         rule_id: Unique identifier of the evaluated rule.
         rule_name: Human-readable name of the rule.
+        rule_description: Description of the rule.
+        rule_format: Rule format (e.g. "regex", "code").
+        rule_content: The rule's pattern or code.
         precision: Precision of this rule alone (TP / (TP + FP)).
         recall: Recall of this rule alone (covered / total expected entities).
         f1: F1 score derived from precision and recall.
@@ -136,11 +139,15 @@ class RuleMetrics:
         covered_expected: How many expected entities this rule correctly finds.
         total_expected: Total expected entities across the full dataset.
         per_class: Per-class breakdown of TP/FP/FN for this rule.
-        sample_matches: Up to 10 sample match dicts showing rule behavior.
+        sample_matches: Up to 10 sample match dicts (input, rule_output, expected,
+            tp/fp/fn counts, matched_pairs, false_positives, missed).
     """
 
     rule_id: str
     rule_name: str
+    rule_description: str = ""
+    rule_format: str = ""
+    rule_content: str = ""
     precision: float = 0.0
     recall: float = 0.0
     f1: float = 0.0
@@ -156,6 +163,9 @@ class RuleMetrics:
         return {
             "rule_id": self.rule_id,
             "rule_name": self.rule_name,
+            "rule_description": self.rule_description,
+            "rule_format": self.rule_format,
+            "rule_content": self.rule_content,
             "precision": round(self.precision, 4),
             "recall": round(self.recall, 4),
             "f1": round(self.f1, 4),
@@ -617,6 +627,10 @@ def evaluate_rules_individually(
                         "expected": gold_entities,
                         "tp": len(matched),
                         "fp": len(fp_list),
+                        "fn": len(fn_list),
+                        "matched_pairs": list(matched),
+                        "false_positives": list(fp_list),
+                        "missed": list(fn_list),
                     }
                 )
 
@@ -632,6 +646,9 @@ def evaluate_rules_individually(
             RuleMetrics(
                 rule_id=rule.id,
                 rule_name=rule.name,
+                rule_description=rule.description,
+                rule_format=rule.format.value,
+                rule_content=rule.content,
                 precision=precision,
                 recall=recall,
                 f1=f1,

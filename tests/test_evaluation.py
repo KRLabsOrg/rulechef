@@ -1,5 +1,7 @@
 """Tests for rulechef.evaluation — metrics and evaluation functions."""
 
+import json
+
 import pytest
 
 from rulechef.core import (
@@ -372,6 +374,14 @@ class TestEvaluateRulesIndividually:
         assert rb.precision == pytest.approx(0.5)
         assert rb.covered_expected == 1
         assert rb.total_expected == 3
+        # Sample matches keep per-entity details; to_dict() stays JSON-serializable
+        sample = rb.sample_matches[0]
+        assert (sample["tp"], sample["fp"], sample["fn"]) == (1, 1, 2)  # NYC; Paris; Alice, Bob
+        assert [e["text"] for e in sample["false_positives"]] == ["Paris"]
+        assert [e["text"] for e in sample["missed"]] == ["Alice", "Bob"]
+        assert rb.rule_description == "Find locations"
+        assert rb.rule_format == RuleFormat.REGEX.value
+        json.dumps(rb.to_dict())
 
     def test_in_context_ner(self):
         ds = _make_dataset(
@@ -586,3 +596,4 @@ class TestEvaluateRulesIndividually:
         apply = RuleExecutor().apply_rules
         metrics = evaluate_rules_individually([rule], ds, apply)
         assert metrics[0].sample_matches[0]["rule_output"] == [{"label": "positive"}]
+
