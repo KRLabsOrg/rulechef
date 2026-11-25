@@ -1,17 +1,27 @@
 """LLM-based rule learning"""
 
+import dataclasses
 import json
 import random
 import re
 import time
-import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from openai import OpenAI
 
-from rulechef.core import Correction, Dataset, Feedback, Rule, RuleFormat, TaskType
+from rulechef.core import (
+    Correction,
+    Dataset,
+    Feedback,
+    Rule,
+    RuleFormat,
+    TaskType,
+    generate_rule_id,
+)
 from rulechef.evaluation import (
     EvalResult,
+    _get_entities,
+    _match_entities,
     evaluate_dataset,
     evaluate_rules_individually,
 )
@@ -38,6 +48,13 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
+        interleave_failures: bool = False,
+        seed: int | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
+        scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
         concise_reasoning: bool = False,
     ):
         """Initialize the rule learner.
@@ -57,11 +74,23 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            interleave_failures: If True (only for NER), interleave each failure cluster by entity text
+            seed: Seed sent with LLM calls, for more reproducible runs.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
+            scope_to_rule_labels: If True, rule evaluation during synthesis,
+                patching and pruning only counts false negatives for entity
+                types the rules declare (default False).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None, the scope follows the labels of the current rules.
             concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
                 (shorter responses, fewer truncations).
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
+        self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
@@ -73,21 +102,31 @@ class RuleLearner:
         self.max_counter_examples = max_counter_examples
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
-        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
+        self.executor = RuleExecutor(
+            use_spacy_ner=use_spacy_ner,
+            overlap_strategy=overlap_strategy,
+            cross_type_overlaps=cross_type_overlaps,
+            spacy_model=spacy_model,
+        )
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
             concise_reasoning=self.concise_reasoning,
         )
+        self.interleave_failures = interleave_failures
 
     def _temp_kwargs(self) -> dict:
-        """Return temperature kwarg dict if set, empty dict otherwise."""
+        """Return temperature and seed kwarg dict if set, empty dict otherwise."""
+        kw = {}
         if self.temperature is not None:
-            return {"temperature": self.temperature}
-        return {}
+            kw["temperature"] = self.temperature
+        if self.seed is not None:
+            kw["seed"] = self.seed
+        return kw
 
     # ========================================
     # Rule Execution (delegates to executor)
@@ -292,7 +331,7 @@ class RuleLearner:
         print(
             f"✓ Per-class synthesis complete: {len(all_rules)} rules from {len(classes)} classes ({total_elapsed:.1f}s)"
         )
-        return all_rules
+        return self._ensure_unique_ids(all_rules)
 
     def _parse_rules_from_response(
         self, result: dict, max_rules: int, dataset: Dataset | None = None
@@ -371,18 +410,23 @@ class RuleLearner:
                         )
             elif output_template and not output_key and primary_key:
                 output_key = primary_key
-            elif dataset and dataset.task.type == TaskType.TRANSFORMATION:
-                if rule_format != RuleFormat.CODE:
-                    if not output_key and primary_key:
-                        output_key = primary_key
-                    if not output_key:
-                        print(
-                            f"   ⚠ Skipped transformation rule without output_key: {rule_data.get('name', f'Rule {i + 1}')}"
-                        )
-                        continue
+            elif (dataset and dataset.task.type == TaskType.TRANSFORMATION and rule_format != RuleFormat.CODE):
+                if not output_key and primary_key:
+                    output_key = primary_key
+                if not output_key:
+                    print(
+                        f"   ⚠ Skipped transformation rule without output_key: {rule_data.get('name', f'Rule {i + 1}')}"
+                    )
+                    continue
 
             rule = Rule(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name=rule_data.get("name", ""),
+                    content=pattern_content,
+                    format=rule_format,
+                    output_template=output_template,
+                    output_key=output_key,
+                ),
                 name=rule_data.get("name", f"Rule {i + 1}"),
                 description=rule_data.get("description", ""),
                 format=rule_format,
@@ -400,7 +444,7 @@ class RuleLearner:
             else:
                 print(f"   ⚠ Skipped invalid rule: {rule.name}")
 
-        return rules
+        return self._ensure_unique_ids(rules)
 
     # ========================================
     # Rule Evaluation & Refinement
@@ -631,7 +675,13 @@ class RuleLearner:
         if not rules:
             return
         try:
-            metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+            metrics = evaluate_rules_individually(
+                rules,
+                dataset,
+                self._apply_rules,
+                mode="text",
+                scope_to_rule_labels=self.scope_to_rule_labels,
+            )
         except Exception as e:
             print(f"⚠ Skipping validated-stat stamping: {e}")
             return
@@ -693,7 +743,13 @@ class RuleLearner:
     ) -> list[Rule]:
         """Run LLM audit mid-refinement to consolidate rules."""
         print(f"[{iter_num}] Running mid-refinement audit ({len(rules)} rules)...")
-        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        rule_metrics = evaluate_rules_individually(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+        )
         audit = coordinator.audit_rules(rules, rule_metrics)
         if not audit.actions:
             return rules
@@ -715,7 +771,13 @@ class RuleLearner:
                         continue
                 base = max(sources, key=lambda r: r.priority)
                 merged = Rule(
-                    id=self._generate_id(),
+                    id=self._generate_id(
+                        name=action.merged_name or base.name,
+                        content=action.merged_pattern or base.content,
+                        format=base.format,
+                        output_template=base.output_template,
+                        output_key=base.output_key,
+                    ),
                     name=action.merged_name or base.name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
@@ -726,6 +788,7 @@ class RuleLearner:
                 )
                 rules = [r for r in rules if r.id not in action.rule_ids]
                 rules.append(merged)
+                rules = self._ensure_unique_ids(rules)
                 rules_by_id = {r.id: r for r in rules}
 
             elif action.action == "remove":
@@ -745,7 +808,13 @@ class RuleLearner:
 
     def _run_critic(self, rules, dataset, coordinator, eval_result):
         """Run critic agent — writes feedback to dataset like a human domain expert."""
-        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        rule_metrics = evaluate_rules_individually(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+        )
         critique = coordinator.critique_rules(rules, rule_metrics, eval_result, dataset)
         if not critique:
             return
@@ -760,7 +829,9 @@ class RuleLearner:
         # Write rule-level feedback (same as chef.add_feedback would)
         for rule_id, text in critique.get("rule_feedback", {}).items():
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name=rule_id, content=text, format=None, output_template=None, output_key=None
+                ),
                 text=text,
                 level="rule",
                 target_id=rule_id,
@@ -772,7 +843,13 @@ class RuleLearner:
         # Write task-level feedback
         if critique.get("task_guidance"):
             fb = Feedback(
-                id=self._generate_id(),
+                id=self._generate_id(
+                    name="task",
+                    content=critique["task_guidance"],
+                    format=None,
+                    output_template=None,
+                    output_key=None,
+                ),
                 text=critique["task_guidance"],
                 level="task",
                 source="critic",
@@ -812,7 +889,7 @@ class RuleLearner:
                 pr.confidence = current.confidence
             by_name[pr.name] = pr
         merged = list(by_name.values())
-        return RuleLearner._dedup_rules(merged)
+        return RuleLearner._dedup_rules(RuleLearner._ensure_unique_ids(merged))
 
     @staticmethod
     def _dedup_rules(rules: list[Rule]) -> list[Rule]:
@@ -848,7 +925,14 @@ class RuleLearner:
 
     def _evaluate_rules(self, rules: list[Rule], dataset: Dataset) -> EvalResult:
         """Evaluate rules on all training data. Returns EvalResult."""
-        return evaluate_dataset(rules, dataset, self._apply_rules, mode="text")
+        return evaluate_dataset(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
+        )
 
     def _coerce_spacy_content(self, content) -> list | None:
         """Coerce spaCy content into a list of patterns."""
@@ -1456,6 +1540,33 @@ Instructions:
             lines.append(f"  ... and {len(ordered) - max_modes} more modes ({remaining} failures)")
         return "\n".join(lines) + "\n"
 
+    def _interleave_by_text(self, failures: list[dict]) -> list[dict]:
+        """Reorder failures so that distinct entity texts appear once before any text repeats"""
+        # Find the entity text each failure got wrong
+        all_texts = []
+        for f in failures:
+            gold = _get_entities(f.get("expected") or {}, TaskType.NER)
+            pred = _get_entities(f.get("got") or {}, TaskType.NER)
+            _, spurious_ents, missed_ents = _match_entities(pred, gold, TaskType.NER, mode="text")
+            missed = [(e.get("text") or "").lower() for e in missed_ents]
+            spurious = [(e.get("text") or "").lower() for e in spurious_ents]
+
+            all_texts.append(missed + spurious)
+
+        # Put failures with the same text in one group
+        freq = Counter(t for texts in all_texts for t in texts)
+        by_text = defaultdict(list)
+        for f, texts in zip(failures, all_texts):
+            key = min(texts, key=lambda t: freq[t]) if texts else ""
+            by_text[key].append(f)
+
+        # Take one failure from each group in turn, until all are used
+        ordered = []
+        groups = sorted(by_text.values(), key=len, reverse=True)
+        for i in range(len(groups[0]) if groups else 0):
+            ordered.extend(g[i] for g in groups if i < len(g))
+        return ordered
+
     def _sample_failures(
         self,
         failures: list[dict],
@@ -1479,6 +1590,8 @@ Instructions:
 
         if remaining > 0 and other_failures:
             clusters = self._cluster_failures(other_failures, task_type)
+            if self.interleave_failures and task_type == TaskType.NER:
+                clusters = {k: self._interleave_by_text(v) for k, v in clusters.items()}
 
             # Weight by inverse recall if metrics available (weak classes get more samples)
             class_weights = {}
@@ -1706,9 +1819,36 @@ Instructions:
             print(f"      Validation error: {e}")
             return False
 
-    def _generate_id(self) -> str:
-        """Generate unique ID"""
-        return str(uuid.uuid4())[:8]
+    @staticmethod
+    def _generate_id(
+        *,
+        name: str,
+        content: str,
+        format: RuleFormat | None,
+        output_template: dict | None,
+        output_key: str | None,
+    ) -> str:
+        """Generate an ID from the fields that identify a rule"""
+        return generate_rule_id(
+            name=name,
+            content=content,
+            format=format,
+            output_template=output_template,
+            output_key=output_key,
+        )
+
+    @staticmethod
+    def _ensure_unique_ids(rules: list[Rule]) -> list[Rule]:
+        seen: set[str] = set()
+        result = []
+        for r in rules:
+            new_id, n = r.id, 2
+            while new_id in seen:
+                new_id = f"{r.id}_{n}"
+                n += 1
+            seen.add(new_id)
+            result.append(r if new_id == r.id else dataclasses.replace(r, id=new_id))
+        return result
 
     def _pattern_uses_ent_type(self, pattern_data: list) -> bool:
         """Detect spaCy patterns that rely on NER entity types."""

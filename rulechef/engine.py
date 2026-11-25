@@ -30,6 +30,7 @@ from rulechef.evaluation import (
     print_eval_result,
     print_rule_metrics,
 )
+from rulechef.executor import RuleExecutor
 from rulechef.learner import RuleLearner
 from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
@@ -72,6 +73,13 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        interleave_failures: bool = False,
+        seed: int | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
+        scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
         concise_reasoning: bool = False,
     ):
         """Initialize a RuleChef instance.
@@ -130,11 +138,25 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            interleave_failures: If True (only for NER), interleave patch failures by entity text.
+            seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor. Search-based synthesis selects rules without this strategy.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
+            scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
+                entity types the rules declare in their output_template. Classification is not scoped. rank_rules() and pruning always
+                use the full gold set. If any rule has no static label in its output_template scoping is turned off
+                unless target_labels is set, so setting target_labels is recommended. Defaults to False (count all FN).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None or empty, the scope follows the labels of the current rules.
+                Ignored unless scope_to_rule_labels is True.
+                Only missed entities are scoped, everything else the rules predict is counted as usual.
             concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
                 (shorter responses, fewer truncations).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        RuleExecutor.check_overlap_strategy(overlap_strategy)
         self.synth = synth
         self.judge = judge
         self.search_config = search_config
@@ -144,6 +166,7 @@ class RuleChef:
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
         self.use_grex = use_grex
         self.concise_reasoning = concise_reasoning
         self.storage_path = Path(storage_path)
@@ -151,6 +174,11 @@ class RuleChef:
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
+        self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -173,6 +201,7 @@ class RuleChef:
         self._max_samples = max_samples
         self._max_rules_per_class = max_rules_per_class
         self._max_counter_examples = max_counter_examples
+        self._interleave_failures = interleave_failures
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -183,6 +212,8 @@ class RuleChef:
                 self.coordinator.training_logger = self.training_logger
             if self.temperature is not None:
                 self.coordinator.temperature = self.temperature
+            if self.seed is not None:
+                self.coordinator.seed = self.seed
             self.coordinator.llm_config = self.llm_config
             self.coordinator.llm_calls = LLMCallManager(
                 self.coordinator.llm, self.coordinator.model, self.llm_config
@@ -261,15 +292,22 @@ class RuleChef:
             sampling_strategy=self.sampling_strategy,
             model=self.model,
             use_spacy_ner=self.use_spacy_ner,
+            spacy_model=self.spacy_model,
             use_grex=self.use_grex,
             concise_reasoning=self.concise_reasoning,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
+            interleave_failures=self._interleave_failures,
             training_logger=self.training_logger,
             temperature=self.temperature,
+            seed=self.seed,
             llm_config=self.llm_config,
+            overlap_strategy=self.overlap_strategy,
+            cross_type_overlaps=self.cross_type_overlaps,
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
 
         # Load existing dataset if on disk
@@ -639,10 +677,11 @@ Input: {json.dumps(input_data)}
 Output schema: {self.task.get_schema_for_prompt()}
 
 Return ONLY valid JSON matching the output schema, no explanation."""
-
+        seed_kwargs: dict[str, Any] = {"seed": self.seed} if self.seed is not None else {}
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **seed_kwargs,
         )
 
         try:
@@ -859,18 +898,21 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
         return result
 
-    def get_rule_metrics(self, verbose: bool = True) -> list[RuleMetrics]:
+    def get_rule_metrics(self, verbose: bool = True, in_context: bool = False) -> list[RuleMetrics]:
         """Evaluate each rule individually against the dataset.
 
         Useful for identifying dead or harmful rules.
 
         Args:
             verbose: If True, print a formatted per-rule metrics table to stdout.
+            in_context: If True, measure each rule's contribution to the full ruleset's output instead of running it alone.
 
         Returns:
             List[RuleMetrics] with per-rule precision/recall/F1, sample matches,
@@ -885,6 +927,8 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            in_context=in_context,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_rule_metrics(metrics)
