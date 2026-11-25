@@ -78,6 +78,8 @@ class RuleChef:
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
         spacy_model: str = "en_core_web_sm",
+        scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -140,6 +142,14 @@ class RuleChef:
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor. Search-based synthesis selects rules without this strategy.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
             spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
+            scope_to_rule_labels: If True, evaluation during learning and in evaluate()/get_rule_metrics() only counts false negatives for
+                entity types the rules declare in their output_template. Classification is not scoped. rank_rules() and pruning always
+                use the full gold set. If any rule has no static label in its output_template scoping is turned off
+                unless target_labels is set, so setting target_labels is recommended. Defaults to False (count all FN).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None or empty, the scope follows the labels of the current rules.
+                Ignored unless scope_to_rule_labels is True.
+                Only missed entities are scoped, everything else the rules predict is counted as usual.
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -163,6 +173,8 @@ class RuleChef:
         self.seed = seed
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
+        self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -289,6 +301,8 @@ class RuleChef:
             llm_config=self.llm_config,
             overlap_strategy=self.overlap_strategy,
             cross_type_overlaps=self.cross_type_overlaps,
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
 
         # Load existing dataset if on disk
@@ -879,6 +893,8 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset.rules,
             self.dataset,
             self.learner._apply_rules,
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
         )
         if verbose:
             print_eval_result(result, self.dataset.name)
@@ -907,6 +923,7 @@ Return ONLY valid JSON matching the output schema, no explanation."""
             self.dataset,
             self.learner._apply_rules,
             in_context=in_context,
+            scope_to_rule_labels=self.scope_to_rule_labels,
         )
         if verbose:
             print_rule_metrics(metrics)

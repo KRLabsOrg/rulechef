@@ -1,7 +1,10 @@
 """Tests for rulechef.evaluation — metrics and evaluation functions."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
+from rulechef import RuleChef
 from rulechef.core import (
     Dataset,
     Example,
@@ -586,3 +589,158 @@ class TestEvaluateRulesIndividually:
         apply = RuleExecutor().apply_rules
         metrics = evaluate_rules_individually([rule], ds, apply)
         assert metrics[0].sample_matches[0]["rule_output"] == [{"label": "positive"}]
+
+# =========================================================================
+# scope_to_rule_labels
+# =========================================================================
+
+
+class TestScopeToRuleLabels:
+    def _setup(self):
+        task = Task(
+            name="ner",
+            description="test ner",
+            input_schema={"text": "string"},
+            output_schema={"entities": "List[Entity]"},
+            type=TaskType.NER,
+        )
+
+        ds = Dataset(
+            name="test",
+            task=task,
+            examples=[
+                Example(
+                    id="ex-1",
+                    input={"text": "John Doe Consulting LLC was founded in NYC in 2006"},
+                    expected_output={
+                        "entities": [
+                            {"text": "John Doe Consulting LLC", "type": "ORG"},
+                            {"text": "NYC", "type": "LOC"},
+                            {"text": "2006", "type": "DATE"},
+                        ]
+                    },
+                    source="human_labeled",
+                ),
+            ],
+        )
+        rule = Rule(
+            id="rDate",
+            name="years",
+            description="Find years",
+            format=RuleFormat.REGEX,
+            content=r"\b\d{4}\b",
+            output_template={"text": "$0", "type": "DATE"},
+        )
+
+        apply = RuleExecutor().apply_rules
+        return ds, rule, apply
+
+    def test_dataset_flag_off_counts_all_fn(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset([rule], ds, apply)
+        assert result.total_fn == 2  # John Doe Consulting LLC , NYC
+        assert result.exact_match == pytest.approx(0.0)
+
+    def test_dataset_flag_on_skips_untargeted_fn(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True)
+        assert result.total_fn == 0  # ORG and LOC not targeted by this rule
+        assert result.micro_recall == pytest.approx(1.0)
+        assert result.exact_match == pytest.approx(1.0)
+
+    def test_rule_recall_scoped_to_declared_label(self):
+        ds, rule, apply = self._setup()
+        off = evaluate_rules_individually([rule], ds, apply)[0]
+        assert off.total_expected == 3
+        assert off.recall == pytest.approx(1 / 3)
+        off = evaluate_rules_individually([rule], ds, apply, scope_to_rule_labels=True)[0]
+        assert off.total_expected == 1
+        assert off.recall == pytest.approx(1.0)
+
+    def test_rulechef_setting_reaches_evaluate_and_learner(self, tmp_path):
+        ds, rule, apply = self._setup()
+        chef = RuleChef(
+            task=ds.task,
+            client=MagicMock(),
+            storage_path=str(tmp_path),
+            scope_to_rule_labels=True,
+            target_labels=["DATE", "LOC"],
+        )
+        chef.dataset.examples = ds.examples
+        chef.dataset.rules = [rule]
+
+        assert chef.learner.scope_to_rule_labels is True
+        assert chef.learner.target_labels == ["DATE", "LOC"]
+        result = chef.evaluate(verbose=False)
+        learner_result = chef.learner._evaluate_rules([rule], chef.dataset)
+        assert result.micro_f1 == pytest.approx(learner_result.micro_f1)
+        assert result.total_fn == 1
+
+    def test_target_labels_override_rule_labels(self):
+        ds, rule, apply = self._setup()
+        result = evaluate_dataset(
+            [rule], ds, apply, scope_to_rule_labels=True, target_labels=["DATE", "LOC"]
+        )
+        assert result.total_fn == 1  # NYC counted, ORG out of scope
+
+    def test_target_labels_keep_scope_stable(self):
+        ds, date_rule, apply = (
+            self._setup()
+        )  # gold: ORG (John Doe Consulting LLC), LOC (NYC), DATE (2006)
+
+        # matches nothing in the example -> not a useful rule
+        loc_rule = Rule(
+            id="rLoc",
+            name="paris",
+            description="Find Paris",
+            format=RuleFormat.REGEX,
+            content=r"\bParis\b",
+            output_template={"text": "$0", "type": "LOC"},
+        )
+        rules_before_patch = [date_rule, loc_rule]
+        rules_after_patch = [date_rule]  # patch listed "paris" in deleted_rules
+
+        # Scope from rules, deleting the LOC rule hides the missed NYC -> F1 increases
+        before = evaluate_dataset(rules_before_patch, ds, apply, scope_to_rule_labels=True)
+        after = evaluate_dataset(rules_after_patch, ds, apply, scope_to_rule_labels=True)
+        assert before.total_fn == 1  # NYC
+        assert after.total_fn == 0  # NYC no longer counted
+
+        assert after.micro_f1 > before.micro_f1  # learner would accept this as progress
+
+        # Fixed scope: NYC is missed in both cases -> same F1, no false progress
+        fixed = {"scope_to_rule_labels": True, "target_labels": ["DATE", "LOC"]}
+        before = evaluate_dataset(rules_before_patch, ds, apply, **fixed)
+        after = evaluate_dataset(rules_after_patch, ds, apply, **fixed)
+        assert before.total_fn == after.total_fn == 1
+        assert after.micro_f1 == pytest.approx(before.micro_f1)
+
+    def test_target_labels_string_rejected(self):
+        ds, rule, apply = self._setup()
+        with pytest.raises(TypeError):
+            evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True, target_labels="DATE")
+
+    def test_target_labels_unknown_label_warns(self):
+        ds, rule, apply = self._setup()
+        with pytest.warns(UserWarning, match="XYZ"):
+            evaluate_dataset([rule], ds, apply, scope_to_rule_labels=True, target_labels=["XYZ"])
+
+    def test_target_labels_scope_only_fn(self):
+        ds, rule, apply = self._setup()
+        loc_rule = Rule(
+            id="rLoc",
+            name="nyc",
+            description="Find NYC",
+            format=RuleFormat.REGEX,
+            content=r"\bNYC\b",
+            output_template={"text": "$0", "type": "LOC"},
+        )
+        result = evaluate_dataset(
+            [rule, loc_rule], ds, apply, scope_to_rule_labels=True, target_labels=["DATE"]
+        )
+        # ORG missed but out of scope -> no FN; LOC TP still counts
+        assert result.total_tp == 2
+        assert result.total_fn == 0
+        assert result.micro_f1 == pytest.approx(1.0)
+        loc = next(c for c in result.per_class if c.label == "LOC")
+        assert (loc.tp, loc.fn) == (1, 0)

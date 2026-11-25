@@ -53,6 +53,8 @@ class RuleLearner:
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
         spacy_model: str = "en_core_web_sm",
+        scope_to_rule_labels: bool = False,
+        target_labels: list[str] | None = None,
     ):
         """Initialize the rule learner.
 
@@ -76,9 +78,16 @@ class RuleLearner:
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
             spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
+            scope_to_rule_labels: If True, rule evaluation during synthesis,
+                patching and pruning only counts false negatives for entity
+                types the rules declare (default False).
+            target_labels: Fixed labels to scope FN to when scope_to_rule_labels is True.
+                If None, the scope follows the labels of the current rules.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
+        self.scope_to_rule_labels = scope_to_rule_labels
+        self.target_labels = target_labels
         self.sampling_strategy = sampling_strategy
         self.model = model
         self.use_spacy_ner = use_spacy_ner
@@ -661,7 +670,13 @@ class RuleLearner:
         if not rules:
             return
         try:
-            metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+            metrics = evaluate_rules_individually(
+                rules,
+                dataset,
+                self._apply_rules,
+                mode="text",
+                scope_to_rule_labels=self.scope_to_rule_labels,
+            )
         except Exception as e:
             print(f"⚠ Skipping validated-stat stamping: {e}")
             return
@@ -723,7 +738,13 @@ class RuleLearner:
     ) -> list[Rule]:
         """Run LLM audit mid-refinement to consolidate rules."""
         print(f"[{iter_num}] Running mid-refinement audit ({len(rules)} rules)...")
-        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        rule_metrics = evaluate_rules_individually(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+        )
         audit = coordinator.audit_rules(rules, rule_metrics)
         if not audit.actions:
             return rules
@@ -782,7 +803,13 @@ class RuleLearner:
 
     def _run_critic(self, rules, dataset, coordinator, eval_result):
         """Run critic agent — writes feedback to dataset like a human domain expert."""
-        rule_metrics = evaluate_rules_individually(rules, dataset, self._apply_rules, mode="text")
+        rule_metrics = evaluate_rules_individually(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+        )
         critique = coordinator.critique_rules(rules, rule_metrics, eval_result, dataset)
         if not critique:
             return
@@ -893,7 +920,14 @@ class RuleLearner:
 
     def _evaluate_rules(self, rules: list[Rule], dataset: Dataset) -> EvalResult:
         """Evaluate rules on all training data. Returns EvalResult."""
-        return evaluate_dataset(rules, dataset, self._apply_rules, mode="text")
+        return evaluate_dataset(
+            rules,
+            dataset,
+            self._apply_rules,
+            mode="text",
+            scope_to_rule_labels=self.scope_to_rule_labels,
+            target_labels=self.target_labels,
+        )
 
     def _coerce_spacy_content(self, content) -> list | None:
         """Coerce spaCy content into a list of patterns."""

@@ -39,6 +39,18 @@ metrics = chef.get_rule_metrics(in_context=True)
 # Delete a rule that's causing false positives
 chef.delete_rule("rule_id")
 ```
+## Label-Scoped Evaluation
+
+When you learn rules for only some labels, missed entities of the other labels would lower recall. Turn on scoping to ignore them:
+
+```python
+chef = RuleChef(task, client, scope_to_rule_labels=True, target_labels=["ORG"])
+```
+
+- Only missed entities are scoped. Everything else the rules predict is counted as usual.
+- If `target_labels` is not set, the scope follows the labels the current rules declare. Setting it is recommended:
+    - If any rule has no static label, scoping will be turned off.
+    - If a patch deletes every rule of a label, that label's missed entities drop out of the score, and F1 goes up even though fewer entities  are found.
 
 ## Rule Trust and Conflict Resolution
 
