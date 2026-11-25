@@ -192,6 +192,7 @@ class OpenAIObserver:
         extract_output: Callable | None = None,
         min_observations_for_discovery: int = 5,
         training_logger=None,
+        seed: int | None = None,
     ):
         """
         Args:
@@ -204,12 +205,14 @@ class OpenAIObserver:
             min_observations_for_discovery: Minimum raw observations needed
                 before discover_task() can run.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            seed: Seed sent with LLM calls, for more reproducible runs.
         """
         self.buffer = buffer
         self.task = task
         self._original_create = original_create
         self._client = None
         self.training_logger = training_logger
+        self.seed = seed
 
         # Mode detection
         self._custom_extractors = extract_input is not None and extract_output is not None
@@ -371,6 +374,7 @@ Return ONLY valid JSON:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
+                **({"seed": self.seed} if self.seed is not None else {}),
             )
             raw = response.choices[0].message.content
         finally:
@@ -489,6 +493,7 @@ Return ONLY a JSON array with exactly {len(batch)} objects:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
+                **({"seed": self.seed} if self.seed is not None else {}),
             )
             raw = response.choices[0].message.content
         finally:
