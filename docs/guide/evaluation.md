@@ -53,7 +53,15 @@ For ranking and routing, precision is discounted by a **Wilson lower bound**, so
 
 ### Conflict resolution
 
-When several rules produce overlapping or conflicting matches, the executor orders them deterministically by **priority, then validated precision** (falling back to confidence for rules with no validated estimate). The higher-trust rule wins.
+When several rules produce overlapping or conflicting matches, the executor orders them deterministically by **priority, then validated precision** (falling back to confidence for rules with no validated estimate). The higher-trust rule wins. 
+By default, only near duplicates (same position or same type with IoU > 0.7) are dropped. To keep only the longest of any overlapping spans instead set `overlap_strategy="longest"`.
+```python
+chef = RuleChef(task, client, overlap_strategy="longest")
+```
+- In case of equal length ties, the higher priority rule wins
+- `cross_type_overlaps=True` also resolves overlaps between spans of different types. It has no effect without `overlap_strategy`.
+- Search-based synthesis selects rules without this strategy.
+
 
 ### Ranking and pruning
 

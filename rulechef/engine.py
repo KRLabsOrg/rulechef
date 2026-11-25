@@ -30,6 +30,7 @@ from rulechef.evaluation import (
     print_eval_result,
     print_rule_metrics,
 )
+from rulechef.executor import RuleExecutor
 from rulechef.learner import RuleLearner
 from rulechef.llm_calls import LLMCallConfig, LLMCallManager
 from rulechef.observation import ObservationManager
@@ -72,6 +73,11 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        interleave_failures: bool = False,
+        seed: int | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
     ):
         """Initialize a RuleChef instance.
 
@@ -129,9 +135,15 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            interleave_failures: If True (only for NER), interleave patch failures by entity text.
+            seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor. Search-based synthesis selects rules without this strategy.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
+        RuleExecutor.check_overlap_strategy(overlap_strategy)
         self.synth = synth
         self.judge = judge
         self.search_config = search_config
@@ -141,12 +153,16 @@ class RuleChef:
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
         self.use_grex = use_grex
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
         self.training_logger = training_logger
         self.temperature = temperature
+        self.seed = seed
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
         if llm_config is not None:
             self.llm_config = (
                 llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config)
@@ -169,6 +185,7 @@ class RuleChef:
         self._max_samples = max_samples
         self._max_rules_per_class = max_rules_per_class
         self._max_counter_examples = max_counter_examples
+        self._interleave_failures = interleave_failures
 
         # Coordinator for learning decisions (swappable simple/agentic)
         self.coordinator = coordinator or SimpleCoordinator()
@@ -179,6 +196,8 @@ class RuleChef:
                 self.coordinator.training_logger = self.training_logger
             if self.temperature is not None:
                 self.coordinator.temperature = self.temperature
+            if self.seed is not None:
+                self.coordinator.seed = self.seed
             self.coordinator.llm_config = self.llm_config
             self.coordinator.llm_calls = LLMCallManager(
                 self.coordinator.llm, self.coordinator.model, self.llm_config
@@ -257,14 +276,19 @@ class RuleChef:
             sampling_strategy=self.sampling_strategy,
             model=self.model,
             use_spacy_ner=self.use_spacy_ner,
+            spacy_model=self.spacy_model,
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
             max_counter_examples=self._max_counter_examples,
+            interleave_failures=self._interleave_failures,
             training_logger=self.training_logger,
             temperature=self.temperature,
+            seed=self.seed,
             llm_config=self.llm_config,
+            overlap_strategy=self.overlap_strategy,
+            cross_type_overlaps=self.cross_type_overlaps,
         )
 
         # Load existing dataset if on disk
@@ -634,10 +658,11 @@ Input: {json.dumps(input_data)}
 Output schema: {self.task.get_schema_for_prompt()}
 
 Return ONLY valid JSON matching the output schema, no explanation."""
-
+        seed_kwargs: dict[str, Any] = {"seed": self.seed} if self.seed is not None else {}
         response = self.llm.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            **seed_kwargs,
         )
 
         try:
