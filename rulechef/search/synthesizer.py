@@ -12,13 +12,13 @@ from __future__ import annotations
 import dataclasses
 import random
 import time
-import uuid
 from collections import Counter
 from dataclasses import dataclass
 
 from rulechef.core import Dataset, Rule, RuleFormat, TaskType
 from rulechef.evaluation import _get_entities
 from rulechef.executor import RuleExecutor
+from rulechef.learner import RuleLearner
 from rulechef.search.beam import beam_search
 from rulechef.search.candidates import (
     CandidateKey,
@@ -191,10 +191,12 @@ class SearchSynthesizer:
             }
 
         total = len(selected)
-        return [
-            self._to_rule(c, label, ner, priority=total - k)
-            for k, (c, label) in enumerate(selected)
-        ]
+        return RuleLearner._ensure_unique_ids(
+            [
+                self._to_rule(c, label, ner, priority=total - k)
+                for k, (c, label) in enumerate(selected)
+            ]
+        )
 
     # ------------------------------------------------------------------ internals
 
@@ -272,18 +274,35 @@ class SearchSynthesizer:
 
     def _to_rule(self, c: Candidate, label: str | None, ner: bool, priority: int) -> Rule:
         if c.seed is not None:
-            return dataclasses.replace(c.seed, id=str(uuid.uuid4())[:8], priority=priority)
+            return dataclasses.replace(
+                c.seed,
+                id=RuleLearner._generate_id(
+                    name=c.seed.name,
+                    content=c.seed.content,
+                    format=c.seed.format,
+                    output_template=c.seed.output_template,
+                    output_key=c.seed.output_key,
+                ),
+                priority=priority,
+            )
         template = {"text": c.template, "start": "$start", "end": "$end"}
         if ner:
             template["type"] = label
         name = f"{(label or 'span').lower()}_{c.id}"
+        output_key = "entities" if ner else "spans"
         return Rule(
-            id=str(uuid.uuid4())[:8],
+            id=RuleLearner._generate_id(
+                name=name,
+                content=c.pattern,
+                format=RuleFormat.REGEX,
+                output_template=template,
+                output_key=output_key,
+            ),
             name=name,
             description=f"search ({c.origin}); train TP {c.tp} / FP {c.fp}",
             format=RuleFormat.REGEX,
             content=c.pattern,
             priority=priority,
             output_template=template,
-            output_key="entities" if ner else "spans",
+            output_key=output_key,
         )
