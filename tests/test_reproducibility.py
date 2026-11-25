@@ -147,6 +147,11 @@ def test_temp_kwargs_include_seed_and_temperature():
     assert learner._temp_kwargs() == {"temperature": 0, "seed": 42}
 
 
+def test_temp_kwargs_include_frequency_penalty():
+    learner = _learner(temperature=0, seed=42, frequency_penalty=0.1)
+    assert learner._temp_kwargs() == {"temperature": 0, "seed": 42, "frequency_penalty": 0.1}
+
+
 def test_two_runs_give_same_ids(tmp_path):
     first = _learn(tmp_path / "a", _mock_client(), _mock_client())
     second = _learn(tmp_path / "b", _mock_client(), _mock_client())

@@ -57,6 +57,7 @@ class RuleLearner:
         scope_to_rule_labels: bool = False,
         target_labels: list[str] | None = None,
         concise_reasoning: bool = False,
+        frequency_penalty: float | None = None,
     ):
         """Initialize the rule learner.
 
@@ -88,6 +89,7 @@ class RuleLearner:
                 If None, the scope follows the labels of the current rules.
             concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
                 (shorter responses, fewer truncations).
+            frequency_penalty:  Frequency penalty sent with every learner LLM call, to discourage repetition. None omits it (default).
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -105,6 +107,7 @@ class RuleLearner:
         self.training_logger = training_logger
         self.temperature = temperature
         self.seed = seed
+        self.frequency_penalty = frequency_penalty
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
         self.executor = RuleExecutor(
@@ -129,6 +132,8 @@ class RuleLearner:
             kw["temperature"] = self.temperature
         if self.seed is not None:
             kw["seed"] = self.seed
+        if self.frequency_penalty is not None:
+            kw["frequency_penalty"] = self.frequency_penalty
         return kw
 
     # ========================================
@@ -413,7 +418,11 @@ class RuleLearner:
                         )
             elif output_template and not output_key and primary_key:
                 output_key = primary_key
-            elif (dataset and dataset.task.type == TaskType.TRANSFORMATION and rule_format != RuleFormat.CODE):
+            elif (
+                dataset
+                and dataset.task.type == TaskType.TRANSFORMATION
+                and rule_format != RuleFormat.CODE
+            ):
                 if not output_key and primary_key:
                     output_key = primary_key
                 if not output_key:
