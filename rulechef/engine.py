@@ -80,6 +80,7 @@ class RuleChef:
         spacy_model: str = "en_core_web_sm",
         scope_to_rule_labels: bool = False,
         target_labels: list[str] | None = None,
+        concise_reasoning: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -150,6 +151,8 @@ class RuleChef:
                 If None or empty, the scope follows the labels of the current rules.
                 Ignored unless scope_to_rule_labels is True.
                 Only missed entities are scoped, everything else the rules predict is counted as usual.
+            concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
+                (shorter responses, fewer truncations).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -165,6 +168,7 @@ class RuleChef:
         self.use_spacy_ner = use_spacy_ner
         self.spacy_model = spacy_model
         self.use_grex = use_grex
+        self.concise_reasoning = concise_reasoning
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
         self.synthesis_strategy = synthesis_strategy
@@ -290,6 +294,7 @@ class RuleChef:
             use_spacy_ner=self.use_spacy_ner,
             spacy_model=self.spacy_model,
             use_grex=self.use_grex,
+            concise_reasoning=self.concise_reasoning,
             max_rules=self._max_rules,
             max_samples=self._max_samples,
             max_rules_per_class=self._max_rules_per_class,
