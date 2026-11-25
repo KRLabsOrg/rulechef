@@ -77,6 +77,7 @@ class RuleChef:
         seed: int | None = None,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
     ):
         """Initialize a RuleChef instance.
 
@@ -138,6 +139,7 @@ class RuleChef:
             seed: Seed sent with LLM calls, for more reproducible runs. Custom coordinators do not receive it automatically.
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor. Search-based synthesis selects rules without this strategy.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -151,6 +153,7 @@ class RuleChef:
         self.model = model
         self.llm_fallback = llm_fallback
         self.use_spacy_ner = use_spacy_ner
+        self.spacy_model = spacy_model
         self.use_grex = use_grex
         self.storage_path = Path(storage_path)
         self.sampling_strategy = sampling_strategy
@@ -273,6 +276,7 @@ class RuleChef:
             sampling_strategy=self.sampling_strategy,
             model=self.model,
             use_spacy_ner=self.use_spacy_ner,
+            spacy_model=self.spacy_model,
             use_grex=self.use_grex,
             max_rules=self._max_rules,
             max_samples=self._max_samples,

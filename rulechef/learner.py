@@ -52,6 +52,7 @@ class RuleLearner:
         seed: int | None = None,
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
     ):
         """Initialize the rule learner.
 
@@ -74,6 +75,7 @@ class RuleLearner:
             seed: Seed sent with LLM calls, for more reproducible runs.
             overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
             cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -94,6 +96,7 @@ class RuleLearner:
             use_spacy_ner=use_spacy_ner,
             overlap_strategy=overlap_strategy,
             cross_type_overlaps=cross_type_overlaps,
+            spacy_model=spacy_model,
         )
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
