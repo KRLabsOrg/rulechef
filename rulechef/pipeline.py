@@ -271,7 +271,9 @@ class LearningPipeline:
                 failures,
                 dataset=chef.dataset,
             )
-            return self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
+            return chef.learner._ensure_unique_ids(
+                self._merge_rules(chef.dataset.rules, patch_rules, deleted_names)
+            )
         else:
             rules = self._synthesize_llm(chef.dataset)
             if not rules:
@@ -314,7 +316,7 @@ class LearningPipeline:
             print(f"✓ LLM proposed {len(seeds)} candidate rules")
 
         print(f"🔎 Search synthesis on {len(train_ds.get_all_training_data())} training items")
-        synthesizer = SearchSynthesizer(chef.search_config, chef.judge)
+        synthesizer = SearchSynthesizer(chef.search_config, chef.judge, chef.learner.executor)
         rules = synthesizer.synthesize(train_ds, unlabeled_texts, seeds)
         if not rules:
             print("Failed to synthesize rules")
@@ -324,7 +326,13 @@ class LearningPipeline:
         eval_result = None
         if run_evaluation:
             eval_ds = dev_ds or train_ds
-            eval_result = evaluate_dataset(rules, eval_ds, chef.learner._apply_rules)
+            eval_result = evaluate_dataset(
+                rules,
+                eval_ds,
+                chef.learner._apply_rules,
+                scope_to_rule_labels=chef.scope_to_rule_labels,
+                target_labels=chef.target_labels,
+            )
             chef.learner._stamp_validated_stats(rules, eval_ds)
         return rules, eval_result
 
@@ -363,12 +371,21 @@ class LearningPipeline:
 
                 # Create merged rule from the highest-priority source
                 base = max(sources, key=lambda r: r.priority)
+                name = action.merged_name or base.name
+                content = action.merged_pattern or base.content
+
                 merged = Rule(
-                    id=chef._store.generate_id(),
-                    name=action.merged_name or base.name,
+                    id=chef.learner._generate_id(
+                        name=name,
+                        content=content,
+                        format=base.format,
+                        output_template=base.output_template,
+                        output_key=base.output_key,
+                    ),
+                    name=name,
                     description=f"Merged: {action.reason}",
                     format=base.format,
-                    content=action.merged_pattern or base.content,
+                    content=content,
                     priority=base.priority,
                     output_template=base.output_template,
                     output_key=base.output_key,
@@ -377,6 +394,7 @@ class LearningPipeline:
                 # Remove sources, add merged
                 chef.dataset.rules = [r for r in chef.dataset.rules if r.id not in action.rule_ids]
                 chef.dataset.rules.append(merged)
+                chef.dataset.rules = chef.learner._ensure_unique_ids(chef.dataset.rules)
                 rules_by_id = {r.id: r for r in chef.dataset.rules}
                 changed = True
 

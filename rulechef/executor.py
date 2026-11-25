@@ -189,15 +189,41 @@ def substitute_template(
 class RuleExecutor:
     """Executes rules against input data"""
 
-    def __init__(self, use_spacy_ner: bool = False):
+    OVERLAP_STRATEGIES = (None, "longest")
+
+    def __init__(
+        self,
+        use_spacy_ner: bool = False,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
+        spacy_model: str = "en_core_web_sm",
+    ):
         """Initialize the rule executor.
 
         Args:
             use_spacy_ner: If True, run spaCy's NER pipeline during rule
                 execution so that ENT_TYPE/ENT_ID patterns are available.
+            overlap_strategy: Strategy for handling overlapping matches.
+                None (default): keeps the default behavior (exact position, or IoU > 0.7 within the same type). Output is in rule priority order.
+                "longest": keep the longest match among overlapping spans. On equal lengths, the higher priority rule wins. Output is sorted by start position.
+            cross_type_overlaps: If True, spans of different types also count as overlapping. Has no effect when overlap_strategy is None.
+            spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
         """
+
+        self.check_overlap_strategy(overlap_strategy)
         self._nlp = None  # Lazy-loaded spaCy model
         self.use_spacy_ner = use_spacy_ner
+        self.overlap_strategy = overlap_strategy
+        self.cross_type_overlaps = cross_type_overlaps
+        self.spacy_model = spacy_model
+
+    @classmethod
+    def check_overlap_strategy(cls, strategy: str | None) -> None:
+        """Raise ValueError if overlap_strategy is not supported."""
+        if strategy not in cls.OVERLAP_STRATEGIES:
+            raise ValueError(
+                f"Invalid overlap_strategy: {strategy}. Must be one of {cls.OVERLAP_STRATEGIES}"
+            )
 
     def apply_rules(
         self,
@@ -304,6 +330,11 @@ class RuleExecutor:
                     # TRANSFORMATION: merge dict results directly
                     if isinstance(results, dict):
                         for k, v in results.items():
+                            if isinstance(v, list):
+                                for item in v:
+                                    if isinstance(item, dict):
+                                        item["rule_id"] = rule.id
+                                        item["rule_name"] = rule.name
                             if k not in output:
                                 output[k] = v
                             elif isinstance(output[k], list) and isinstance(v, list):
@@ -318,6 +349,8 @@ class RuleExecutor:
         # Deduplicate array fields
         for key, value in output.items():
             if isinstance(value, list) and value:
+                if self.overlap_strategy:
+                    value = self._resolve_overlaps(value)
                 output[key] = self._deduplicate_dicts(value)
 
         return output
@@ -465,13 +498,18 @@ class RuleExecutor:
             # Lazy load spaCy model
             if self._nlp is None:
                 try:
-                    self._nlp = spacy.load("en_core_web_sm")
+                    self._nlp = spacy.load(self.spacy_model)
                 except OSError:
-                    print("   ⚠ spaCy model not found, downloading en_core_web_sm...")
+                    print(f"   ⚠ spaCy model not found, downloading {self.spacy_model}...")
                     from spacy.cli import download
 
-                    download("en_core_web_sm")
-                    self._nlp = spacy.load("en_core_web_sm")
+                    download(self.spacy_model)
+                    self._nlp = spacy.load(self.spacy_model)
+                if self.use_spacy_ner and "ner" not in self._nlp.pipe_names:
+                    print(
+                        f"   ⚠ use_spacy_ner=True, but spaCy model {self.spacy_model} has no "
+                        "'ner' component."
+                    )
 
             # content may be stored as string or list
             if isinstance(rule.content, str):
@@ -508,9 +546,11 @@ class RuleExecutor:
             text = self._select_text(input_data, text_field)
             if self.use_spacy_ner:
                 doc = self._nlp(text)
-            else:
+            elif "ner" in self._nlp.pipe_names:
                 with self._nlp.disable_pipes("ner"):
                     doc = self._nlp(text)
+            else:
+                doc = self._nlp(text)
 
             # Build entity lookup (optional, uses spaCy NER)
             char_to_ent = {}
@@ -677,6 +717,56 @@ class RuleExecutor:
                 unique.append(item)
 
         return unique
+
+    def _resolve_overlaps(self, items: list[dict]) -> list[dict]:
+        """Keep the longest match among overlapping spans.
+        Resolves overlaps within the same type, or across types if cross_type_overlaps is True.
+        """
+        if not items:
+            return items
+        has_spans = all(
+            isinstance(item, dict) and "start" in item and "end" in item for item in items
+        )
+        if not has_spans:
+            return items
+
+        def _to_int(value, default=0):
+            try:
+                if isinstance(value, (int, float)):
+                    return int(value)
+                if isinstance(value, str):
+                    return int(float(value))
+            except Exception:
+                return default
+            return default
+
+        def _type(item):
+            return item.get("type") or item.get("label")
+
+        sorted_items = sorted(
+            items,
+            key=lambda x: _to_int(x.get("end", 0)) - _to_int(x.get("start", 0)),
+            reverse=True,
+        )
+
+        accepted = []
+        for item in sorted_items:
+            item_start = _to_int(item.get("start", 0))
+            item_end = _to_int(item.get("end", 0))
+
+            overlaps = any(
+                (self.cross_type_overlaps or _type(item) == _type(ex))
+                and item_start < _to_int(ex.get("end", 0))
+                and item_end > _to_int(ex.get("start", 0))
+                for ex in accepted
+            )
+
+            if not overlaps:
+                accepted.append(item)
+
+        # Restore document order
+        accepted.sort(key=lambda x: _to_int(x.get("start", 0)))
+        return accepted
 
     def _normalize_label(self, results: Any) -> str | None:
         """Normalize classification output to a single label string."""
