@@ -79,9 +79,15 @@ def _iou(a: tuple[int, int], b: tuple[int, int]) -> float:
 class SearchSynthesizer:
     """LLM-free rule synthesis for span extraction and NER."""
 
-    def __init__(self, config: SearchConfig | None = None, judge: Judge | None = None):
+    def __init__(
+        self,
+        config: SearchConfig | None = None,
+        judge: Judge | None = None,
+        executor: RuleExecutor | None = None,
+    ):
         self.config = config or SearchConfig()
         self.judge = judge or Judge()
+        self.executor = executor or RuleExecutor()
         self.report: dict[str, dict] = {}
 
     def synthesize(
@@ -109,7 +115,7 @@ class SearchSynthesizer:
                 f"search synthesis supports NER and EXTRACTION tasks, not {task.type.value}"
             )
         ner = task.type == TaskType.NER
-        executor = RuleExecutor()
+        executor = self.executor
         items = dataset.get_all_training_data()
         texts = [executor._select_text(item.input, task.text_field) for item in items]
         docs = [_get_entities(item.expected_output or {}, task.type) for item in items]

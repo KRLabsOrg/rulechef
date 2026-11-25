@@ -50,6 +50,8 @@ class RuleLearner:
         llm_config: LLMCallConfig | None = None,
         interleave_failures: bool = False,
         seed: int | None = None,
+        overlap_strategy: str | None = None,
+        cross_type_overlaps: bool = False,
     ):
         """Initialize the rule learner.
 
@@ -70,6 +72,8 @@ class RuleLearner:
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
             interleave_failures: If True (only for NER), interleave each failure cluster by entity text
             seed: Seed sent with LLM calls, for more reproducible runs.
+            overlap_strategy: Span overlap resolution (None, 'longest'); see RuleExecutor.
+            cross_type_overlaps: If True, resolve conflict between spans of different types. Only used with overlap_strategy; see RuleExecutor.
         """
         self.llm = llm
         self.allowed_formats = allowed_formats or [RuleFormat.REGEX, RuleFormat.CODE]
@@ -86,7 +90,11 @@ class RuleLearner:
         self.seed = seed
         self.llm_config = llm_config or LLMCallConfig()
         self.llm_calls = LLMCallManager(llm, model, self.llm_config)
-        self.executor = RuleExecutor(use_spacy_ner=use_spacy_ner)
+        self.executor = RuleExecutor(
+            use_spacy_ner=use_spacy_ner,
+            overlap_strategy=overlap_strategy,
+            cross_type_overlaps=cross_type_overlaps,
+        )
         self.prompt_builder = PromptBuilder(
             self.allowed_formats,
             use_spacy_ner=use_spacy_ner,
