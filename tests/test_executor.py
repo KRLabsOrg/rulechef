@@ -1,6 +1,9 @@
 """Tests for rulechef.executor — rule execution logic."""
 
-from rulechef.core import Rule, RuleFormat, Span, TaskType
+from unittest.mock import MagicMock
+
+from rulechef import RuleChef
+from rulechef.core import Rule, RuleFormat, Span, Task, TaskType
 from rulechef.executor import RuleExecutor, substitute_template
 
 # =========================================================================
@@ -95,6 +98,120 @@ class TestExecuteRegexRule:
         assert len(results) == 2
         assert results[0] == {"text": "Hello", "start": 0, "end": 5, "type": "NAME"}
         assert results[1] == {"text": "World", "start": 6, "end": 11, "type": "NAME"}
+
+    def test_trims_overcaptured_punctuation(self):
+        rule = Rule(
+            id="r_trim",
+            name="city",
+            description="Over-captures trailing comma",
+            format=RuleFormat.REGEX,
+            content=r"London,",
+            output_template={"text": "$0", "start": "$start", "end": "$end", "type": "GPE"},
+        )
+        text = "He moved to London, then Paris."
+        [r] = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+        assert r["text"] == "London"
+        assert text[r["start"] : r["end"]] == "London"
+
+    def test_keeps_meaningful_punctuation(self):
+        cases = [
+            ("The tax rate rose to 50% last year.", r"\d+%", "50%"),
+            ("She paid $5,000 for the car.", r"\$[\d,]+", "$5,000"),
+            ("He works for Acme Inc. in Vienna.", r"[A-Z]\w+ Inc\.", "Acme Inc."),
+            ("See application no. 44774/98 for details.", r"no\. \d+/\d+", "no. 44774/98"),
+        ]
+        for text, pattern, expected in cases:
+            rule = Rule(
+                id="r_keep",
+                name="keep",
+                description="Captures punctuation that belongs to the entity",
+                format=RuleFormat.REGEX,
+                content=pattern,
+                output_template={"text": "$0", "start": "$start", "end": "$end", "type": "X"},
+            )
+            [r] = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+            assert r["text"] == expected
+            assert text[r["start"] : r["end"]] == expected
+
+    def test_keeps_paired_brackets(self):
+        cases = [
+            ("He joined Acme (UK) in May.", r"Acme \(UK\)", "Acme (UK)"),
+            ("Name: [REDACTED] here", r"\[REDACTED\]", "[REDACTED]"),
+            ("see <b> tag", r"<\w+>", "<b>"),
+        ]
+        for text, pattern, expected in cases:
+            rule = Rule(
+                id="r_keep_pairs",
+                name="keep_pairs",
+                description="Edge bracket whose partner is inside the span",
+                format=RuleFormat.REGEX,
+                content=pattern,
+                output_template={"text": "$0", "start": "$start", "end": "$end", "type": "X"},
+            )
+            [r] = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+            assert r["text"] == expected
+            assert text[r["start"] : r["end"]] == expected
+
+    def test_trim_span_edges_off(self):
+        cases = [
+            ("She works at Yahoo! now.", r"Yahoo!", "Yahoo!"),
+            ("He said 'tis fine", r"'tis", "'tis"),
+        ]
+        for text, pattern, expected in cases:
+            rule = Rule(
+                id="r_off",
+                name="off",
+                description="Flag off: spans are returned as matched",
+                format=RuleFormat.REGEX,
+                content=pattern,
+                output_template={"text": "$0", "start": "$start", "end": "$end", "type": "X"},
+            )
+            [r] = RuleExecutor(trim_span_edges=False).execute_rule(rule, {"text": text})
+            assert r["text"] == expected
+            assert text[r["start"] : r["end"]] == expected
+
+    def test_trims_capture_group_span(self):
+        rule = Rule(
+            id="r_group",
+            name="group rule",
+            description="Group 1 over-captures a trailing comma",
+            format=RuleFormat.REGEX,
+            content=r"Professor (\w+ \w+,)",
+            output_template={"text": "$1", "start": "$start", "end": "$end", "type": "PER"},
+        )
+        text = "Professor Jane Doe, working at University of Vienna"
+        [r] = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+        assert r["text"] == "Jane Doe"
+        assert text[r["start"] : r["end"]] == "Jane Doe"
+
+    def test_trims_no_output_template(self):
+        rule = Rule(
+            id="r_trim_span",
+            name="city",
+            description="No template, over-captures trailing comma",
+            format=RuleFormat.REGEX,
+            content=r"London,",
+        )
+        text = "He moved to London, then Paris."
+        # flag on
+        [s] = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+        assert s.text == "London"
+        assert text[s.start : s.end] == "London"
+        # flag off
+        [s] = self.executor.execute_rule(rule, {"text": text})
+        assert s.text == "London,"
+
+    def test_rulechef_passes_trim_span_edges_to_executor(self, tmp_path):
+        task = Task(
+            name="ner",
+            description="",
+            input_schema={"text": "str"},
+            output_schema={"entities": "list[dict]"},
+        )
+        chef = RuleChef(
+            task=task, client=MagicMock(), storage_path=str(tmp_path), trim_span_edges=True
+        )
+        assert chef.learner.executor.trim_span_edges is True
 
     def test_capture_groups_with_template(self):
         rule = Rule(
@@ -200,6 +317,25 @@ def extract(input_data):
         )
         result = self.executor._execute_code_rule(rule, {"text": "x"})
         assert result is None
+
+    def test_trims_code_rule_spans(self):
+        code = """
+def extract(input_data):
+    text = input_data.get("text", "")
+    return [Span(text = w, start= text.index(w), end= text.index(w) + len(w))
+            for w in text.split() if w.startswith("#")]
+"""
+        rule = Rule(
+            id="r5",
+            name="hashtag",
+            description="Find hashtags, over-captures trailing comma",
+            format=RuleFormat.CODE,
+            content=code,
+        )
+        text = "Hello #world, and #python,"
+        results = RuleExecutor(trim_span_edges=True).execute_rule(rule, {"text": text})
+        assert [r.text for r in results] == ["#world", "#python"]
+        assert text[results[0].start : results[0].end] == "#world"
 
 
 # =========================================================================
