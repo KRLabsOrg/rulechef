@@ -1,6 +1,7 @@
 """Core data structures for RuleChef"""
 
-import uuid
+import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -296,6 +297,20 @@ def _format_json_schema_for_prompt(schema: dict[str, Any], indent: int = 0) -> s
     return "\n".join(lines)
 
 
+def generate_rule_id(
+    *,
+    name: str,
+    content: str,
+    format: RuleFormat | None,
+    output_template: dict | None,
+    output_key: str | None,
+) -> str:
+    """Generate an ID from the fields that identify a rule"""
+    fmt = format.value if isinstance(format, RuleFormat) else (format or "")
+    raw = json.dumps([name, content, fmt, output_template or None, output_key], sort_keys=True)
+    return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8]
+
+
 @dataclass
 class Example:
     """Regular training example. Lower priority than corrections.
@@ -505,19 +520,31 @@ class Rule:
                 created = datetime.fromisoformat(created)
             except ValueError:
                 created = None
+        name = d["name"]
+        content = d["content"]
+        format = RuleFormat(d.get("format", "regex"))
+        output_template = d.get("output_template")
+        output_key = d.get("output_key")
         kwargs: dict[str, Any] = {
-            "id": d.get("id") or uuid.uuid4().hex[:8],
-            "name": d["name"],
+            "id": d.get("id")
+            or generate_rule_id(
+                name=name,
+                content=content,
+                format=format,
+                output_template=output_template,
+                output_key=output_key,
+            ),
+            "name": name,
             "description": d.get("description", ""),
-            "format": RuleFormat(d.get("format", "regex")),
-            "content": d["content"],
+            "format": format,
+            "content": content,
             "priority": d.get("priority", 5),
             "confidence": d.get("confidence", 0.5),
             "times_applied": d.get("times_applied", 0),
             "successes": d.get("successes", 0),
             "failures": d.get("failures", 0),
-            "output_template": d.get("output_template"),
-            "output_key": d.get("output_key"),
+            "output_template": output_template,
+            "output_key": output_key,
             "validated_precision": d.get("validated_precision"),
             "validated_support": d.get("validated_support", 0),
         }

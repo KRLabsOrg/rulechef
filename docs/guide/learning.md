@@ -153,6 +153,7 @@ chef = RuleChef(task, client,
 | `max_rules_per_class` | 5 | Per-class synthesis (rules generated per class) |
 | `max_counter_examples` | 10 | Per-class synthesis (negative examples per prompt) |
 | `max_rules` | 10 | Bulk synthesis (total rules per call) |
+| `interleave_failures` | False | Interleave patch failures by entity text (NER only) |
 
 When a class has more examples than `max_samples`, examples are sampled using the configured `sampling_strategy`.
 
