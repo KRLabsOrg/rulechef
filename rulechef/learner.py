@@ -5,7 +5,7 @@ import json
 import random
 import re
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from openai import OpenAI
 
@@ -20,6 +20,8 @@ from rulechef.core import (
 )
 from rulechef.evaluation import (
     EvalResult,
+    _get_entities,
+    _match_entities,
     evaluate_dataset,
     evaluate_rules_individually,
 )
@@ -46,6 +48,7 @@ class RuleLearner:
         training_logger=None,
         temperature: float | None = None,
         llm_config: LLMCallConfig | None = None,
+        interleave_failures: bool = False,
         seed: int | None = None,
     ):
         """Initialize the rule learner.
@@ -65,6 +68,7 @@ class RuleLearner:
             max_rules_per_class: Maximum rules to generate per class in per-class synthesis.
             max_counter_examples: Maximum counter-examples from other classes in per-class prompts.
             training_logger: Optional TrainingDataLogger for capturing LLM calls.
+            interleave_failures: If True (only for NER), interleave each failure cluster by entity text
             seed: Seed sent with LLM calls, for more reproducible runs.
         """
         self.llm = llm
@@ -88,6 +92,7 @@ class RuleLearner:
             use_spacy_ner=use_spacy_ner,
             use_grex=use_grex,
         )
+        self.interleave_failures = interleave_failures
 
     def _temp_kwargs(self) -> dict:
         """Return temperature and seed kwarg dict if set, empty dict otherwise."""
@@ -380,15 +385,14 @@ class RuleLearner:
                         )
             elif output_template and not output_key and primary_key:
                 output_key = primary_key
-            elif dataset and dataset.task.type == TaskType.TRANSFORMATION:
-                if rule_format != RuleFormat.CODE:
-                    if not output_key and primary_key:
-                        output_key = primary_key
-                    if not output_key:
-                        print(
-                            f"   ⚠ Skipped transformation rule without output_key: {rule_data.get('name', f'Rule {i + 1}')}"
-                        )
-                        continue
+            elif (dataset and dataset.task.type == TaskType.TRANSFORMATION and rule_format != RuleFormat.CODE):
+                if not output_key and primary_key:
+                    output_key = primary_key
+                if not output_key:
+                    print(
+                        f"   ⚠ Skipped transformation rule without output_key: {rule_data.get('name', f'Rule {i + 1}')}"
+                    )
+                    continue
 
             rule = Rule(
                 id=self._generate_id(
@@ -1486,6 +1490,33 @@ Instructions:
             lines.append(f"  ... and {len(ordered) - max_modes} more modes ({remaining} failures)")
         return "\n".join(lines) + "\n"
 
+    def _interleave_by_text(self, failures: list[dict]) -> list[dict]:
+        """Reorder failures so that distinct entity texts appear once before any text repeats"""
+        # Find the entity text each failure got wrong
+        all_texts = []
+        for f in failures:
+            gold = _get_entities(f.get("expected") or {}, TaskType.NER)
+            pred = _get_entities(f.get("got") or {}, TaskType.NER)
+            _, spurious_ents, missed_ents = _match_entities(pred, gold, TaskType.NER, mode="text")
+            missed = [(e.get("text") or "").lower() for e in missed_ents]
+            spurious = [(e.get("text") or "").lower() for e in spurious_ents]
+
+            all_texts.append(missed + spurious)
+
+        # Put failures with the same text in one group
+        freq = Counter(t for texts in all_texts for t in texts)
+        by_text = defaultdict(list)
+        for f, texts in zip(failures, all_texts):
+            key = min(texts, key=lambda t: freq[t]) if texts else ""
+            by_text[key].append(f)
+
+        # Take one failure from each group in turn, until all are used
+        ordered = []
+        groups = sorted(by_text.values(), key=len, reverse=True)
+        for i in range(len(groups[0]) if groups else 0):
+            ordered.extend(g[i] for g in groups if i < len(g))
+        return ordered
+
     def _sample_failures(
         self,
         failures: list[dict],
@@ -1509,6 +1540,8 @@ Instructions:
 
         if remaining > 0 and other_failures:
             clusters = self._cluster_failures(other_failures, task_type)
+            if self.interleave_failures and task_type == TaskType.NER:
+                clusters = {k: self._interleave_by_text(v) for k, v in clusters.items()}
 
             # Weight by inverse recall if metrics available (weak classes get more samples)
             class_weights = {}
