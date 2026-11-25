@@ -443,7 +443,9 @@ class RuleLearner:
                 description=rule_data.get("description", ""),
                 format=rule_format,
                 content=pattern_content,
-                priority=rule_data.get("priority", 5),
+                priority=int(rule_data.get("priority", 5))
+                if str(rule_data.get("priority", 5)).isdigit()
+                else 5,
                 output_template=output_template,
                 output_key=output_key,
             )
