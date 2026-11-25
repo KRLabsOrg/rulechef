@@ -60,7 +60,7 @@ response = wrapped.chat.completions.create(
     messages=[{"role": "user", "content": query}],
 )
 
-chef.learn_rules()   # Discovers + maps + learns
+chef.learn_rules()  # Discovers + maps + learns
 chef.stop_observing()
 ```
 
@@ -120,8 +120,8 @@ chef = RuleChef(task, client, training_logger=logger)
 chef.add_example(...)
 chef.learn_rules()
 
-print(logger.stats)   # {"rule_synthesis": 5, "rule_patch": 3, "guide_refinement": 10, ...}
-print(logger.count)    # 18 total entries
+print(logger.stats)  # {"rule_synthesis": 5, "rule_patch": 3, "guide_refinement": 10, ...}
+print(logger.count)  # 18 total entries
 ```
 
 ### Output format
@@ -194,14 +194,17 @@ Use Pydantic models for type-safe, validated outputs:
 from pydantic import BaseModel
 from typing import List, Literal
 
+
 class Entity(BaseModel):
     text: str
     start: int
     end: int
     type: Literal["PERSON", "ORG", "LOCATION"]
 
+
 class Output(BaseModel):
     entities: List[Entity]
+
 
 task = Task(
     name="NER",
@@ -277,6 +280,15 @@ Match syntactic structure:
 !!! note "spaCy NER"
     By default, `use_spacy_ner=False` — spaCy's NER pipe is disabled and patterns relying on `ENT_TYPE` are rejected. Set `use_spacy_ner=True` to enable.
 
+### spaCy model
+spacy rules use `en_core_web_sm` model by default. For other models, pass `spacy_model`, e.g.:
+
+```python
+chef = RuleChef(task, client, spacy_model="de_core_news_sm")
+```
+- If a model is not installed, it will be downloaded on the first use.
+- The model is not saved with the rules, so the model has to be passed again when the rules are loaded.
+
 ## LLM Fallback
 
 When rules produce no results, optionally fall back to direct LLM extraction:
@@ -320,8 +332,9 @@ RegExpBuilder.from_test_cases(dates).without_anchors().build()
 # → '(2023\-12\-01|2024\-01\-15|2024\-02\-28)'
 
 # Generalized: replaces digits/repetitions with character classes
-RegExpBuilder.from_test_cases(dates).without_anchors() \
-    .with_conversion_of_digits().with_conversion_of_repetitions().build()
+RegExpBuilder.from_test_cases(
+    dates
+).without_anchors().with_conversion_of_digits().with_conversion_of_repetitions().build()
 # → '\d{4}\-\d{2}\-\d{2}'
 ```
 

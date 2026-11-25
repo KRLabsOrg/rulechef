@@ -29,32 +29,58 @@ Each rule gets individual metrics:
 - **Sample matches** — which examples each rule matched
 - **Dead rules** — rules that never fire on any example
 
+By default each rule is measured alone, as if it were the only rule in the ruleset. To measure the contribution of each rule to the full ruleset's output, use `in_context` = True:
+
+```python
+metrics = chef.get_rule_metrics(in_context=True)
+```
+
 ```python
 # Delete a rule that's causing false positives
 chef.delete_rule("rule_id")
 ```
+## Label-Scoped Evaluation
+
+When you learn rules for only some labels, missed entities of the other labels would lower recall. Turn on scoping to ignore them:
+
+```python
+chef = RuleChef(task, client, scope_to_rule_labels=True, target_labels=["ORG"])
+```
+
+- Only missed entities are scoped. Everything else the rules predict is counted as usual.
+- If `target_labels` is not set, the scope follows the labels the current rules declare. Setting it is recommended:
+    - If any rule has no static label, scoping will be turned off.
+    - If a patch deletes every rule of a label, that label's missed entities drop out of the score, and F1 goes up even though fewer entities  are found.
 
 ## Rule Trust and Conflict Resolution
 
 When learning completes, every rule is evaluated in isolation and stamped with a **validated precision** and **support** (the number of predictions behind the estimate). When a holdout is active these are measured on the dev split — data the rule was never tuned on.
 
 ```python
-rule.validated_precision   # e.g. 0.86
-rule.validated_support     # e.g. 22 predictions
+rule.validated_precision  # e.g. 0.86
+rule.validated_support  # e.g. 22 predictions
 ```
 
 For ranking and routing, precision is discounted by a **Wilson lower bound**, so a rule that was right 2/2 does not outrank one that was right 95/100. A rule that memorized a training lexicon flags itself this way: it transfers poorly to dev and ends up with a conspicuously low validated precision — you can spot it without reading the pattern.
 
 ### Conflict resolution
 
-When several rules produce overlapping or conflicting matches, the executor orders them deterministically by **priority, then validated precision** (falling back to confidence for rules with no validated estimate). The higher-trust rule wins.
+When several rules produce overlapping or conflicting matches, the executor orders them deterministically by **priority, then validated precision** (falling back to confidence for rules with no validated estimate). The higher-trust rule wins. 
+By default, only near duplicates (same position or same type with IoU > 0.7) are dropped. To keep only the longest of any overlapping spans instead set `overlap_strategy="longest"`.
+```python
+chef = RuleChef(task, client, overlap_strategy="longest")
+```
+- In case of equal length ties, the higher priority rule wins
+- `cross_type_overlaps=True` also resolves overlaps between spans of different types. It has no effect without `overlap_strategy`.
+- Search-based synthesis selects rules without this strategy.
+
 
 ### Ranking and pruning
 
 `rank_rules()` reports each rule's solo F1 and its leave-one-out marginal contribution to the ensemble, and can prune rules whose removal improves overall F1:
 
 ```python
-ranked = chef.rank_rules(holdout_fraction=0.2)   # measured on a held-out split
+ranked = chef.rank_rules(holdout_fraction=0.2)  # measured on a held-out split
 ```
 
 See the [Ranking API](../api/ranking.md) for the full report structure.
@@ -86,7 +112,7 @@ chef.add_correction(
     {"text": "some input"},
     model_output=result,
     expected_output={"label": "correct_label"},
-    feedback="The rule matched too broadly"
+    feedback="The rule matched too broadly",
 )
 
 chef.learn_rules()  # Re-learns with corrections prioritized
@@ -111,9 +137,7 @@ Guidance targeted at a specific rule:
 
 ```python
 chef.add_feedback(
-    "This rule is too broad — it matches common words",
-    level="rule",
-    target_id="rule_123"
+    "This rule is too broad — it matches common words", level="rule", target_id="rule_123"
 )
 ```
 
@@ -127,7 +151,7 @@ Feedback is included in synthesis prompts during the next `learn_rules()` call.
 task = Task(
     ...,
     type=TaskType.EXTRACTION,
-    matching_mode="text",   # Compare span text only (default)
+    matching_mode="text",  # Compare span text only (default)
 )
 
 task = Task(
@@ -157,6 +181,7 @@ Override the default matching logic:
 def my_matcher(expected, actual):
     # Custom comparison logic
     return expected["label"].lower() == actual["label"].lower()
+
 
 task = Task(
     ...,
