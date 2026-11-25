@@ -75,12 +75,12 @@ chef = RuleChef(task, client, overlap_strategy="longest")
 - Search-based synthesis selects rules without this strategy.
 
 ### Span edge trimming
-Often rules overcapture punctuations such e.g.: `London,`. Set `trim_span_edges=True` to strip whitespace and punctuation from the edges of every span a rule returns, `start` and `end` are kept in sync.
+Rules often overcapture punctuations, e.g. : `London,`. Set `trim_span_edges=True` to strip whitespace and punctuation from the edges of every span a rule returns, `start` and `end` are kept in sync.
 ```python
 chef = RuleChef(task, client, trim_span_edges=True)
 ```
-- We do not trim `.` because of cases like  (`Acme Inc.`) and a bracket or quote is kep if its partner is inside a span (`Acme (UK)`).
-- Character like `!` or `?` are trimmed so keep the default  `trim_span_edges=False` if the gold data contains this.
+- We do not trim `.` because of cases like (`Acme Inc.`) and a bracket or quote is kept if its partner is inside a span (`Acme (UK)`).
+- Characters like `!` or `?` are trimmed so keep the default  `trim_span_edges=False` if the gold data contains this.
  
 
 

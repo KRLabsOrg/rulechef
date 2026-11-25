@@ -1,6 +1,9 @@
 """Tests for rulechef.executor — rule execution logic."""
 
-from rulechef.core import Rule, RuleFormat, Span, TaskType
+from unittest.mock import MagicMock
+
+from rulechef import RuleChef
+from rulechef.core import Rule, RuleFormat, Span, Task, TaskType
 from rulechef.executor import RuleExecutor, substitute_template
 
 # =========================================================================
@@ -197,6 +200,18 @@ class TestExecuteRegexRule:
         # flag off
         [s] = self.executor.execute_rule(rule, {"text": text})
         assert s.text == "London,"
+
+    def test_rulechef_passes_trim_span_edges_to_executor(self, tmp_path):
+        task = Task(
+            name="ner",
+            description="",
+            input_schema={"text": "str"},
+            output_schema={"entities": "list[dict]"},
+        )
+        chef = RuleChef(
+            task=task, client=MagicMock(), storage_path=str(tmp_path), trim_span_edges=True
+        )
+        assert chef.learner.executor.trim_span_edges is True
 
     def test_capture_groups_with_template(self):
         rule = Rule(
