@@ -17,6 +17,8 @@ except ImportError:
 # can contain infinite loops or exponentially-backtracking patterns; without a
 # bound, one bad rule freezes the whole evaluation loop.
 RULE_TIMEOUT_S = 3.0
+# Trims from span edges whitespaces & punctuation.
+SPAN_TRIM_CHARS = " \t\n\r\f\v" + ",;:!?\"'()[]{}<>" + "„“”‚‘’»«"
 
 
 class _RuleTimeout(Exception):
@@ -182,8 +184,24 @@ def substitute_template(
         if offset >= 0:
             result["start"] = start + offset
             result["end"] = result["start"] + len(result["text"])
-
+    _trim_span_edges(result)
     return result
+
+
+def _trim_span_edges(result: dict[str, Any]) -> None:
+    """Strip whitespace/punctuation from span edges, keeping offsets in sync."""
+    text, start, end = result.get("text"), result.get("start"), result.get("end")
+    if not (isinstance(text, str) and isinstance(start, int) and isinstance(end, int)):
+        return
+    if end - start != len(text):
+        return
+    stripped = text.strip(SPAN_TRIM_CHARS)
+    if not stripped:
+        return
+    lead = len(text) - len(text.lstrip(SPAN_TRIM_CHARS))
+    result["text"] = stripped
+    result["start"] = start + lead
+    result["end"] = start + lead + len(stripped)
 
 
 class RuleExecutor:

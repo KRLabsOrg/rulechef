@@ -96,6 +96,54 @@ class TestExecuteRegexRule:
         assert results[0] == {"text": "Hello", "start": 0, "end": 5, "type": "NAME"}
         assert results[1] == {"text": "World", "start": 6, "end": 11, "type": "NAME"}
 
+    def test_trims_overcaptured_punctuation(self):
+        rule = Rule(
+            id="r_trim",
+            name="city",
+            description="Over-captures trailing comma",
+            format=RuleFormat.REGEX,
+            content=r"London,",
+            output_template={"text": "$0", "start": "$start", "end": "$end", "type": "GPE"},
+        )
+        text = "He moved to London, then Paris."
+        [r] = self.executor._execute_regex_rule(rule, {"text": text})
+        assert r["text"] == "London"
+        assert text[r["start"] : r["end"]] == "London"
+
+    def test_keeps_meaningful_punctuation(self):
+        cases = [
+            ("The tax rate rose to 50% last year.", r"\d+%", "50%"),
+            ("She paid $5,000 for the car.", r"\$[\d,]+", "$5,000"),
+            ("He works for Acme Inc. in Vienna.", r"[A-Z]\w+ Inc\.", "Acme Inc."),
+            ("See application no. 44774/98 for details.", r"no\. \d+/\d+", "no. 44774/98"),
+        ]
+        for text, pattern, expected in cases:
+            rule = Rule(
+                id="r_keep",
+                name="keep",
+                description="Captures punctuation that belongs to the entity",
+                format=RuleFormat.REGEX,
+                content=pattern,
+                output_template={"text": "$0", "start": "$start", "end": "$end", "type": "X"},
+            )
+            [r] = self.executor._execute_regex_rule(rule, {"text": text})
+            assert r["text"] == expected
+            assert text[r["start"] : r["end"]] == expected
+
+    def test_trims_capture_group_span(self):
+        rule = Rule(
+            id="r_group",
+            name="group rule",
+            description="Group 1 over-captures a trailing comma",
+            format=RuleFormat.REGEX,
+            content=r"Professor (\w+ \w+,)",
+            output_template={"text": "$1", "start": "$start", "end": "$end", "type": "PER"},
+        )
+        text = "Professor Jane Doe, working at University of Vienna"
+        [r] = self.executor._execute_regex_rule(rule, {"text": text})
+        assert r["text"] == "Jane Doe"
+        assert text[r["start"] : r["end"]] == "Jane Doe"
+
     def test_capture_groups_with_template(self):
         rule = Rule(
             id="r3",
