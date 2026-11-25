@@ -54,7 +54,6 @@ class RuleChef:
         llm_fallback: bool = False,
         use_spacy_ner: bool = False,
         use_grex: bool = True,
-        concise_reasoning: bool = False,
         max_rules: int = 10,
         max_samples: int = 50,
         max_rules_per_class: int = 5,
@@ -73,6 +72,7 @@ class RuleChef:
         synth: str = "llm",
         judge=None,
         search_config=None,
+        concise_reasoning: bool = False,
     ):
         """Initialize a RuleChef instance.
 
@@ -130,6 +130,8 @@ class RuleChef:
                 example a SpanModelJudge). It reads the unlabelled texts passed
                 to learn_rules(). Defaults to a no-op judge.
             search_config: Optional rulechef.search.SearchConfig.
+            concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
+                (shorter responses, fewer truncations).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
