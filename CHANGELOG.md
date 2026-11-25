@@ -6,6 +6,7 @@
 - Added opt-in span overlap resolution: `overlap_strategy="longest"` keeps only the longest of overlapping spans (default `None` keeps the existing behaviour). 
 - `cross_type_overlaps=True` also resolves overlaps across types
 - Added `spacy_model` option (default `en_core_web_sm`) so spaCy rules can now use other models.
+- Added opt-in  `trim_span_edges` on `RuleChef`/`RuleExecutor`: strips whitespace and punctuation from span edges of all rule formats. It keeps brackets and quotes whose partner is inside the span.
 
 ## 0.1.1
 

@@ -17,8 +17,15 @@ except ImportError:
 # can contain infinite loops or exponentially-backtracking patterns; without a
 # bound, one bad rule freezes the whole evaluation loop.
 RULE_TIMEOUT_S = 3.0
-# Trims from span edges whitespaces & punctuation.
+# Whitespace & punctuation trimmed from span edges when trim_span_edges=True.
+# "." is left out on purpose because it might belong to entities such as "YYZ Inc."
 SPAN_TRIM_CHARS = " \t\n\r\f\v" + ",;:!?\"'()[]{}<>" + "„“”‚‘’»«"
+# An edge bracket/quote should be kept if its partner is inside the span.
+_SPAN_PAIRS: tuple[tuple[str, str],] = (
+    ("(", ")"), ("[", "]"), ("{", "}"), ("<", ">"),
+    ("“", "”"), ("„", "“"), ("‚", "‘"), ("‘", "’"), ("«", "»"), ("»", "«"),
+    ('"', '"'), ("'", "'"),
+)
 
 
 class _RuleTimeout(Exception):
@@ -184,24 +191,52 @@ def substitute_template(
         if offset >= 0:
             result["start"] = start + offset
             result["end"] = result["start"] + len(result["text"])
-    _trim_span_edges(result)
     return result
 
 
-def _trim_span_edges(result: dict[str, Any]) -> None:
-    """Strip whitespace/punctuation from span edges, keeping offsets in sync."""
-    text, start, end = result.get("text"), result.get("start"), result.get("end")
-    if not (isinstance(text, str) and isinstance(start, int) and isinstance(end, int)):
+def _closing_inside(ch: str, rest: str) -> bool:
+    """True if ch opens a pair whose closing partner is in rest."""
+    return any(ch == opening and closing in rest for opening, closing in _SPAN_PAIRS)
+
+
+def _opening_inside(ch: str, rest: str) -> bool:
+    """True if ch closes a pair whose opening partner is in rest."""
+    return any(ch == closing and opening in rest for opening, closing in _SPAN_PAIRS)
+
+
+def _trim_span_edges(span: Any) -> None:
+    """Strip whitespace/punctuation from span edges, keeping offsets in sync.
+    A closing/ opening bracket/quote is kept if its opening partner is inside the span.
+    """
+    if isinstance(span, Span):
+        text, start, end = span.text, span.start, span.end
+    elif isinstance(span, dict):
+        text, start, end = span.get("text"), span.get("start"), span.get("end")
+    else:
         return
-    if end - start != len(text):
+    if not (isinstance(text, str) and isinstance(start, int) and end == start + len(text)):
         return
-    stripped = text.strip(SPAN_TRIM_CHARS)
-    if not stripped:
+
+    left, right = 0, len(text)
+    while (
+        left < right
+        and text[left] in SPAN_TRIM_CHARS
+        and not _closing_inside(text[left], text[left + 1 : right])
+    ):
+        left += 1
+    while (
+        right > left
+        and text[right - 1] in SPAN_TRIM_CHARS
+        and not _opening_inside(text[right - 1], text[left : right - 1])
+    ):
+        right -= 1
+    if left == right or (left, right) == (0, len(text)):
         return
-    lead = len(text) - len(text.lstrip(SPAN_TRIM_CHARS))
-    result["text"] = stripped
-    result["start"] = start + lead
-    result["end"] = start + lead + len(stripped)
+    text, start, end = text[left:right], start + left, start + right
+    if isinstance(span, Span):
+        span.text, span.start, span.end = text, start, end
+    else:
+        span.update(text=text, start=start, end=end)
 
 
 class RuleExecutor:
@@ -215,6 +250,7 @@ class RuleExecutor:
         overlap_strategy: str | None = None,
         cross_type_overlaps: bool = False,
         spacy_model: str = "en_core_web_sm",
+        trim_span_edges: bool = False,
     ):
         """Initialize the rule executor.
 
@@ -226,6 +262,8 @@ class RuleExecutor:
                 "longest": keep the longest match among overlapping spans. On equal lengths, the higher priority rule wins. Output is sorted by start position.
             cross_type_overlaps: If True, spans of different types also count as overlapping. Has no effect when overlap_strategy is None.
             spacy_model: Name of the spaCy model to load (default: "en_core_web_sm").
+            trim_span_edges: If True, strip whitespace and punctuation (SPAN_TRIM_CHARS) from the edges of every span a rule returns, keeping text, start, and
+                end in sync. A bracket or quote is kept if its partner is inside a span. Default False keeps spans as matched.
         """
 
         self.check_overlap_strategy(overlap_strategy)
@@ -234,6 +272,7 @@ class RuleExecutor:
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
         self.spacy_model = spacy_model
+        self.trim_span_edges = trim_span_edges
 
     @classmethod
     def check_overlap_strategy(cls, strategy: str | None) -> None:
@@ -386,12 +425,17 @@ class RuleExecutor:
             arbitrary return value from code rules. Empty list on no match.
         """
         if rule.format == RuleFormat.REGEX:
-            return self._execute_regex_rule(rule, input_data, text_field)
+            results = self._execute_regex_rule(rule, input_data, text_field)
         elif rule.format == RuleFormat.CODE:
-            return self._execute_code_rule(rule, input_data)
+            results = self._execute_code_rule(rule, input_data)
         elif rule.format == RuleFormat.SPACY:
-            return self._execute_spacy_rule(rule, input_data, text_field)
-        return []
+            results = self._execute_spacy_rule(rule, input_data, text_field)
+        else:
+            return []
+        if self.trim_span_edges and isinstance(results, list):
+            for item in results:
+                _trim_span_edges(item)
+        return results
 
     def _execute_regex_rule(
         self, rule: Rule, input_data: dict, text_field: str | None = None
@@ -640,7 +684,6 @@ class RuleExecutor:
                             score=rule.confidence,
                         )
                     )
-
             return results
 
         except ImportError:
