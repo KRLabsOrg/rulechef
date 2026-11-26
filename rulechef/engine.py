@@ -82,6 +82,7 @@ class RuleChef:
         target_labels: list[str] | None = None,
         concise_reasoning: bool = False,
         trim_span_edges: bool = False,
+        frequency_penalty: float | None = None,
     ):
         """Initialize a RuleChef instance.
 
@@ -155,6 +156,7 @@ class RuleChef:
                 Only missed entities are scoped, everything else the rules predict is counted as usual.
             concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
                 (shorter responses, fewer truncations).
+            frequency_penalty: Frequency penalty sent with every LLM call, to discourage repetition. None omits it (default).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
@@ -177,6 +179,7 @@ class RuleChef:
         self.training_logger = training_logger
         self.temperature = temperature
         self.seed = seed
+        self.frequency_penalty = frequency_penalty
         self.overlap_strategy = overlap_strategy
         self.cross_type_overlaps = cross_type_overlaps
         self.trim_span_edges = trim_span_edges
@@ -217,6 +220,8 @@ class RuleChef:
                 self.coordinator.temperature = self.temperature
             if self.seed is not None:
                 self.coordinator.seed = self.seed
+            if self.frequency_penalty is not None:
+                self.coordinator.frequency_penalty = self.frequency_penalty
             self.coordinator.llm_config = self.llm_config
             self.coordinator.llm_calls = LLMCallManager(
                 self.coordinator.llm, self.coordinator.model, self.llm_config
@@ -312,6 +317,7 @@ class RuleChef:
             trim_span_edges=self.trim_span_edges,
             scope_to_rule_labels=self.scope_to_rule_labels,
             target_labels=self.target_labels,
+            frequency_penalty=self.frequency_penalty,
         )
 
         # Load existing dataset if on disk

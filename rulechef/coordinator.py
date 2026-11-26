@@ -304,6 +304,7 @@ class AgenticCoordinator(CoordinatorProtocol):
         self.training_logger = training_logger
         self.temperature: float | None = None
         self.seed: int | None = None
+        self.frequency_penalty: float | None = None
         self.llm_config = (
             (llm_config if isinstance(llm_config, LLMCallConfig) else LLMCallConfig(**llm_config))
             if llm_config is not None
@@ -318,6 +319,8 @@ class AgenticCoordinator(CoordinatorProtocol):
             kw["temperature"] = self.temperature
         if self.seed is not None:
             kw["seed"] = self.seed
+        if self.frequency_penalty is not None:
+            kw["frequency_penalty"] = self.frequency_penalty
         return kw
 
     def should_trigger_learning(
