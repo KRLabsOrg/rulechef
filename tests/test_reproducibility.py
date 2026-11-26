@@ -152,6 +152,14 @@ def test_temp_kwargs_include_frequency_penalty():
     assert learner._temp_kwargs() == {"temperature": 0, "seed": 42, "frequency_penalty": 0.1}
 
 
+def test_non_numeric_priority_falls_back_to_default():
+    learner = _learner()
+    rule = {"name": "capitalized_pair", "format": "regex", "pattern": r"[A-Z]\w+ [A-Z]\w+"}
+    result = {"rules": [{**rule, "priority": "high"}, {**rule, "name": "b", "priority": "7"}]}
+    rules = learner._parse_rules_from_response(result, max_rules=10)
+    assert [r.priority for r in rules] == [5, 7]
+
+
 def test_two_runs_give_same_ids(tmp_path):
     first = _learn(tmp_path / "a", _mock_client(), _mock_client())
     second = _learn(tmp_path / "b", _mock_client(), _mock_client())

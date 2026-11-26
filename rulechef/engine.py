@@ -156,7 +156,7 @@ class RuleChef:
                 Only missed entities are scoped, everything else the rules predict is counted as usual.
             concise_reasoning: If True, ask the LLM to keep "analysis"/"strategy" to 1-2 sentences
                 (shorter responses, fewer truncations).
-            frequency_penalty: Frequency penalty sent with every rule learning LLM call, to discourage repetition. None omits it (default).
+            frequency_penalty: Frequency penalty sent with every LLM call, to discourage repetition. None omits it (default).
         """
         if synth not in ("llm", "search", "hybrid"):
             raise ValueError(f"synth must be 'llm', 'search' or 'hybrid', got {synth!r}")
